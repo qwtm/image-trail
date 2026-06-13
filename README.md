@@ -15,10 +15,13 @@ Return only valid JSON matching the schema. Do not wrap JSON in markdown or add 
 ### User Rules (Title Fetch)
 
 ```text
-Create a descriptivve download filename for this image and content.
+Create a highly descriptive, low-collision download filename for this image.
 Rules:
-- filename: short snake_case filename without extension
-- avoid generic words like image, photo, pic unless required by content
+- filename: snake_case, no extension, 6-14 words, descriptive and specific
+- if people are visible, prioritize them first: apparent age group, skin tone/color, apparent gender presentation, and what they are doing
+- include scene/action context to reduce collisions (setting, activity, notable objects)
+- avoid vague names like image/photo/pic unless nothing else is visible
+- example style: a_white_woman_rides_rollercoaster_at_night
 ```
 
 ### JSON Schema (Title Fetch)
@@ -46,10 +49,13 @@ Return only valid JSON matching the schema. Do not wrap JSON in markdown or add 
 ### User Rules (Description Fetch)
 
 ```text
-Create a concise description for this image.
+Create a descriptive caption for this image focused on visible people and context.
 Rules:
-- description: one concise sentence describing visible content
-- include only visible content, no speculation
+- description: 1-2 sentences, concrete and specific
+- if people are visible, include apparent age group, skin tone/color, apparent gender presentation, and what they are doing
+- include scene/action context (setting, activity, notable objects)
+- include only visible content and avoid unsupported speculation
+- if unsure, use neutral wording like person/people
 ```
 
 ### JSON Schema (Description Fetch)
