@@ -6,6 +6,7 @@
   var APP_ID = '__image_url_token_editor_bookmarklet_v1'
   var STORE_KEY = '__url_image_navigator_state_v1'
   var MAX_HISTORY = 100
+  var MAX_DOWNLOAD_RECORDS = 500
   var MAX_Z_INDEX = 2147483647
   var THUMBNAIL_MAX_EDGE = 256
   var FAVORITE_THUMBNAIL_SIZE = 44
@@ -97,6 +98,7 @@
       imageWidth: '100vw',
       imageHeight: '100vh',
       panelSections: clonePanelSectionDefaults(),
+      downloadRecords: [],
       history: [],
       favorites: []
     }
@@ -118,6 +120,7 @@
 
       if (!Array.isArray(state.history)) state.history = []
       if (!Array.isArray(state.favorites)) state.favorites = []
+      if (!Array.isArray(state.downloadRecords)) state.downloadRecords = []
       if (!state.panelSections || typeof state.panelSections !== 'object' || Array.isArray(state.panelSections)) {
         state.panelSections = clonePanelSectionDefaults()
       } else {
@@ -155,6 +158,19 @@
           }
         })
         .filter(Boolean)
+      state.downloadRecords = state.downloadRecords
+        .map(function (entry) {
+          if (!entry || typeof entry !== 'object') return null
+          if (!entry.url) return null
+          return {
+            url: String(entry.url),
+            filename: String(entry.filename || ''),
+            timestamp: String(entry.timestamp || ''),
+            fingerprint: String(entry.fingerprint || '')
+          }
+        })
+        .filter(Boolean)
+        .slice(0, MAX_DOWNLOAD_RECORDS)
     } catch (err) {
       console.warn('[img-nav] state load failed', err)
     }
@@ -660,6 +676,116 @@
     anchor.click()
     anchor.remove()
     window.URL.revokeObjectURL(objectUrl)
+  }
+
+  function normalizeAbsoluteUrl (url) {
+    try {
+      return new URL(url, location.href).href
+    } catch (err) {
+      return String(url || '')
+    }
+  }
+
+  function findHistoryDownloadByUrl (normalizedUrl) {
+    if (!normalizedUrl) return null
+    var entry = (app.settings.history || []).find(function (item) {
+      return item
+        && item.downloadedAt
+        && normalizeAbsoluteUrl(item.url) === normalizedUrl
+    })
+    return entry || null
+  }
+
+  function findDownloadRecord (normalizedUrl, fingerprint) {
+    var records = app.settings.downloadRecords || []
+    if (fingerprint) {
+      var byFingerprint = records.find(function (entry) {
+        return entry && entry.fingerprint && entry.fingerprint === fingerprint
+      })
+      if (byFingerprint) return byFingerprint
+    }
+    if (!normalizedUrl) return null
+    return records.find(function (entry) {
+      return entry && normalizeAbsoluteUrl(entry.url) === normalizedUrl
+    }) || null
+  }
+
+  function addDownloadRecord (url, filename, fingerprint) {
+    var normalizedUrl = normalizeAbsoluteUrl(url)
+    var records = (app.settings.downloadRecords || []).filter(function (entry) {
+      if (!entry) return false
+      if (fingerprint && entry.fingerprint && entry.fingerprint === fingerprint) return false
+      return normalizeAbsoluteUrl(entry.url) !== normalizedUrl
+    })
+
+    records.unshift({
+      url: normalizedUrl,
+      filename: String(filename || ''),
+      timestamp: new Date().toISOString(),
+      fingerprint: String(fingerprint || '')
+    })
+
+    app.settings.downloadRecords = records.slice(0, MAX_DOWNLOAD_RECORDS)
+    saveState()
+  }
+
+  function arrayBufferToHex (buffer) {
+    var bytes = new Uint8Array(buffer)
+    var parts = new Array(bytes.length)
+    for (var i = 0; i < bytes.length; i += 1) {
+      var hex = bytes[i].toString(16)
+      parts[i] = hex.length === 1 ? '0' + hex : hex
+    }
+    return parts.join('')
+  }
+
+  function computeImageFingerprint (url) {
+    if (!url || !window.crypto || !window.crypto.subtle || typeof window.crypto.subtle.digest !== 'function') {
+      return Promise.resolve('')
+    }
+    return fetchImageBlob(url)
+      .then(function (blob) {
+        return blob.arrayBuffer()
+      })
+      .then(function (buffer) {
+        return window.crypto.subtle.digest('SHA-256', buffer)
+      })
+      .then(function (digestBuffer) {
+        return arrayBufferToHex(digestBuffer)
+      })
+      .catch(function () {
+        return ''
+      })
+  }
+
+  function ensureModelFilenameForUrl (url) {
+    var titleKey = metadataCacheKey(url, 'title')
+    var inflightTitle = app.llmInflight[titleKey]
+    if (inflightTitle) {
+      setStatus('waiting for model title before download...')
+      return inflightTitle
+        .then(function (value) {
+          var latest = (app.llmCache[url] && app.llmCache[url].filename) || value
+          return ensureFilenameExtension(latest || deriveTitle(url) || 'image', url)
+        })
+        .catch(function () {
+          var fallbackTitle = (app.llmCache[url] && app.llmCache[url].filename) || deriveTitle(url) || 'image'
+          return ensureFilenameExtension(fallbackTitle, url)
+        })
+    }
+
+    var metadata = app.llmCache[url] || {}
+    if (metadata.filename) {
+      return Promise.resolve(ensureFilenameExtension(metadata.filename, url))
+    }
+    setStatus('fetching model filename before download...')
+    return runLlmMetadataFetch(url, 'title', { silent: true })
+      .then(function (value) {
+        return ensureFilenameExtension(value || deriveTitle(url) || 'image', url)
+      })
+      .catch(function () {
+        return ensureFilenameExtension(deriveTitle(url) || 'image', url)
+      })
   }
 
   function isProbablyVisible (img) {
@@ -1339,29 +1465,44 @@
 
   function downloadCurrentImage () {
     var url = app.fullUrlEl ? app.fullUrlEl.value : app.lastAppliedUrl
-    if (!url) return
+    if (!url) return Promise.resolve()
 
-    var metadata = app.llmCache[url] || {}
-    var filename = ensureFilenameExtension(
-      metadata.filename || deriveTitle(url) || 'image',
-      url
-    )
+    var normalizedUrl = normalizeAbsoluteUrl(url)
 
-    var anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = filename
-    anchor.rel = 'noopener'
-    document.body.appendChild(anchor)
-    anchor.click()
-    anchor.remove()
-    if (!(app.settings.history || []).some(function (entry) { return entry.url === url })) addHistory(url)
-    updateHistoryForUrl(url, { downloadedAt: new Date().toISOString() })
+    return ensureModelFilenameForUrl(url)
+      .then(function (filename) {
+        var fromHistory = findHistoryDownloadByUrl(normalizedUrl)
+        if (fromHistory) {
+          setStatus('blocked: this image URL was already downloaded')
+          return null
+        }
 
-    if (metadata.filename) {
-      setStatus('download requested: ' + filename)
-    } else {
-      setStatus('download requested (fallback name; click Fetch Title first)')
-    }
+        return computeImageFingerprint(url).then(function (fingerprint) {
+          var existing = findDownloadRecord(normalizedUrl, fingerprint)
+          if (existing) {
+            setStatus('blocked: matching image already downloaded')
+            return null
+          }
+
+          var anchor = document.createElement('a')
+          anchor.href = url
+          anchor.download = filename
+          anchor.rel = 'noopener'
+          document.body.appendChild(anchor)
+          anchor.click()
+          anchor.remove()
+
+          if (!(app.settings.history || []).some(function (entry) { return entry.url === url })) addHistory(url)
+          updateHistoryForUrl(url, { downloadedAt: new Date().toISOString(), title: filename })
+          addDownloadRecord(url, filename, fingerprint)
+          setStatus('download requested: ' + filename)
+          return null
+        })
+      })
+      .catch(function (err) {
+        setStatus('download blocked: ' + summarizeError(err))
+        return null
+      })
   }
 
   function fetchTitleForCurrentImage () {
