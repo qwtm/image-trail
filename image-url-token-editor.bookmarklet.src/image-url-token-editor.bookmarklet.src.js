@@ -387,7 +387,7 @@
       properties: {
         filename: {
           type: 'string',
-          description: 'Short snake_case filename without extension.'
+          description: 'Descriptive snake_case filename without extension.'
         }
       }
     }
@@ -401,7 +401,7 @@
       properties: {
         description: {
           type: 'string',
-          description: 'One concise sentence describing visible image content.'
+          description: 'Concise description of visible image content.'
         }
       }
     }
@@ -443,15 +443,24 @@
               type: 'text',
               text: [
                 isTitle
-                  ? 'Create a descriptive download filename for this image and content.'
-                  : 'Create a concise description for this image.  Detailed no more than 2 or 3 sentences.',
+                  ? 'Create a highly descriptive, low-collision download filename for this image.'
+                  : 'Create a descriptive caption for this image focused on visible people and context.',
                 'Rules:',
                 isTitle
-                  ? '- filename: short snake_case filename without extension'
-                  : '- description: one concise sentence describing visible content',
+                  ? '- filename: snake_case, no extension, 6-14 words, descriptive and specific'
+                  : '- description: 1-2 sentences, concrete and specific',
                 isTitle
-                  ? '- avoid generic words like image, photo, pic unless required by content'
-                  : '- include only visible content, no speculation',
+                  ? '- if people are visible, prioritize them first: apparent age group, skin tone/color, apparent gender presentation, and what they are doing'
+                  : '- if people are visible, include apparent age group, skin tone/color, apparent gender presentation, and what they are doing',
+                isTitle
+                  ? '- include scene/action context to reduce collisions (setting, activity, notable objects)'
+                  : '- include scene/action context (setting, activity, notable objects)',
+                isTitle
+                  ? '- avoid vague names like image/photo/pic unless nothing else is visible'
+                  : '- include only visible content and avoid unsupported speculation',
+                isTitle
+                  ? '- example style: a_white_woman_rides_rollercoaster_at_night'
+                  : '- if unsure, use neutral wording like person/people',
                 '',
                 'Source URL: ' + sourceUrl
               ].join('\n')
