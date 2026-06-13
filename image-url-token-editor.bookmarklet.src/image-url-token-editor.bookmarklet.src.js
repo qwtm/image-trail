@@ -112,7 +112,8 @@
             timestamp: String(entry.timestamp || ''),
             title: String(entry.title || ''),
             label: String(entry.label || ''),
-            thumbnail: String(entry.thumbnail || '')
+            thumbnail: String(entry.thumbnail || ''),
+            downloadedAt: String(entry.downloadedAt || '')
           }
         })
         .filter(Boolean)
@@ -1195,6 +1196,9 @@
 
   function addHistory (url) {
     if (!url) return
+    var existingEntry = (app.settings.history || []).find(function (item) {
+      return item && item.url === url
+    }) || null
 
     var existing = app.settings.history.filter(function (item) {
       return item.url !== url
@@ -1205,7 +1209,8 @@
       timestamp: new Date().toISOString(),
       title: String((app.llmCache[url] && app.llmCache[url].filename) || deriveTitle(url)),
       label: deriveLabel(url),
-      thumbnail: String(app.thumbnailCache[url] || '')
+      thumbnail: String(app.thumbnailCache[url] || ''),
+      downloadedAt: String((existingEntry && existingEntry.downloadedAt) || '')
     })
 
     app.settings.history = existing.slice(0, MAX_HISTORY)
@@ -1324,6 +1329,8 @@
     document.body.appendChild(anchor)
     anchor.click()
     anchor.remove()
+    if (!(app.settings.history || []).some(function (entry) { return entry.url === url })) addHistory(url)
+    updateHistoryForUrl(url, { downloadedAt: new Date().toISOString() })
 
     if (metadata.filename) {
       setStatus('download requested: ' + filename)
@@ -2231,13 +2238,39 @@
         }
       }))
 
-      row.appendChild(button('x', function () {
+      var rightControls = createEl('div', {
+        style: {
+          display: 'flex',
+          gap: '4px',
+          alignItems: 'center',
+          justifySelf: 'end'
+        }
+      })
+
+      if (item.downloadedAt) {
+        rightControls.appendChild(createEl('span', {
+          text: 'downloaded',
+          title: 'Downloaded at ' + item.downloadedAt,
+          style: {
+            font: '10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+            color: '#8fd',
+            border: '1px solid rgba(143,255,221,0.45)',
+            borderRadius: '999px',
+            padding: '1px 6px',
+            whiteSpace: 'nowrap'
+          }
+        }))
+      }
+
+      rightControls.appendChild(button('x', function () {
         app.settings.history = app.settings.history.filter(function (entry) {
           return entry.url !== item.url
         })
         saveState()
         renderHistory()
       }))
+
+      row.appendChild(rightControls)
 
       app.historyEl.appendChild(row)
     })
