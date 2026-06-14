@@ -13,8 +13,8 @@ Application code should not directly read or write raw local storage keys.
 Use:
 
 ```text
-data/local-settings.js
-data/local-settings-migrations.js
+src/data/local-settings.ts
+src/data/local-settings-migrations.ts
 ```
 
 This keeps schema changes, defaults, validation, and migration behavior centralized.
@@ -106,6 +106,12 @@ The stored value should be a single versioned object.
   },
   "privacy": {
     "storeOriginalImagesByDefault": false,
+    "defaultMaxOriginalBytes": 26214400,
+    "hardMaxOriginalBytes": 104857600,
+    "thumbnailMaxWidth": 256,
+    "thumbnailMaxHeight": 256,
+    "thumbnailMaxBytes": 262144,
+    "showStorageUsageIndicator": true,
     "plaintextDomainIndexes": false,
     "allowFutureHostPermissions": true
   },
@@ -127,6 +133,7 @@ Plaintext local settings are acceptable for:
 - Request throttle values.
 - Preview styling values.
 - Non-sensitive automation defaults.
+- Storage size caps and usage indicator preference.
 - React/Vite readiness marker.
 
 ## What Should Move To Encrypted IndexedDB
@@ -178,6 +185,10 @@ Migration examples:
 - Clamp panel widths to a safe range.
 - Clamp `runtimeWindowMinutes` to a reasonable value.
 - Clamp `activeViewMaxItems` to a safe visible cap.
+- Enforce bounded local capture. `defaultMaxOriginalBytes` should default to 25 MB and never exceed `hardMaxOriginalBytes`.
+- Enforce `hardMaxOriginalBytes` at 100 MB unless a later migration intentionally changes the hard policy.
+- Enforce small bounded thumbnail dimensions and byte size.
+- Keep `showStorageUsageIndicator` enabled by default.
 - Enforce a minimum request interval greater than zero.
 - Enforce a global request cap for automation and rapid manual navigation.
 - Default unknown enum values back to safe defaults.

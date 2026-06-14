@@ -4,7 +4,8 @@
 
 - Target browser is Brave/Chromium with Manifest V3.
 - The extension has no popup. The browser action toggles or injects a side/floating panel into the active page.
-- No external libraries and no build system will be used for the first implementation unless the UI complexity clearly justifies it. React and Vite are acceptable later if they reduce panel complexity without adding unnecessary bloat or exposure.
+- TypeScript is preferred for extension source so storage schemas, encrypted envelopes, key records, migrations, message contracts, and URL token models are typed from the start. Runtime output should stay simple browser-compatible JavaScript.
+- No external runtime libraries will be used for the first implementation unless the UI complexity clearly justifies it. React and Vite are acceptable later if they reduce panel complexity without adding unnecessary bloat or exposure.
 - The existing bookmarklet remains in the repository as a preserved fallback/debug artifact. The port should share behavior with it, not erase or replace it.
 - The initial extension UI is injected by a content script into the active page. It should use isolated extension code where possible and only bridge into the page when page-context access is unavoidable.
 - URL parsing, URL rebuilding, token navigation, image application, same-origin `history.pushState()` behavior, target image picking, 404 handling, and keyboard behavior should preserve the bookmarklet's observable behavior.
@@ -15,6 +16,8 @@
 - Local storage has its own key record. In extension terms, this means a small extension-local record for local settings/session bootstrap, not page-origin `localStorage` unless explicitly needed for compatibility.
 - Some local-storage-equivalent items may get their own key when their sensitivity or export behavior justifies it.
 - Stored originals are opt-in. The default is encrypted metadata and thumbnails only; full image blobs are saved only when explicitly bookmarked, saved, or downloaded.
+- Local capture must be bounded from day one. Defaults should include a 25 MB max original image size, 100 MB hard max original image size, small bounded thumbnails, and a visible recent/runtime item cap around 200.
+- A storage usage indicator should be available early so local capture cannot grow silently.
 - Downloads written to disk are encrypted and get their own key.
 - Key export wraps keys with a user-provided password. Key import requires the password to unwrap.
 - Manual symmetric password protection is supported as an additional option for selected exports, imports, downloads, or item groups.
@@ -35,7 +38,8 @@
 - If raw key material is stored unwrapped in extension storage, encryption protects against casual disk inspection but not against extension compromise.  RAW should not live in the indexdb for long lifetimes hence the import/export.  Ideally, there would be one mater key and the other items would be able to have keys rotated periodiically.
 - Downloading encrypted files requires a clear file format/header so imports can locate the key reference, algorithm, salt, IV, and wrapping mode.
 - The existing bookmarklet stores history, favorites, thumbnails, settings, download records, and LLM settings together; migration must separate settings from encrypted durable records.
-- With or without a build system, shared core code should stay framework-independent and browser-compatible. If React/Vite is adopted later, it should wrap the panel UI rather than absorb parser, crypto, storage, messaging, or image-navigation logic.
+- With or without a framework build system, shared core code should stay framework-independent and browser-compatible after TypeScript compilation. If React/Vite is adopted later, it should wrap the panel UI rather than absorb parser, crypto, storage, messaging, or image-navigation logic.
+- The first build step should be as small as possible: TypeScript compilation for source safety, no bundled runtime dependencies, and reviewable generated JavaScript.
 - Undo/global action history is session-only. It should allow recovery from accidental extension actions, such as removing a favorite, but does not need to survive browser restart.
 - Non-sensitive settings such as algorithms, themes, sorting, and UI customizations may remain plaintext local settings. Sensitive settings and anything explicitly locked should move into encrypted IndexedDB records.
 - Host permissions may be requested later when standard extension functionality requires them for image fetch, thumbnail generation, or download support. Privacy remains the top priority, but normal browser-extension permission practices are acceptable when they are not reckless.
@@ -49,6 +53,26 @@
 - Encrypted history supports optional keywording. Keyword search can include encrypted stored history after unlock/decrypt, but domain filtering only applies to currently visible/runtime records unless indexed metadata has intentionally been exposed.
 - For privacy, domain, path, and other sortable/searchable fields should not be made plaintext for all encrypted records by default.
 - Because IndexedDB may eventually contain many records, the history UI should provide a bounded recall/import-into-view flow instead of trying to render everything. A visible runtime cap around 200 items is acceptable for the active view.
+
+## Storage Limits And Usage
+
+- Unbounded local image capture is not allowed.
+- Original image blobs are opt-in and must respect size limits before they are stored.
+- Default max original image size: 25 MB.
+- Hard max original image size: 100 MB.
+- Thumbnail size must be small and bounded by dimensions and byte size.
+- Visible recent/runtime history should stay bounded around 200 items.
+- Records that cannot store a local original because of size, quota, CORS, or user policy should remain valid as metadata/remote-only records.
+- Add a storage usage indicator early, with counts and byte totals such as:
+
+```text
+Captured: 418 images
+Originals: 1.8 GB
+Thumbnails: 42 MB
+Failed/remote-only: 37 records
+```
+
+- Storage usage should be computed from IndexedDB metadata where possible, not by decrypting every payload.
 
 ## React Readiness
 
@@ -182,6 +206,7 @@
   - `downloads`: encrypted file metadata, key reference, filename metadata.
   - `settings`: non-sensitive extension settings or encrypted sensitive settings.
   - `runtimeHistory`: session-only active history model, kept in memory and rebuilt from current session activity or explicit decrypt/recall.
+  - `storageStats`: aggregate capture counts and byte totals for early usage reporting.
   - `migrations`: schema and data migration tracking.
 - Implement envelope encryption:
   - Each durable item has a content key.
@@ -248,6 +273,8 @@ The first implementation should be a narrow vertical slice:
 - IndexedDB schema and key-management skeleton, including the key table by `kind`, `uuid`, and `reference`.
 - Per-item encrypted storage path for history/bookmark records, even if the first UI only writes a minimal current URL record.
 - Runtime history model for recent active-session items, with the encrypted durable store kept separate.
+- Day-one storage limits for originals, thumbnails, active view size, and remote-only records.
+- Storage usage indicator scaffold with captured count, original bytes, thumbnail bytes, and failed/remote-only count.
 - Target image detection/picking, current URL display, parser/rebuilder port, active numeric field movement, and apply-to-image behavior.
 - Immediate preview styling when injection finds exactly one image.
 - Basic DOM reactivity for target picking and late image changes.
@@ -266,6 +293,6 @@ This gives the extension its correct shape early: MV3 injection, encrypted durab
 - Complete slideshow/404 automation.
 - Full thumbnails, fingerprints, and downloaded-state tracking.
 - Advanced page styling controls beyond what is needed to safely show and restore the selected image.
-- Any build system, package dependency, framework, or external crypto library.
+- Any bundler, framework, package dependency beyond TypeScript tooling, or external crypto library.
 - Broad host permissions requested up front.
 - Automatic migration of old plaintext bookmarklet storage without an explicit user action.

@@ -25,8 +25,30 @@ thumbnails
 imageBlobs
 downloads
 lockedSettings
+storageStats
 migrations
 ```
+
+## Day-One Storage Limits
+
+Unbounded local capture is not allowed.
+
+Defaults:
+
+```text
+default max original image: 25 MB
+hard max original image: 100 MB
+thumbnail max: small and bounded by dimensions and byte size
+visible recent/runtime items: about 200
+```
+
+Policy:
+
+- Do not store original image blobs above the hard max.
+- Store originals only when explicitly saved, bookmarked, or downloaded.
+- If an original is too large, blocked by CORS, blocked by quota, or skipped by policy, keep a metadata/remote-only record.
+- Keep size metadata outside encrypted payloads where needed for quota and usage reporting.
+- Usage reporting should not require decrypting every record.
 
 ## `keys`
 
@@ -123,6 +145,8 @@ lastViewedAt
 keywordCount
 hasThumbnail
 hasImageBlob
+remoteOnly
+captureStatus
 ```
 
 Draft record shape:
@@ -137,6 +161,10 @@ Draft record shape:
   "thumbnailUuid": "thumbnail uuid",
   "hasImageBlob": false,
   "imageBlobUuid": "",
+  "remoteOnly": false,
+  "captureStatus": "captured | remote-only | failed | skipped-size | skipped-policy",
+  "originalByteLength": 0,
+  "thumbnailByteLength": 12345,
   "createdAt": "ISO timestamp",
   "updatedAt": "ISO timestamp",
   "lastViewedAt": "ISO timestamp"
@@ -221,6 +249,8 @@ sourceRecordKind
 createdAt
 updatedAt
 byteLength
+width
+height
 ```
 
 Draft decrypted payload:
@@ -240,6 +270,7 @@ Notes:
 
 - Thumbnail generation may fail for cross-origin/canvas-tainted images.
 - Store original image blobs only when explicitly requested.
+- Thumbnail dimensions and byte length must be bounded by settings/policy.
 
 ## `imageBlobs`
 
@@ -260,6 +291,7 @@ createdAt
 updatedAt
 byteLength
 mimeType
+captureStatus
 ```
 
 Draft decrypted payload:
@@ -280,6 +312,9 @@ Policy:
 
 - Not stored for every history item.
 - Stored only on explicit save/bookmark/download workflows.
+- Default max original image size is 25 MB.
+- Hard max original image size is 100 MB.
+- Above the hard max, store a remote-only metadata record instead of the blob.
 
 ## `downloads`
 
@@ -353,6 +388,46 @@ Draft decrypted payload:
   "value": {}
 }
 ```
+
+## `storageStats`
+
+Stores aggregate counts and byte totals for the storage usage indicator.
+
+Primary key:
+
+```text
+id
+```
+
+Draft record shape:
+
+```json
+{
+  "id": "current",
+  "capturedCount": 418,
+  "originalBytes": 1932735283,
+  "thumbnailBytes": 44040192,
+  "failedOrRemoteOnlyCount": 37,
+  "historyCount": 418,
+  "bookmarkCount": 42,
+  "updatedAt": "ISO timestamp"
+}
+```
+
+Usage indicator example:
+
+```text
+Captured: 418 images
+Originals: 1.8 GB
+Thumbnails: 42 MB
+Failed/remote-only: 37 records
+```
+
+Notes:
+
+- Stats can be updated incrementally when records are added, changed, or deleted.
+- A rebuild/recount operation can be added later for recovery.
+- Stats should be based on plaintext metadata fields such as byte counts and capture status, not decrypted URLs or domains.
 
 ## `migrations`
 

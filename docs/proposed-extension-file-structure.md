@@ -4,9 +4,10 @@
 
 - Keep the working bookmarklet preserved as a fallback/debug artifact.
 - Keep the extension core framework-independent so React/Vite can be adopted later without rewriting parser, storage, crypto, or image-navigation logic.
+- Use TypeScript for extension source while keeping generated runtime JavaScript simple and reviewable.
 - Separate page DOM interaction from extension UI rendering.
 - Separate runtime/session state from encrypted durable IndexedDB state.
-- Avoid a build system for the first implementation unless UI complexity later justifies React/Vite.
+- Avoid bundlers and external runtime dependencies for the first implementation unless UI complexity later justifies React/Vite.
 
 ## Top-Level Layout
 
@@ -21,7 +22,24 @@ image-bookmarklet/
     brave-extension-port-plan.md
     proposed-extension-file-structure.md
   extension/
+    package.json
+    tsconfig.json
     manifest.json
+    src/
+    dist/
+    public/
+```
+
+## Source And Runtime Layout
+
+TypeScript source should live under `extension/src/`. The extension manifest should load compiled JavaScript from `extension/dist/`. Static assets can live under `extension/public/` or `extension/assets/`.
+
+```text
+extension/
+  package.json
+  tsconfig.json
+  manifest.json
+  src/
     background/
     content/
     core/
@@ -29,13 +47,121 @@ image-bookmarklet/
     ui/
     assets/
     test-fixtures/
+  dist/
+    background/
+    content/
+    core/
+    data/
+    ui/
 ```
 
-## Extension Layout
+The first build step should be TypeScript compilation only. Vite should wait until React or another real UI need justifies it.
+
+## Source Layout
 
 ```text
-extension/
-  manifest.json
+extension/src/
+  background/
+    service-worker.ts
+    messages.ts
+    permissions.ts
+    downloads.ts
+  content/
+    content-script.ts
+    page-adapter.ts
+    target-image.ts
+    page-style.ts
+    dom-observer.ts
+    keyboard.ts
+    request-throttle.ts
+  core/
+    app-controller.ts
+    actions.ts
+    state.ts
+    types.ts
+    url/
+      parse-url.ts
+      rebuild-url.ts
+      tokenize-fields.ts
+      field-patterns.ts
+      field-aliases.ts
+      types.ts
+    image/
+      image-navigation.ts
+      image-metadata.ts
+      thumbnails.ts
+      fingerprints.ts
+      types.ts
+    automation/
+      navigation-queue.ts
+      slideshow.ts
+      retry-404.ts
+      types.ts
+    llm/
+      schemas.ts
+      prompts.ts
+      metadata-client.ts
+      types.ts
+  data/
+    db.ts
+    schema.ts
+    migrations.ts
+    local-settings.ts
+    local-settings-migrations.ts
+    types.ts
+    repositories/
+      keys-repository.ts
+      history-repository.ts
+      bookmarks-repository.ts
+      settings-repository.ts
+      downloads-repository.ts
+    crypto/
+      webcrypto.ts
+      envelope.ts
+      keyring.ts
+      password-wrap.ts
+      lock.ts
+      webauthn-wrap.placeholder.ts
+      types.ts
+    runtime/
+      runtime-history.ts
+      undo-stack.ts
+      session-unlock.ts
+    import-export/
+      history-export.ts
+      history-import.ts
+      key-export.ts
+      key-import.ts
+      encrypted-file-format.ts
+  ui/
+    panel.ts
+    render.ts
+    types.ts
+    components/
+      status-view.ts
+      url-editor-view.ts
+      fields-view.ts
+      controls-view.ts
+      history-view.ts
+      bookmarks-view.ts
+      lock-view.ts
+      import-export-view.ts
+      target-picker-view.ts
+    styles/
+      panel.css
+    react-ready/
+      README.md
+  assets/
+    icons/
+  test-fixtures/
+    urls.ts
+    sample-history.json
+```
+
+## Runtime Layout
+
+```text
+extension/dist/
   background/
     service-worker.js
     messages.js
@@ -151,6 +277,7 @@ extension/
 - Owns URL parsing/rebuilding, editable field tokenization, field aliases, advanced field patterns, image navigation decisions, automation state machines, and LLM request shaping.
 - Should not directly import DOM APIs except through small adapters when unavoidable.
 - Should not depend on React or Vite.
+- Should use TypeScript types for URL token models, action payloads, parser output, automation state, and message contracts.
 
 ### `data/`
 
@@ -159,14 +286,15 @@ extension/
 - Keeps recent 30-minute history in runtime memory while storing encrypted durable records in IndexedDB.
 - Provides recall/decrypt operations that bring selected encrypted records into the active history view.
 - Owns local settings schema and migrations for any plaintext extension-local settings.
+- Should use TypeScript interfaces/discriminated unions for schema versions, encrypted envelopes, key wrapping methods, migration records, and repository inputs/outputs.
 
 ## Schema And Migration Strategy
 
 - IndexedDB and local settings must both have explicit schema versions.
-- `data/schema.js` should define the current IndexedDB database name, version, object stores, indexes, and record shapes.
-- `data/migrations.js` should contain ordered IndexedDB upgrade steps. Each upgrade should be idempotent where possible and should avoid decrypting all records during structural migrations unless absolutely required.
-- `data/local-settings.js` should wrap all access to `chrome.storage.local`, extension local storage, or any other plaintext settings store so callers never read/write raw keys directly.
-- `data/local-settings-migrations.js` should own versioned migrations for plaintext settings such as theme, sorting, panel layout, UI preferences, and non-sensitive algorithm choices.
+- `src/data/schema.ts` should define the current IndexedDB database name, version, object stores, indexes, and record shapes.
+- `src/data/migrations.ts` should contain ordered IndexedDB upgrade steps. Each upgrade should be idempotent where possible and should avoid decrypting all records during structural migrations unless absolutely required.
+- `src/data/local-settings.ts` should wrap all access to `chrome.storage.local`, extension local storage, or any other plaintext settings store so callers never read/write raw keys directly.
+- `src/data/local-settings-migrations.ts` should own versioned migrations for plaintext settings such as theme, sorting, panel layout, UI preferences, and non-sensitive algorithm choices.
 - Encrypted record formats need their own payload version inside the encrypted envelope so data can evolve independently from the IndexedDB object-store version.
 - Key records need versioned wrapping metadata so future key rotation, password wrapping changes, or WebAuthn/YubiKey wrapping can be introduced without rewriting unrelated records.
 - Migration failures should leave the previous readable state intact when possible and surface a clear recovery/status message.
@@ -185,37 +313,51 @@ extension/
 The initial vertical slice should only create the files needed for:
 
 - `manifest.json`
-- `background/service-worker.js`
-- `content/content-script.js`
-- `content/page-adapter.js`
-- `content/target-image.js`
-- `content/page-style.js`
-- `content/dom-observer.js`
-- `content/keyboard.js`
-- `content/request-throttle.js`
-- `core/app-controller.js`
-- `core/actions.js`
-- `core/state.js`
-- `core/url/parse-url.js`
-- `core/url/rebuild-url.js`
-- `core/url/tokenize-fields.js`
-- `data/db.js`
-- `data/schema.js`
-- `data/migrations.js`
-- `data/local-settings.js`
-- `data/local-settings-migrations.js`
-- `data/crypto/webcrypto.js`
-- `data/crypto/envelope.js`
-- `data/crypto/keyring.js`
-- `data/repositories/keys-repository.js`
-- `data/repositories/history-repository.js`
-- `data/runtime/runtime-history.js`
-- `data/runtime/undo-stack.js`
-- `ui/panel.js`
-- `ui/render.js`
-- `ui/styles/panel.css`
+- `package.json`
+- `tsconfig.json`
+- `src/background/service-worker.ts`
+- `src/content/content-script.ts`
+- `src/content/page-adapter.ts`
+- `src/content/target-image.ts`
+- `src/content/page-style.ts`
+- `src/content/dom-observer.ts`
+- `src/content/keyboard.ts`
+- `src/content/request-throttle.ts`
+- `src/core/app-controller.ts`
+- `src/core/actions.ts`
+- `src/core/state.ts`
+- `src/core/types.ts`
+- `src/core/url/parse-url.ts`
+- `src/core/url/rebuild-url.ts`
+- `src/core/url/tokenize-fields.ts`
+- `src/core/url/types.ts`
+- `src/data/db.ts`
+- `src/data/schema.ts`
+- `src/data/migrations.ts`
+- `src/data/local-settings.ts`
+- `src/data/local-settings-migrations.ts`
+- `src/data/types.ts`
+- `src/data/crypto/webcrypto.ts`
+- `src/data/crypto/envelope.ts`
+- `src/data/crypto/keyring.ts`
+- `src/data/crypto/types.ts`
+- `src/data/repositories/keys-repository.ts`
+- `src/data/repositories/history-repository.ts`
+- `src/data/runtime/runtime-history.ts`
+- `src/data/runtime/undo-stack.ts`
+- `src/ui/panel.ts`
+- `src/ui/render.ts`
+- `src/ui/styles/panel.css`
 
 Other files should be added only when their feature phase begins.
+
+## TypeScript Build Boundary
+
+- TypeScript is for source safety, not for adding runtime complexity.
+- The initial build should emit browser-compatible ES modules into `dist/`.
+- No bundling should be required for the first pass unless Chrome extension module-loading constraints force a small, explicit adjustment.
+- Type definitions should be strongest around storage records, encrypted envelopes, migration inputs/outputs, message contracts, and URL token models.
+- Avoid clever type-level programming. Prefer readable interfaces, discriminated unions, and explicit conversion/validation at storage boundaries.
 
 ## React/Vite Adoption Point
 
