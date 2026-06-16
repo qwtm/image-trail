@@ -1,0 +1,2 @@
+import type { KeyReference } from '../crypto/types.js';
+export class SessionUnlockState { private active: { keyReference: KeyReference; unlockedAt: string } | null = null; unlock(keyReference: KeyReference, now = new Date().toISOString()): void { this.active = { keyReference, unlockedAt: now }; } lock(): void { this.active = null; } get snapshot() { return this.active ? { status: 'unlocked' as const, ...this.active } : { status: 'locked' as const }; } }
