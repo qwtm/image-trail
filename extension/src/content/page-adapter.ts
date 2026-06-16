@@ -45,8 +45,7 @@ export class PageAdapter {
     this.picking = true;
     this.mode = 'manual';
     this.observer.start();
-    this.refreshPickCandidates();
-    return this.emit('Pick mode is active. Click the intended image.');
+    return this.refreshPickCandidates();
   }
 
   stopPickMode(): TargetSelectionSnapshot {
@@ -71,8 +70,8 @@ export class PageAdapter {
     return this.lastSnapshot;
   }
 
-  private refreshPickCandidates(): void {
-    if (!this.picking) return;
+  private refreshPickCandidates(): TargetSelectionSnapshot {
+    if (!this.picking) return this.lastSnapshot;
     const nextCandidates = new Set(findQualifyingImages());
 
     for (const oldCandidate of this.candidates) {
@@ -86,7 +85,7 @@ export class PageAdapter {
     }
 
     this.candidates = nextCandidates;
-    this.emit(`Pick mode is active. ${this.candidates.size} image candidate${this.candidates.size === 1 ? '' : 's'} available.`);
+    return this.emit(`Pick mode is active. ${this.candidates.size} image candidate${this.candidates.size === 1 ? '' : 's'} available.`);
   }
 
   private bindCandidate(image: HTMLImageElement): void {
@@ -118,7 +117,7 @@ export class PageAdapter {
 
   private onClick = (event: MouseEvent): void => {
     const image = event.currentTarget;
-    if (!(image instanceof HTMLImageElement)) return;
+    if (!(image instanceof HTMLImageElement) || event.button !== 0) return;
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
@@ -140,7 +139,11 @@ export class PageAdapter {
   }
 
   private clearHover(): void {
-    if (this.hovered && this.hovered !== this.selected) restoreElementStyles(this.hovered);
+    if (this.hovered && this.hovered !== this.selected) {
+      const candidate = this.hovered;
+      restoreElementStyles(candidate);
+      if (this.picking && this.candidates.has(candidate)) markPickModeCandidate(candidate);
+    }
     this.hovered = null;
   }
 

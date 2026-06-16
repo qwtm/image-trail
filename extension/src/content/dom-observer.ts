@@ -20,7 +20,7 @@ export class DomObserver {
   }
 
   private scheduleRefresh(): void {
-    if (this.refreshTimer !== null) return;
+    if (this.refreshTimer !== null) window.clearTimeout(this.refreshTimer);
     this.refreshTimer = window.setTimeout(() => {
       this.refreshTimer = null;
       this.onRefresh();

@@ -46,11 +46,15 @@ export class ImageTrailPanel {
   }
 
   destroy(): void {
+    this.state = reducePanelAction(this.state, { name: 'close-panel' });
+    this.cleanupMountedElements();
+  }
+
+  private cleanupMountedElements(): void {
     this.pageAdapter.cleanup();
     document.getElementById(ROOT_ID)?.remove();
     document.getElementById(STYLE_ID)?.remove();
     this.root = null;
-    this.state = reducePanelAction(this.state, { name: 'close-panel' });
   }
 
   disconnect(): void {
@@ -63,20 +67,18 @@ export class ImageTrailPanel {
     if (action.name === 'start-target-picker') {
       this.state = reducePanelAction(this.state, action);
       this.pageAdapter.startPickMode();
-      this.render();
       return;
     }
 
     if (action.name === 'stop-target-picker') {
-      this.pageAdapter.stopPickMode();
       this.state = reducePanelAction(this.state, action);
-      this.render();
+      this.pageAdapter.stopPickMode();
       return;
     }
 
     this.state = reducePanelAction(this.state, action);
     if (!this.state.visible) {
-      this.destroy();
+      this.cleanupMountedElements();
       return;
     }
     this.mount();
@@ -91,7 +93,7 @@ export class ImageTrailPanel {
       this.root.className = 'image-trail-panel';
       this.root.setAttribute('role', 'dialog');
       this.root.setAttribute('aria-label', 'Image Trail panel');
-      document.documentElement.append(this.root);
+      (document.body ?? document.documentElement).append(this.root);
     }
 
     if (!document.getElementById(STYLE_ID)) {
@@ -99,7 +101,7 @@ export class ImageTrailPanel {
       link.id = STYLE_ID;
       link.rel = 'stylesheet';
       link.href = chrome.runtime.getURL(STYLE_PATH);
-      document.documentElement.append(link);
+      (document.head ?? document.documentElement).append(link);
     }
   }
 
