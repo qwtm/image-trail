@@ -1,10 +1,13 @@
+import { assertKeyReference } from '../crypto/key-reference.js';
 import type { StoredKeyRecord } from '../crypto/types.js';
+import { requestToPromise, transactionDone } from '../idb-helpers.js';
 import { DataStore } from '../schema.js';
 
 export class KeysRepository {
   constructor(private readonly db: IDBDatabase) {}
 
   async put(record: StoredKeyRecord): Promise<void> {
+    assertKeyReference(record);
     const transaction = this.db.transaction(DataStore.Keys, 'readwrite');
     transaction.objectStore(DataStore.Keys).put(record);
     await transactionDone(transaction);
@@ -16,19 +19,4 @@ export class KeysRepository {
     await transactionDone(transaction);
     return result;
   }
-}
-
-function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function transactionDone(transaction: IDBTransaction): Promise<void> {
-  return new Promise((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB transaction aborted.'));
-  });
 }

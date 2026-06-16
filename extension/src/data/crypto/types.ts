@@ -1,14 +1,15 @@
 export type EncryptionAlgorithm = 'AES-GCM';
 export type KeyKind = 'root' | 'history' | 'bookmark' | 'metadata' | 'export';
 export type KeyWrappingMode = 'session' | 'password' | 'webauthn' | 'imported';
+export type KeyReferenceString<K extends KeyKind = KeyKind> = `${K}:${string}`;
 
-export interface KeyReference {
-  readonly kind: KeyKind;
+export interface KeyReference<K extends KeyKind = KeyKind> {
+  readonly kind: K;
   readonly uuid: string;
-  readonly reference: string;
+  readonly reference: KeyReferenceString<K>;
 }
 
-export interface StoredKeyRecord extends KeyReference {
+export interface StoredKeyRecord<K extends KeyKind = KeyKind> extends KeyReference<K> {
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly wrapping: {

@@ -8,7 +8,7 @@ export function openImageTrailDb(indexedDb: IDBFactory = globalThis.indexedDB): 
   return new Promise((resolve) => {
     const request = indexedDb.open(IMAGE_TRAIL_DB_NAME, IMAGE_TRAIL_DB_VERSION);
     request.onupgradeneeded = (event) => {
-      try { migrateImageTrailDb(request.result, event.oldVersion, request.transaction as IDBTransaction); }
+      try { migrateImageTrailDb(request.result, event.oldVersion); }
       catch (cause) { request.transaction?.abort(); resolve({ db: null, status: { ok: false, code: 'migration-failed', message: 'Image Trail storage migration failed recoverably.', cause } }); }
     };
     request.onsuccess = () => resolve({ db: request.result, status: { ok: true, code: 'ok', message: 'Image Trail storage opened.' } });

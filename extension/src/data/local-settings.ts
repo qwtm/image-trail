@@ -13,6 +13,8 @@ export const DEFAULT_LOCAL_SETTINGS: PlaintextLocalSettings = {
 };
 
 const LOCAL_SETTINGS_KEY = 'imageTrail.localSettings';
+const MIN_REQUEST_THROTTLE_MS = 0;
+const MAX_REQUEST_THROTTLE_MS = 60_000;
 
 export interface StringStorage {
   getItem(key: string): string | null;
@@ -48,5 +50,5 @@ export function migrateLocalSettings(input: Partial<PlaintextLocalSettings>): Pl
 }
 
 function isSafeThrottle(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+  return typeof value === 'number' && Number.isFinite(value) && value >= MIN_REQUEST_THROTTLE_MS && value <= MAX_REQUEST_THROTTLE_MS;
 }

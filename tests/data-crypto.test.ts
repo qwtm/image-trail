@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { openJsonEnvelope, sealJsonEnvelope } from '../extension/src/data/crypto/envelope.js';
+import { createKeyReference } from '../extension/src/data/crypto/key-reference.js';
 import { createSessionKey } from '../extension/src/data/crypto/keyring.js';
 import { DEFAULT_LOCAL_SETTINGS, LocalSettingsRepository } from '../extension/src/data/local-settings.js';
 import { SessionUnlockState } from '../extension/src/data/runtime/session-unlock.js';
@@ -50,6 +51,22 @@ test('rejects envelopes when authenticated metadata is tampered with', async () 
   );
 });
 
+
+test('derives and validates key reference strings from kind and uuid', async () => {
+  const session = await createSessionKey('history', 'derived-key', '2026-06-16T00:00:00.000Z');
+  assert.deepEqual(session.reference, createKeyReference('history', 'derived-key'));
+  await assert.rejects(
+    sealJsonEnvelope({
+      payload: { url: 'https://example.test/bad-key.jpg' },
+      payloadVersion: 1,
+      key: session.key,
+      keyReference: { ...session.reference, reference: 'history:other-key' },
+      authenticatedMetadata: { recordType: 'history' },
+    }),
+    /Key reference must be derived/,
+  );
+});
+
 test('loads typed plaintext local settings through defaults and migrations', () => {
   const values = new Map<string, string>();
   const repository = new LocalSettingsRepository({
@@ -74,17 +91,33 @@ test('falls back to plaintext local setting defaults when storage is corrupt', (
   assert.deepEqual(repository.load(), DEFAULT_LOCAL_SETTINGS);
 });
 
+
+test('rejects out-of-range request throttle setting migrations', () => {
+  const high = new LocalSettingsRepository({
+    getItem: () => JSON.stringify({ requestThrottleMs: 60_001 }),
+    setItem: () => {},
+  });
+  const negative = new LocalSettingsRepository({
+    getItem: () => JSON.stringify({ requestThrottleMs: -1 }),
+    setItem: () => {},
+  });
+
+  assert.equal(high.load().requestThrottleMs, DEFAULT_LOCAL_SETTINGS.requestThrottleMs);
+  assert.equal(negative.load().requestThrottleMs, DEFAULT_LOCAL_SETTINGS.requestThrottleMs);
+});
+
 test('tracks session unlock state without persisting key material', async () => {
   const session = await createSessionKey('history', 'unlock-key', '2026-06-16T00:00:00.000Z');
   const unlock = new SessionUnlockState();
 
   assert.deepEqual(unlock.snapshot, { status: 'locked' });
-  unlock.unlock(session.reference, '2026-06-16T00:00:00.000Z');
+  unlock.unlock(session.reference, session.key, '2026-06-16T00:00:00.000Z');
   assert.deepEqual(unlock.snapshot, {
     status: 'unlocked',
     keyReference: session.reference,
     unlockedAt: '2026-06-16T00:00:00.000Z',
   });
+  assert.equal(unlock.getActiveKey(session.reference), session.key);
   unlock.lock();
   assert.deepEqual(unlock.snapshot, { status: 'locked' });
 });

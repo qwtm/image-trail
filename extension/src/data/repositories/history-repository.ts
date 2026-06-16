@@ -1,5 +1,6 @@
 import { openJsonEnvelope, sealJsonEnvelope } from '../crypto/envelope.js';
 import type { EncryptedEnvelope } from '../crypto/types.js';
+import { requestToPromise, transactionDone } from '../idb-helpers.js';
 import { DataStore } from '../schema.js';
 import type { DurableHistoryPayloadV1 } from '../types.js';
 
@@ -46,19 +47,4 @@ export class HistoryRepository {
     const record = await this.getEncrypted(uuid);
     return record ? openJsonEnvelope<DurableHistoryPayloadV1>(record.envelope, key) : null;
   }
-}
-
-function requestToPromise<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-}
-
-function transactionDone(transaction: IDBTransaction): Promise<void> {
-  return new Promise((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
-    transaction.onerror = () => reject(transaction.error);
-    transaction.onabort = () => reject(transaction.error ?? new Error('IndexedDB transaction aborted.'));
-  });
 }
