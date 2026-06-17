@@ -7,8 +7,7 @@ const sourceAndScripts = [...sourceFiles, 'scripts/**/*.mjs', 'eslint.config.js'
 const noDocumentElementAppend = {
   selector:
     'CallExpression[callee.type="MemberExpression"][callee.property.name="append"][callee.object.type="MemberExpression"][callee.object.object.name="document"][callee.object.property.name="documentElement"]',
-  message:
-    'Do not append directly to document.documentElement; append to a scoped extension container/root instead.',
+  message: 'Do not append directly to document.documentElement; append to a scoped extension container/root instead.',
 };
 
 const layerBoundaryRules = {
@@ -20,7 +19,16 @@ const layerBoundaryRules = {
         {
           patterns: [
             {
-              group: ['../background/*', '../content/*', '../data/*', '../ui/*', '../../background/*', '../../content/*', '../../data/*', '../../ui/*'],
+              group: [
+                '../background/*',
+                '../content/*',
+                '../data/*',
+                '../ui/*',
+                '../../background/*',
+                '../../content/*',
+                '../../data/*',
+                '../../ui/*',
+              ],
               message: 'core/ must stay framework-independent and cannot import app layer modules.',
             },
           ],
