@@ -1,10 +1,13 @@
 import type { PanelAction, PanelState } from '../core/types.js';
+import { createControlsView } from './components/controls-view.js';
 import { createStatusView } from './components/status-view.js';
 import { createTargetPickerView } from './components/target-picker-view.js';
 
 export interface PanelRenderTarget {
   readonly root: HTMLElement;
   readonly dispatch: (action: PanelAction) => void;
+  readonly onPrevious: () => void;
+  readonly onNext: () => void;
 }
 
 function makeButton(label: string, action: PanelAction, dispatch: (action: PanelAction) => void): HTMLButtonElement {
@@ -21,12 +24,18 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
   const heading = document.createElement('h2');
   heading.textContent = 'Image Trail';
 
+  const controls = createControlsView(
+    { onPrevious: target.onPrevious, onNext: target.onNext, dispatch: target.dispatch },
+    state.automation,
+  );
+
   const actions = document.createElement('div');
   actions.className = 'image-trail-panel__actions';
   actions.append(
     makeButton('Ping status', { name: 'ping-status' }, target.dispatch),
+    makeButton('Stop all', { name: 'stop-all' }, target.dispatch),
     makeButton('Close', { name: 'close-panel' }, target.dispatch),
   );
 
-  target.root.append(heading, createStatusView(state), createTargetPickerView(state.target, target.dispatch), actions);
+  target.root.append(heading, createStatusView(state), createTargetPickerView(state.target, target.dispatch), controls, actions);
 }

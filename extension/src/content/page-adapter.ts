@@ -135,10 +135,15 @@ export class PageAdapter {
     this.selected = image;
     this.mode = mode;
     markSelectedTarget(image);
+    const info = createTargetImageInfo(image);
+    if (info) image.setAttribute('data-image-trail-handle', info.handleId);
   }
 
   private restoreSelectedTarget(): void {
-    if (this.selected) restoreElementStyles(this.selected);
+    if (this.selected) {
+      restoreElementStyles(this.selected);
+      this.selected.removeAttribute('data-image-trail-handle');
+    }
     this.selected = null;
   }
 

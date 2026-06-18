@@ -1,4 +1,4 @@
-import type { PanelState, TargetState } from './types.js';
+import type { AutomationState, PanelState, TargetState } from './types.js';
 
 export const EMPTY_TARGET_STATE: TargetState = {
   mode: 'none',
@@ -10,8 +10,25 @@ export const EMPTY_TARGET_STATE: TargetState = {
   message: 'No target selected.',
 };
 
+export const EMPTY_AUTOMATION_STATE: AutomationState = {
+  slideshowPhase: 'idle',
+  slideshowCount: 0,
+  retryPhase: 'idle',
+  retriesUsed: 0,
+  retriesMax: 3,
+  governorStatus: 'ready',
+  requestsInLastMinute: 0,
+};
+
 export function createInitialPanelState(now = Date.now()): PanelState {
-  return { visible: false, status: 'idle', message: 'Image Trail is ready.', lastUpdatedAt: now, target: EMPTY_TARGET_STATE };
+  return {
+    visible: false,
+    status: 'idle',
+    message: 'Image Trail is ready.',
+    lastUpdatedAt: now,
+    target: EMPTY_TARGET_STATE,
+    automation: EMPTY_AUTOMATION_STATE,
+  };
 }
 
 export function showPanel(state: PanelState, now = Date.now()): PanelState {
@@ -26,6 +43,7 @@ export function closePanel(state: PanelState, now = Date.now()): PanelState {
     message: 'Panel closed.',
     lastUpdatedAt: now,
     target: { ...state.target, picking: false },
+    automation: EMPTY_AUTOMATION_STATE,
   };
 }
 
@@ -35,6 +53,14 @@ export function setTargetState(state: PanelState, target: TargetState, now = Dat
     status: target.picking ? 'picking' : 'ready',
     message: target.message,
     target,
+    lastUpdatedAt: now,
+  };
+}
+
+export function setAutomationState(state: PanelState, automation: Partial<AutomationState>, now = Date.now()): PanelState {
+  return {
+    ...state,
+    automation: { ...state.automation, ...automation },
     lastUpdatedAt: now,
   };
 }
