@@ -67,3 +67,46 @@
   overflow-wrap: anywhere;
   padding: 8px;
 }
+
+#image-trail-panel-root .image-trail-panel__item-actions {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+#image-trail-panel-root .image-trail-panel__capture-badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: #57a773;
+  color: #ffffff;
+  font-size: 11px;
+}
+
+#image-trail-panel-root .image-trail-panel__capture-btn {
+  background: #2b6cb0;
+}
+
+#image-trail-panel-root .image-trail-panel__capture-actions {
+  margin: 8px 0;
+}
+
+#image-trail-panel-root .image-trail-panel__capture-status {
+  color: #52606d;
+  font-style: italic;
+}
+
+#image-trail-panel-root .image-trail-panel__capture-error {
+  color: #c53030;
+  font-size: 13px;
+}
+
+#image-trail-panel-root .image-trail-panel__storage-usage {
+  color: #52606d;
+  font-size: 12px;
+}
+
+#image-trail-panel-root button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

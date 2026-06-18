@@ -1,8 +1,10 @@
+import type { CaptureStore } from '../content/capture-controller.js';
 import type { PageAdapter, TargetSelectionSnapshot } from '../content/page-adapter.js';
 import { createDisplayRecord } from '../core/display-records.js';
 import { reducePanelAction } from '../core/actions.js';
 import { createInitialPanelState, setTargetState } from '../core/state.js';
 import type { BookmarkStore, PanelAction, PanelState, TargetState } from '../core/types.js';
+import { isCapturedResult } from '../core/image/capture-result.js';
 import { renderPanel } from './render.js';
 
 const ROOT_ID = 'image-trail-panel-root';
@@ -30,6 +32,7 @@ export class ImageTrailPanel {
   constructor(
     private readonly pageAdapter: PageAdapter,
     private readonly bookmarkStore: BookmarkStore | null = null,
+    private readonly captureStore: CaptureStore | null = null,
   ) {
     this.unsubscribeFromTarget = this.pageAdapter.subscribe((snapshot) => {
       this.state = setTargetState(this.state, toTargetState(snapshot));
@@ -40,6 +43,7 @@ export class ImageTrailPanel {
       this.render();
     });
     void this.loadBookmarks();
+    void this.refreshStorageUsage();
   }
 
   get visible(): boolean {
@@ -110,6 +114,16 @@ export class ImageTrailPanel {
       return;
     }
 
+    if (action.name === 'capture/request') {
+      void this.captureImage(action.url, action.sourceType, action.sourceRecordId);
+      return;
+    }
+
+    if (action.name === 'capture/delete') {
+      void this.deleteCapturedBlob(action.id, action.blobId);
+      return;
+    }
+
     this.state = reducePanelAction(this.state, action);
     if (!this.state.visible) {
       this.cleanupMountedElements();
@@ -147,6 +161,36 @@ export class ImageTrailPanel {
     await this.bookmarkStore?.remove(bookmark);
     this.state = reducePanelAction(this.state, { name: 'bookmark/remove', id });
     this.render();
+  }
+
+  private async captureImage(url: string, sourceType: 'target' | 'history' | 'bookmark', sourceRecordId?: string): Promise<void> {
+    if (!this.captureStore) return;
+    this.state = reducePanelAction(this.state, { name: 'capture/start' });
+    this.render();
+    const result = await this.captureStore.requestCapture(url, sourceType, sourceRecordId);
+    this.state = reducePanelAction(this.state, { name: 'capture/complete', result, sourceRecordId });
+    if (isCapturedResult(result) && sourceType === 'bookmark' && sourceRecordId && this.bookmarkStore) {
+      const updatedBookmark = this.state.bookmarks.find((b) => b.id === sourceRecordId);
+      if (updatedBookmark) {
+        await this.bookmarkStore.save(updatedBookmark);
+      }
+    }
+    await this.refreshStorageUsage();
+    this.render();
+  }
+
+  private async deleteCapturedBlob(recordId: string, blobId: string): Promise<void> {
+    if (!this.captureStore) return;
+    this.state = reducePanelAction(this.state, { name: 'capture/delete', id: recordId, blobId });
+    const { usage } = await this.captureStore.requestDeleteBlob(blobId);
+    this.state = reducePanelAction(this.state, { name: 'storage/update', usage });
+    this.render();
+  }
+
+  private async refreshStorageUsage(): Promise<void> {
+    if (!this.captureStore) return;
+    const usage = await this.captureStore.requestStorageUsage();
+    this.state = reducePanelAction(this.state, { name: 'storage/update', usage });
   }
 
   private mount(): void {

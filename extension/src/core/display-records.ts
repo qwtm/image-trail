@@ -1,3 +1,5 @@
+import type { CaptureStatus } from './image/capture-result.js';
+
 export interface ImageDisplayRecord {
   readonly id: string;
   readonly url: string;
@@ -8,6 +10,8 @@ export interface ImageDisplayRecord {
   readonly downloadedAt?: string;
   readonly capturedAt?: string;
   readonly source?: 'history' | 'bookmark' | 'favorites';
+  readonly captureStatus?: CaptureStatus;
+  readonly blobId?: string;
 }
 
 export function normalizeDisplayLabel(record: Pick<ImageDisplayRecord, 'url' | 'title' | 'label'>): string {

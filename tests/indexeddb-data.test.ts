@@ -91,12 +91,19 @@ test('IndexedDB migrations create data stores, indexes, and schema metadata', as
   const db = await openFreshImageTrailDb();
   t.after(() => db.close());
 
-  assert.deepEqual(asArray(db.objectStoreNames), [DataStore.Bookmarks, DataStore.History, DataStore.Keys, DataStore.Metadata].sort());
+  assert.deepEqual(
+    asArray(db.objectStoreNames),
+    [DataStore.Blobs, DataStore.Bookmarks, DataStore.History, DataStore.Keys, DataStore.Metadata].sort(),
+  );
 
-  const transaction = db.transaction([DataStore.Metadata, DataStore.Keys, DataStore.History, DataStore.Bookmarks], 'readonly');
+  const transaction = db.transaction(
+    [DataStore.Metadata, DataStore.Keys, DataStore.History, DataStore.Bookmarks, DataStore.Blobs],
+    'readonly',
+  );
   const keys = transaction.objectStore(DataStore.Keys);
   const history = transaction.objectStore(DataStore.History);
   const bookmarks = transaction.objectStore(DataStore.Bookmarks);
+  const blobs = transaction.objectStore(DataStore.Blobs);
 
   assert.deepEqual(asArray(keys.indexNames), [SchemaIndex.KeysByKind, SchemaIndex.KeysByReference, SchemaIndex.KeysByUuid].sort());
   assert.deepEqual(asArray(history.indexNames), [SchemaIndex.HistoryByKeyReference, SchemaIndex.HistoryByUpdatedAt].sort());
@@ -104,6 +111,7 @@ test('IndexedDB migrations create data stores, indexes, and schema metadata', as
     asArray(bookmarks.indexNames),
     [SchemaIndex.BookmarksByKeyReference, SchemaIndex.BookmarksByUpdatedAt, SchemaIndex.BookmarksByUrl].sort(),
   );
+  assert.deepEqual(asArray(blobs.indexNames), [SchemaIndex.BlobsByCreatedAt, SchemaIndex.BlobsBySha256].sort());
 
   const metadata = await new Promise((resolve, reject) => {
     const request = transaction.objectStore(DataStore.Metadata).get('schema');
