@@ -78,11 +78,17 @@ export async function importEncryptedHistory(
   }
 }
 
+const VALID_CAPTURE_STATUSES = new Set(['remote-only', 'downloaded', 'failed']);
+
 function isValidHistoryEntry(value: unknown): value is HistoryImportEntry {
   if (typeof value !== 'object' || value === null) return false;
   const obj = value as Record<string, unknown>;
   if (typeof obj.uuid !== 'string') return false;
   if (typeof obj.payload !== 'object' || obj.payload === null) return false;
   const payload = obj.payload as Record<string, unknown>;
-  return typeof payload.url === 'string' && typeof payload.capturedAt === 'string';
+  return (
+    typeof payload.url === 'string' &&
+    typeof payload.capturedAt === 'string' &&
+    VALID_CAPTURE_STATUSES.has(payload.captureStatus as string)
+  );
 }

@@ -14,6 +14,7 @@ import { exportEncryptedHistory } from '../extension/src/data/import-export/hist
 import { importEncryptedHistory } from '../extension/src/data/import-export/history-import.js';
 import { importBookmarkletJson } from '../extension/src/data/import-export/bookmarklet-import.js';
 import { recallEncryptedRecord, recallSelectedRecords } from '../extension/src/data/import-export/recall.js';
+import { exportKeyWithPassword } from '../extension/src/data/import-export/key-export.js';
 import { createSessionKey } from '../extension/src/data/crypto/keyring.js';
 import { sealJsonEnvelope } from '../extension/src/data/crypto/envelope.js';
 import type { DurableHistoryPayloadV1 } from '../extension/src/data/types.js';
@@ -259,6 +260,44 @@ test('recall: batch recall reports partial failures', async () => {
   assert.equal(result.failed.length, 1);
   assert.equal(result.failed[0], 'bad');
   assert.equal(result.status.code, 'decryption-failed');
+});
+
+test('key-export: rejects non-extractable keys without attempting export', async () => {
+  const session = await createSessionKey('history', 'non-extractable-key');
+  assert.equal(session.key.extractable, false);
+
+  const result = await exportKeyWithPassword({
+    key: session.key,
+    keyReference: session.reference.reference,
+    keyKind: 'history',
+    password: 'test-password',
+  });
+
+  assert.equal(result.status.ok, false);
+  assert.equal(result.status.code, 'encryption-failed');
+  assert.ok(result.status.message.includes('not extractable'));
+});
+
+test('history-import: skips entries with missing captureStatus', async () => {
+  const exportResult = await exportEncryptedHistory({
+    entries: [
+      {
+        uuid: 'valid-entry',
+        payload: { url: 'https://example.test/valid.jpg', capturedAt: '2026-06-18T00:00:00.000Z', captureStatus: 'remote-only' as const },
+      },
+      {
+        uuid: 'invalid-entry',
+        payload: { url: 'https://example.test/invalid.jpg', capturedAt: '2026-06-18T00:00:00.000Z' } as DurableHistoryPayloadV1,
+      },
+    ],
+    password: 'test-pass',
+  });
+
+  const importResult = await importEncryptedHistory(exportResult.fileContent!, 'test-pass');
+  assert.ok(importResult.status.ok);
+  assert.equal(importResult.entries.length, 1);
+  assert.equal(importResult.entries[0].uuid, 'valid-entry');
+  assert.equal(importResult.skipped.length, 1);
 });
 
 test('encrypted-file-format: header contains all required metadata fields', () => {

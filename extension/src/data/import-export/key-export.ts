@@ -25,6 +25,16 @@ export interface KeyExportResult {
 export async function exportKeyWithPassword(input: KeyExportInput): Promise<KeyExportResult> {
   const { key, keyReference, keyKind, password, now = new Date().toISOString() } = input;
 
+  if (!key.extractable) {
+    return {
+      status: {
+        ok: false,
+        code: 'encryption-failed',
+        message: 'Key is not extractable. Generate an extractable key for export.',
+      },
+    };
+  }
+
   try {
     const rawKey = await getCrypto().subtle.exportKey('raw', key);
     const rawBytes = new Uint8Array(rawKey);
