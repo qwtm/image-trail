@@ -1,6 +1,22 @@
 import { createDisplayRecord } from './display-records.js';
+import type { ImageDisplayRecord } from './display-records.js';
+import { isCapturedResult } from './image/capture-result.js';
 import { closePanel, showPanel } from './state.js';
 import type { PanelAction, PanelState } from './types.js';
+
+function updateRecordCapture(
+  records: readonly ImageDisplayRecord[],
+  sourceRecordId: string | undefined,
+  blobId: string,
+  capturedAt: string,
+): readonly ImageDisplayRecord[] {
+  if (!sourceRecordId) return records;
+  return records.map((r) => (r.id === sourceRecordId ? { ...r, captureStatus: 'captured' as const, blobId, capturedAt } : r));
+}
+
+function clearRecordCapture(records: readonly ImageDisplayRecord[], id: string): readonly ImageDisplayRecord[] {
+  return records.map((r) => (r.id === id ? { ...r, captureStatus: undefined, blobId: undefined } : r));
+}
 
 export function reducePanelAction(state: PanelState, action: PanelAction): PanelState {
   switch (action.name) {
@@ -47,6 +63,35 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
     }
     case 'bookmark/remove':
       return { ...state, bookmarks: state.bookmarks.filter((item) => item.id !== action.id), lastUpdatedAt: Date.now() };
+    case 'capture/request':
+      return state;
+    case 'capture/start':
+      return { ...state, captureInProgress: true, captureResult: null, lastUpdatedAt: Date.now() };
+    case 'capture/complete': {
+      const now = new Date();
+      const updated: PanelState = { ...state, captureInProgress: false, captureResult: action.result, lastUpdatedAt: now.getTime() };
+      if (isCapturedResult(action.result) && action.sourceRecordId) {
+        const capturedAt = now.toISOString();
+        return {
+          ...updated,
+          history: updateRecordCapture(updated.history, action.sourceRecordId, action.result.blobId, capturedAt),
+          bookmarks: updateRecordCapture(updated.bookmarks, action.sourceRecordId, action.result.blobId, capturedAt),
+          message: `Captured ${(action.result.byteLength / 1024).toFixed(1)} KB image.`,
+        };
+      }
+      return updated;
+    }
+    case 'capture/clear':
+      return { ...state, captureResult: null, lastUpdatedAt: Date.now() };
+    case 'capture/delete':
+      return {
+        ...state,
+        history: clearRecordCapture(state.history, action.id),
+        bookmarks: clearRecordCapture(state.bookmarks, action.id),
+        lastUpdatedAt: Date.now(),
+      };
+    case 'storage/update':
+      return { ...state, storageUsage: action.usage, lastUpdatedAt: Date.now() };
     case 'undo-last':
       return state;
   }

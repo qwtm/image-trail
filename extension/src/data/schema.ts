@@ -1,13 +1,14 @@
 import type { DataStoreName } from './types.js';
 
 export const IMAGE_TRAIL_DB_NAME = 'image-trail';
-export const IMAGE_TRAIL_DB_VERSION = 2;
+export const IMAGE_TRAIL_DB_VERSION = 3;
 
 export const DataStore = {
   Metadata: 'metadata',
   Keys: 'keys',
   History: 'history',
   Bookmarks: 'bookmarks',
+  Blobs: 'blobs',
 } as const satisfies Record<string, DataStoreName>;
 
 export const DATA_STORE_NAMES = Object.values(DataStore);
@@ -21,4 +22,6 @@ export const SchemaIndex = {
   BookmarksByUrl: 'bookmarks.byUrl',
   BookmarksByUpdatedAt: 'bookmarks.byUpdatedAt',
   BookmarksByKeyReference: 'bookmarks.byKeyReference',
+  BlobsBySha256: 'blobs.bySha256',
+  BlobsByCreatedAt: 'blobs.byCreatedAt',
 } as const;

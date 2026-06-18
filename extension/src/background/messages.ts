@@ -5,6 +5,12 @@ export const MessageType = {
   Ping: 'imageTrail.ping',
   Status: 'imageTrail.status',
   Unknown: 'imageTrail.unknown',
+  CaptureImage: 'imageTrail.captureImage',
+  CaptureResult: 'imageTrail.captureResult',
+  StorageUsageRequest: 'imageTrail.storageUsageRequest',
+  StorageUsageResponse: 'imageTrail.storageUsageResponse',
+  DeleteBlob: 'imageTrail.deleteBlob',
+  DeleteBlobResult: 'imageTrail.deleteBlobResult',
 } as const;
 
 export type MessageType = (typeof MessageType)[keyof typeof MessageType];
@@ -33,8 +39,55 @@ export interface UnknownMessageResponse {
   readonly payload: { readonly reason: string };
 }
 
-export type ExtensionRequest = TogglePanelMessage | PingMessage;
-export type ExtensionResponse = StatusMessage | UnknownMessageResponse;
+export type CaptureSourceType = 'target' | 'history' | 'bookmark';
+
+export interface CaptureImageMessage {
+  readonly type: typeof MessageType.CaptureImage;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload: {
+    readonly url: string;
+    readonly sourceRecordId?: string;
+    readonly sourceType: CaptureSourceType;
+  };
+}
+
+export interface CaptureResultMessage {
+  readonly type: typeof MessageType.CaptureResult;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload: import('../core/image/capture-result.js').CaptureResult;
+}
+
+export interface StorageUsageRequestMessage {
+  readonly type: typeof MessageType.StorageUsageRequest;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload: Record<string, never>;
+}
+
+export interface StorageUsageResponseMessage {
+  readonly type: typeof MessageType.StorageUsageResponse;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload: import('../core/image/capture-result.js').StorageUsageSummary;
+}
+
+export interface DeleteBlobMessage {
+  readonly type: typeof MessageType.DeleteBlob;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload: { readonly blobId: string };
+}
+
+export interface DeleteBlobResultMessage {
+  readonly type: typeof MessageType.DeleteBlobResult;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload: { readonly deleted: boolean; readonly usage: import('../core/image/capture-result.js').StorageUsageSummary };
+}
+
+export type ExtensionRequest = TogglePanelMessage | PingMessage | CaptureImageMessage | StorageUsageRequestMessage | DeleteBlobMessage;
+export type ExtensionResponse =
+  | StatusMessage
+  | UnknownMessageResponse
+  | CaptureResultMessage
+  | StorageUsageResponseMessage
+  | DeleteBlobResultMessage;
 export type ExtensionMessage = ExtensionRequest | ExtensionResponse;
 
 export function createTogglePanelMessage(): TogglePanelMessage {
@@ -53,6 +106,35 @@ export function createUnknownMessageResponse(reason: string): UnknownMessageResp
   return { type: MessageType.Unknown, version: MESSAGE_PROTOCOL_VERSION, payload: { reason } };
 }
 
+export function createCaptureImageMessage(url: string, sourceType: CaptureSourceType, sourceRecordId?: string): CaptureImageMessage {
+  return { type: MessageType.CaptureImage, version: MESSAGE_PROTOCOL_VERSION, payload: { url, sourceType, sourceRecordId } };
+}
+
+export function createCaptureResultMessage(result: import('../core/image/capture-result.js').CaptureResult): CaptureResultMessage {
+  return { type: MessageType.CaptureResult, version: MESSAGE_PROTOCOL_VERSION, payload: result };
+}
+
+export function createStorageUsageRequestMessage(): StorageUsageRequestMessage {
+  return { type: MessageType.StorageUsageRequest, version: MESSAGE_PROTOCOL_VERSION, payload: {} };
+}
+
+export function createStorageUsageResponseMessage(
+  usage: import('../core/image/capture-result.js').StorageUsageSummary,
+): StorageUsageResponseMessage {
+  return { type: MessageType.StorageUsageResponse, version: MESSAGE_PROTOCOL_VERSION, payload: usage };
+}
+
+export function createDeleteBlobMessage(blobId: string): DeleteBlobMessage {
+  return { type: MessageType.DeleteBlob, version: MESSAGE_PROTOCOL_VERSION, payload: { blobId } };
+}
+
+export function createDeleteBlobResultMessage(
+  deleted: boolean,
+  usage: import('../core/image/capture-result.js').StorageUsageSummary,
+): DeleteBlobResultMessage {
+  return { type: MessageType.DeleteBlobResult, version: MESSAGE_PROTOCOL_VERSION, payload: { deleted, usage } };
+}
+
 function hasVersionedObjectShape(value: unknown): value is { type?: unknown; version?: unknown; payload?: unknown } {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as { version?: unknown; payload?: unknown };
@@ -61,12 +143,29 @@ function hasVersionedObjectShape(value: unknown): value is { type?: unknown; ver
 
 export function isExtensionRequest(value: unknown): value is ExtensionRequest {
   if (!hasVersionedObjectShape(value)) return false;
-  return value.type === MessageType.TogglePanel || value.type === MessageType.Ping;
+  return (
+    value.type === MessageType.TogglePanel ||
+    value.type === MessageType.Ping ||
+    value.type === MessageType.CaptureImage ||
+    value.type === MessageType.StorageUsageRequest ||
+    value.type === MessageType.DeleteBlob
+  );
 }
 
 export function isExtensionResponse(value: unknown): value is ExtensionResponse {
   if (!hasVersionedObjectShape(value)) return false;
-  return value.type === MessageType.Status || value.type === MessageType.Unknown;
+  return (
+    value.type === MessageType.Status ||
+    value.type === MessageType.Unknown ||
+    value.type === MessageType.CaptureResult ||
+    value.type === MessageType.StorageUsageResponse ||
+    value.type === MessageType.DeleteBlobResult
+  );
+}
+
+export function isCaptureResultMessage(value: unknown): value is CaptureResultMessage {
+  if (!hasVersionedObjectShape(value)) return false;
+  return value.type === MessageType.CaptureResult;
 }
 
 export function isStatusMessage(value: unknown): value is StatusMessage {

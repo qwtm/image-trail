@@ -19,6 +19,9 @@ export function createInitialPanelState(now = Date.now()): PanelState {
     target: EMPTY_TARGET_STATE,
     history: [],
     bookmarks: [],
+    captureInProgress: false,
+    captureResult: null,
+    storageUsage: null,
   };
 }
 

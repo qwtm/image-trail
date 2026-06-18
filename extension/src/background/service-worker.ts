@@ -1,4 +1,21 @@
-import { createPingMessage, createTogglePanelMessage, isStatusMessage } from './messages.js';
+import type { StorageUsageSummary } from '../core/image/capture-result.js';
+import { computeSha256 } from '../core/image/fingerprints.js';
+import { openImageTrailDb } from '../data/db.js';
+import { BlobsRepository } from '../data/repositories/blobs-repository.js';
+import type { StoredBlobRecord } from '../data/types.js';
+import { fetchImageBytes } from './fetch-image.js';
+import {
+  MessageType,
+  createCaptureResultMessage,
+  createDeleteBlobResultMessage,
+  createPingMessage,
+  createStorageUsageResponseMessage,
+  createTogglePanelMessage,
+  isExtensionRequest,
+  isStatusMessage,
+} from './messages.js';
+import type { CaptureImageMessage, DeleteBlobMessage } from './messages.js';
+import { extractOrigin, hasOriginPermission } from './permissions.js';
 
 const CONTENT_SCRIPT_FILE = 'src/content/content-script.js';
 const SUPPORTED_PAGE_PATTERN = /^https?:\/\//u;
@@ -29,6 +46,101 @@ async function sendToggle(tabId: number): Promise<void> {
     console.warn('Image Trail received an unexpected toggle response.', response);
   }
 }
+
+let dbPromise: Promise<IDBDatabase | null> | null = null;
+
+function getDb(): Promise<IDBDatabase | null> {
+  if (!dbPromise) {
+    dbPromise = openImageTrailDb().then((result) => (result.status.ok ? result.db : null));
+  }
+  return dbPromise;
+}
+
+async function handleCaptureImage(message: CaptureImageMessage): Promise<import('../core/image/capture-result.js').CaptureResult> {
+  const { url } = message.payload;
+
+  const origin = extractOrigin(url);
+  if (origin && !(await hasOriginPermission(origin))) {
+    return { status: 'remote-only', reason: 'permission-needed', message: `Permission needed for ${origin}.`, origin };
+  }
+
+  const fetchResult = await fetchImageBytes(url);
+  if (!fetchResult.ok) {
+    return { status: 'failed', reason: fetchResult.reason, message: fetchResult.message };
+  }
+
+  const db = await getDb();
+  if (!db) {
+    return { status: 'failed', reason: 'unknown', message: 'Database unavailable.' };
+  }
+
+  const sha256 = await computeSha256(fetchResult.bytes);
+  const blobs = new BlobsRepository(db);
+
+  const existing = await blobs.getBySha256(sha256);
+  if (existing) {
+    const updated = await blobs.put(existing);
+    return { status: 'captured', blobId: updated.id, sha256, mimeType: fetchResult.mimeType, byteLength: fetchResult.byteLength };
+  }
+
+  const record: StoredBlobRecord = {
+    id: crypto.randomUUID(),
+    kind: 'original',
+    sha256,
+    mimeType: fetchResult.mimeType,
+    byteLength: fetchResult.byteLength,
+    bytes: fetchResult.bytes,
+    createdAt: new Date().toISOString(),
+    sourceUrl: url,
+    referenceCount: 1,
+  };
+  await blobs.put(record);
+  return { status: 'captured', blobId: record.id, sha256, mimeType: fetchResult.mimeType, byteLength: fetchResult.byteLength };
+}
+
+async function handleDeleteBlob(message: DeleteBlobMessage): Promise<{ deleted: boolean; usage: StorageUsageSummary }> {
+  const db = await getDb();
+  if (!db) {
+    return { deleted: false, usage: { totalBytes: 0, blobCount: 0 } };
+  }
+  const blobs = new BlobsRepository(db);
+  await blobs.remove(message.payload.blobId);
+  const usage = await blobs.getStorageUsage();
+  return { deleted: true, usage };
+}
+
+async function handleStorageUsage(): Promise<StorageUsageSummary> {
+  const db = await getDb();
+  if (!db) return { totalBytes: 0, blobCount: 0 };
+  return new BlobsRepository(db).getStorageUsage();
+}
+
+chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
+  if (!isExtensionRequest(message)) return false;
+
+  switch (message.type) {
+    case MessageType.CaptureImage:
+      handleCaptureImage(message)
+        .then((result) => sendResponse(createCaptureResultMessage(result)))
+        .catch(() => sendResponse(createCaptureResultMessage({ status: 'failed', reason: 'unknown', message: 'Internal capture error.' })));
+      return true;
+
+    case MessageType.StorageUsageRequest:
+      handleStorageUsage()
+        .then((usage) => sendResponse(createStorageUsageResponseMessage(usage)))
+        .catch(() => sendResponse(createStorageUsageResponseMessage({ totalBytes: 0, blobCount: 0 })));
+      return true;
+
+    case MessageType.DeleteBlob:
+      handleDeleteBlob(message)
+        .then(({ deleted, usage }) => sendResponse(createDeleteBlobResultMessage(deleted, usage)))
+        .catch(() => sendResponse(createDeleteBlobResultMessage(false, { totalBytes: 0, blobCount: 0 })));
+      return true;
+
+    default:
+      return false;
+  }
+});
 
 chrome.action.onClicked.addListener((tab) => {
   const tabId = tab.id;

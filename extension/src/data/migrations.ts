@@ -28,6 +28,12 @@ export function migrateImageTrailDb(db: IDBDatabase, oldVersion: number, transac
     }
   }
 
+  if (oldVersion < 3) {
+    const blobs = db.createObjectStore(DataStore.Blobs, { keyPath: 'id' });
+    blobs.createIndex(SchemaIndex.BlobsBySha256, 'sha256', { unique: false });
+    blobs.createIndex(SchemaIndex.BlobsByCreatedAt, 'createdAt', { unique: false });
+  }
+
   const metadata = transaction?.objectStore(DataStore.Metadata);
   metadata?.put({
     key: 'schema',

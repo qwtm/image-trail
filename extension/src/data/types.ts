@@ -1,4 +1,4 @@
-export type DataStoreName = 'metadata' | 'keys' | 'history' | 'bookmarks';
+export type DataStoreName = 'metadata' | 'keys' | 'history' | 'bookmarks' | 'blobs';
 export type DataStatusCode =
   | 'ok'
   | 'db-open-failed'
@@ -21,6 +21,28 @@ export interface VersionMetadataRecord {
   readonly migratedAt: string;
 }
 
+export type BlobKind = 'original' | 'thumbnail';
+
+export interface StoredBlobRecord {
+  readonly id: string;
+  readonly kind: BlobKind;
+  readonly sha256: string;
+  readonly mimeType: string;
+  readonly byteLength: number;
+  readonly bytes: ArrayBuffer;
+  readonly createdAt: string;
+  readonly sourceUrl: string;
+  readonly referenceCount: number;
+}
+
+export interface StoredOriginalReference {
+  readonly blobId: string;
+  readonly sha256: string;
+  readonly mimeType: string;
+  readonly byteLength: number;
+  readonly capturedAt: string;
+}
+
 export interface DurableHistoryPayloadV1 {
   readonly url: string;
   readonly title?: string;
@@ -28,6 +50,7 @@ export interface DurableHistoryPayloadV1 {
   readonly thumbnail?: string;
   readonly capturedAt: string;
   readonly captureStatus: 'remote-only' | 'downloaded' | 'failed';
+  readonly storedOriginal?: StoredOriginalReference;
 }
 
 export interface DurableBookmarkPayloadV1 {
@@ -39,4 +62,5 @@ export interface DurableBookmarkPayloadV1 {
   readonly downloadedAt?: string;
   readonly capturedAt?: string;
   readonly sourceCompatibility?: 'favorites';
+  readonly storedOriginal?: StoredOriginalReference;
 }
