@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { reducePanelAction } from '../extension/src/core/actions.js';
+import { createInitialPanelState } from '../extension/src/core/state.js';
+import type { PanelState } from '../extension/src/core/types.js';
 import { createRuntimeHistoryState, getVisibleHistory, reduceRuntimeHistory } from '../extension/src/data/runtime/runtime-history.js';
 import { UndoStack } from '../extension/src/data/runtime/undo-stack.js';
 
@@ -63,4 +66,100 @@ test('target selection alone does not commit runtime history before load success
   );
 
   assert.deepEqual(selected.history, []);
+});
+
+test('capture/start sets captureInProgress and clears previous result', () => {
+  const initial = createInitialPanelState(0);
+  const started = reducePanelAction(initial, { name: 'capture/start' });
+
+  assert.equal(started.captureInProgress, true);
+  assert.equal(started.captureResult, null);
+});
+
+test('capture/complete stores result and clears in-progress flag', () => {
+  let state: PanelState = reducePanelAction(createInitialPanelState(0), { name: 'capture/start' });
+
+  const result = { status: 'captured' as const, blobId: 'b-1', sha256: 'abc', mimeType: 'image/png', byteLength: 2048 };
+  state = reducePanelAction(state, { name: 'capture/complete', result });
+
+  assert.equal(state.captureInProgress, false);
+  assert.deepEqual(state.captureResult, result);
+});
+
+test('capture/complete with sourceRecordId updates matching history record', () => {
+  let state = createInitialPanelState(0);
+  state = reducePanelAction(state, {
+    name: 'history/add-loaded',
+    url: 'https://example.com/img.jpg',
+    timestamp: '2026-01-01T00:00:00.000Z',
+  });
+  const recordId = state.history[0].id;
+
+  state = reducePanelAction(state, { name: 'capture/start' });
+  state = reducePanelAction(state, {
+    name: 'capture/complete',
+    result: { status: 'captured', blobId: 'blob-42', sha256: 'def', mimeType: 'image/jpeg', byteLength: 4096 },
+    sourceRecordId: recordId,
+  });
+
+  assert.equal(state.history[0].captureStatus, 'captured');
+  assert.equal(state.history[0].blobId, 'blob-42');
+});
+
+test('capture/complete with failed result does not modify records', () => {
+  let state = createInitialPanelState(0);
+  state = reducePanelAction(state, { name: 'history/add-loaded', url: 'https://example.com/img.jpg' });
+  const recordId = state.history[0].id;
+
+  state = reducePanelAction(state, { name: 'capture/start' });
+  state = reducePanelAction(state, {
+    name: 'capture/complete',
+    result: { status: 'failed', reason: 'too-large', message: 'Too big.' },
+    sourceRecordId: recordId,
+  });
+
+  assert.equal(state.history[0].captureStatus, undefined);
+  assert.equal(state.history[0].blobId, undefined);
+  assert.equal(state.captureResult?.status, 'failed');
+});
+
+test('capture/clear dismisses the current capture result', () => {
+  let state = reducePanelAction(createInitialPanelState(0), { name: 'capture/start' });
+  state = reducePanelAction(state, {
+    name: 'capture/complete',
+    result: { status: 'failed', reason: 'network-error', message: 'Network down.' },
+  });
+  assert.ok(state.captureResult);
+
+  state = reducePanelAction(state, { name: 'capture/clear' });
+  assert.equal(state.captureResult, null);
+});
+
+test('capture/delete clears capture status and blobId from matching records', () => {
+  let state = createInitialPanelState(0);
+  state = reducePanelAction(state, { name: 'history/add-loaded', url: 'https://example.com/a.jpg' });
+  const recordId = state.history[0].id;
+
+  state = reducePanelAction(state, { name: 'capture/start' });
+  state = reducePanelAction(state, {
+    name: 'capture/complete',
+    result: { status: 'captured', blobId: 'blob-99', sha256: 'xyz', mimeType: 'image/png', byteLength: 512 },
+    sourceRecordId: recordId,
+  });
+  assert.equal(state.history[0].captureStatus, 'captured');
+
+  state = reducePanelAction(state, { name: 'capture/delete', id: recordId, blobId: 'blob-99' });
+  assert.equal(state.history[0].captureStatus, undefined);
+  assert.equal(state.history[0].blobId, undefined);
+});
+
+test('storage/update sets storage usage summary on panel state', () => {
+  let state = createInitialPanelState(0);
+  assert.equal(state.storageUsage, null);
+
+  state = reducePanelAction(state, { name: 'storage/update', usage: { totalBytes: 10240, blobCount: 2 } });
+  assert.deepEqual(state.storageUsage, { totalBytes: 10240, blobCount: 2 });
+
+  state = reducePanelAction(state, { name: 'storage/update', usage: { totalBytes: 0, blobCount: 0 } });
+  assert.deepEqual(state.storageUsage, { totalBytes: 0, blobCount: 0 });
 });
