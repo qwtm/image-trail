@@ -219,18 +219,18 @@ export class ImageTrailPanel {
 
   private navigateBy(delta: 1 | -1): void {
     const result = this.governor.request(() => {
-      const url = this.state.target.selectedUrl;
-      if (!url) return false;
-      const model = parseUrl(url);
+      const snapshot = this.pageAdapter.getSnapshot();
+      if (!snapshot.selected) return false;
+      const image = document.querySelector<HTMLImageElement>(`[data-image-trail-handle="${snapshot.selected.handleId}"]`);
+      if (!image) return false;
+      const currentUrl = image.src;
+      if (!currentUrl) return false;
+      const model = parseUrl(currentUrl);
       const fields = collectUrlFields(model);
       const field = selectDefaultField(fields);
       if (!field) return false;
       const bumped = bumpUrlField(model, field, delta);
       const nextUrl = rebuildUrl(bumped);
-      const snapshot = this.pageAdapter.getSnapshot();
-      if (!snapshot.selected) return false;
-      const image = document.querySelector<HTMLImageElement>(`[data-image-trail-handle="${snapshot.selected.handleId}"]`);
-      if (!image) return false;
       applyImageUrl(image, nextUrl);
       return true;
     });

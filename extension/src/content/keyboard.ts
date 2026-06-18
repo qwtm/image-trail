@@ -71,7 +71,7 @@ export class KeyboardRouter {
 
   private onKeyDown = (event: KeyboardEvent): void => {
     const target = classifyTarget(event);
-    if (target === 'typing') return;
+    if (target === 'typing' || target === 'button') return;
 
     for (const binding of this.bindings) {
       if (matchesBinding(event, binding)) {

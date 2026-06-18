@@ -7,6 +7,7 @@ export type RetryAdvanceFn = (direction: 1 | -1) => void;
 export class Retry404 {
   private phase: AutomationPhase = 'idle';
   private attempt = 0;
+  private runId = 0;
   private timerId: ReturnType<typeof setTimeout> | null = null;
   private config: RetryConfig;
 
@@ -34,8 +35,9 @@ export class Retry404 {
   start(): void {
     if (this.phase === 'running') return;
     this.attempt = 0;
+    this.runId++;
     this.setPhase('running');
-    void this.tryOnce();
+    void this.tryOnce(this.runId);
   }
 
   stop(): void {
@@ -55,23 +57,24 @@ export class Retry404 {
     this.attempt = 0;
   }
 
-  private async tryOnce(): Promise<void> {
-    if (this.phase !== 'running') return;
+  private async tryOnce(expectedRunId: number): Promise<void> {
+    if (this.phase !== 'running' || this.runId !== expectedRunId) return;
 
     this.attempt++;
     this.onPhaseChange(this.phase, this.attempt, this.config.maxRetries);
 
     try {
       const success = await this.loadFn();
+      if (this.runId !== expectedRunId) return;
       if (success) {
         this.setPhase('idle');
         return;
       }
     } catch {
-      // treat load error as failure, continue retry logic
+      if (this.runId !== expectedRunId) return;
     }
 
-    if (this.phase !== 'running') return;
+    if (this.phase !== 'running' || this.runId !== expectedRunId) return;
 
     if (this.attempt >= this.config.maxRetries) {
       if (this.config.advanceOnExhaust) {
@@ -84,7 +87,7 @@ export class Retry404 {
     }
 
     this.timerId = setTimeout(() => {
-      void this.tryOnce();
+      void this.tryOnce(expectedRunId);
     }, this.config.retryDelayMs);
   }
 

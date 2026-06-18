@@ -91,6 +91,18 @@ test('custom bindings override defaults', () => {
   assert.deepEqual(actions, ['custom-next', 'custom-prev']);
 });
 
+test('skips focused button targets to preserve native activation', () => {
+  const actions: string[] = [];
+  const router = new KeyboardRouter((a) => actions.push(a));
+  const handler = (router as unknown as { onKeyDown: (e: KeyboardEvent) => void }).onKeyDown;
+
+  const buttonTarget = { tagName: 'BUTTON' } as unknown as EventTarget;
+  handler(makeFakeKeydown(' ', { target: buttonTarget }));
+  handler(makeFakeKeydown('Enter', { shiftKey: true, target: buttonTarget }));
+
+  assert.equal(actions.length, 0);
+});
+
 test('skips contentEditable targets', () => {
   const actions: string[] = [];
   const router = new KeyboardRouter((a) => actions.push(a));
