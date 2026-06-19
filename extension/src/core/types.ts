@@ -36,6 +36,8 @@ export interface PanelState {
   readonly captureResult: CaptureResult | null;
   readonly storageUsage: StorageUsageSummary | null;
   readonly automation: AutomationState;
+  readonly selectedHistoryId: string | null;
+  readonly activeFieldId: string | null;
 }
 
 export type CaptureSourceType = 'target' | 'history' | 'bookmark';
@@ -48,6 +50,10 @@ export type PanelActionName =
   | 'stop-target-picker'
   | 'history/add-loaded'
   | 'history/remove'
+  | 'history/load'
+  | 'history/download'
+  | 'history/select'
+  | 'active-field/set'
   | 'bookmark/current'
   | 'bookmark/load'
   | 'bookmark/remove'
@@ -74,6 +80,8 @@ export type PanelAction =
         PanelActionName,
         | 'history/add-loaded'
         | 'history/remove'
+        | 'history/select'
+        | 'active-field/set'
         | 'bookmark/load'
         | 'bookmark/remove'
         | 'capture/request'
@@ -85,7 +93,9 @@ export type PanelAction =
       >;
     }
   | { readonly name: 'history/add-loaded'; readonly url: string; readonly title?: string; readonly timestamp?: string }
-  | { readonly name: 'history/remove' | 'bookmark/load' | 'bookmark/remove'; readonly id: string }
+  | { readonly name: 'history/remove' | 'bookmark/load' | 'bookmark/remove' | 'history/select'; readonly id: string }
+  | { readonly name: 'history/load' | 'history/download' }
+  | { readonly name: 'active-field/set'; readonly id: string | null }
   | { readonly name: 'capture/request'; readonly url: string; readonly sourceType: CaptureSourceType; readonly sourceRecordId?: string }
   | { readonly name: 'capture/start' }
   | { readonly name: 'capture/complete'; readonly result: CaptureResult; readonly sourceRecordId?: string }
