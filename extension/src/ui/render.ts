@@ -58,14 +58,17 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
   const captureSection = document.createElement('div');
   captureSection.className = 'image-trail-panel__capture-actions';
   if (!isNoTarget) {
-    const captureBtn = makeButton(
-      'Capture original',
-      { name: 'capture/request', url: state.target.selectedUrl, sourceType: 'target' },
-      target.dispatch,
-      state.captureInProgress || !state.target.selectedUrl,
-    );
-    captureBtn.className = 'image-trail-panel__capture-btn';
-    captureSection.append(captureBtn);
+    const selectedUrl = state.target.selectedUrl;
+    if (selectedUrl) {
+      const captureBtn = makeButton(
+        'Capture original',
+        { name: 'capture/request', url: selectedUrl, sourceType: 'target' },
+        target.dispatch,
+        state.captureInProgress,
+      );
+      captureBtn.className = 'image-trail-panel__capture-btn';
+      captureSection.append(captureBtn);
+    }
   }
 
   const navSection = document.createElement('div');
