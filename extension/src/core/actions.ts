@@ -79,6 +79,17 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
     }
     case 'bookmark/remove':
       return { ...state, bookmarks: state.bookmarks.filter((item) => item.id !== action.id), lastUpdatedAt: Date.now() };
+    case 'bookmarks/page-loaded':
+      return {
+        ...state,
+        bookmarks: action.bookmarks,
+        bookmarkOffset: action.offset,
+        bookmarkLimit: action.limit,
+        bookmarkTotal: action.total,
+        hasOlderBookmarks: action.hasOlder,
+        hasNewerBookmarks: action.hasNewer,
+        lastUpdatedAt: Date.now(),
+      };
     case 'capture/request':
       return state;
     case 'capture/start':

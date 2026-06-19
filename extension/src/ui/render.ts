@@ -218,7 +218,19 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
     navSection,
     autoSection,
     createHistoryView(state.history, state.captureInProgress, target.dispatch),
-    createBookmarksView(state.target.selectedUrl, state.bookmarks, state.captureInProgress, target.dispatch),
+    createBookmarksView(
+      state.target.selectedUrl,
+      state.bookmarks,
+      state.captureInProgress,
+      {
+        offset: state.bookmarkOffset,
+        limit: state.bookmarkLimit,
+        total: state.bookmarkTotal,
+        hasOlder: state.hasOlderBookmarks,
+        hasNewer: state.hasNewerBookmarks,
+      },
+      target.dispatch,
+    ),
     actions,
   );
   restoreFocusedTextControl(target.root, focusedTextControl);

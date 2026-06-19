@@ -1,6 +1,6 @@
 export type EncryptionAlgorithm = 'AES-GCM';
 export type KeyKind = 'root' | 'history' | 'bookmark' | 'metadata' | 'export' | 'blob';
-export type KeyWrappingMode = 'session' | 'password' | 'webauthn' | 'imported';
+export type KeyWrappingMode = 'session' | 'password' | 'webauthn' | 'imported' | 'indexeddb';
 export type KeyReferenceString<K extends KeyKind = KeyKind> = `${K}:${string}`;
 
 export interface KeyReference<K extends KeyKind = KeyKind> {
@@ -21,6 +21,7 @@ export interface StoredKeyRecord<K extends KeyKind = KeyKind> extends KeyReferen
     readonly wrappedKey?: string;
   };
   readonly extractable: boolean;
+  readonly key?: CryptoKey;
 }
 
 export interface EncryptedEnvelope<TMetadata extends Record<string, unknown> = Record<string, unknown>> {

@@ -1,34 +1,71 @@
 import type { ImageDisplayRecord } from '../core/display-records.js';
 import { createDisplayRecord } from '../core/display-records.js';
-import { createSessionKey, type SessionKeyRecord } from '../data/crypto/keyring.js';
+import { createKeyReference } from '../data/crypto/key-reference.js';
+import type { KeyReference, StoredKeyRecord } from '../data/crypto/types.js';
+import { generateAesGcmKey } from '../data/crypto/webcrypto.js';
 import { openImageTrailDb } from '../data/db.js';
 import { BookmarksRepository } from '../data/repositories/bookmarks-repository.js';
 import { KeysRepository } from '../data/repositories/keys-repository.js';
+import { DEFAULT_LOCAL_SETTINGS } from '../data/local-settings.js';
 import type { DurableBookmarkPayloadV1 } from '../data/types.js';
 import type { BookmarkStore } from '../core/types.js';
+
+interface DurableBookmarkKeyRecord extends StoredKeyRecord<'bookmark'> {
+  readonly key: CryptoKey;
+}
+
+interface BookmarkKeyContext {
+  readonly reference: KeyReference<'bookmark'>;
+  readonly key: CryptoKey;
+}
+
+export interface BookmarkPage {
+  readonly items: readonly ImageDisplayRecord[];
+  readonly offset: number;
+  readonly limit: number;
+  readonly total: number;
+  readonly hasOlder: boolean;
+  readonly hasNewer: boolean;
+}
 
 export class IndexedDbBookmarkStore implements BookmarkStore {
   private ready: Promise<{
     readonly db: IDBDatabase;
     readonly repository: BookmarksRepository;
-    readonly session: SessionKeyRecord<'bookmark'>;
+    readonly bookmarkKey: BookmarkKeyContext;
   } | null> | null = null;
 
   async load(): Promise<readonly ImageDisplayRecord[]> {
-    const context = await this.openContext();
-    if (!context) return [];
+    return (await this.loadPage({ offset: 0, limit: DEFAULT_LOCAL_SETTINGS.visibleBookmarkSoftMax })).items;
+  }
 
-    const records = await context.repository.listEncrypted();
+  async loadPage(input: { readonly offset: number; readonly limit: number }): Promise<BookmarkPage> {
+    const context = await this.openContext();
+    const offset = Math.max(0, input.offset);
+    const limit = Math.max(1, input.limit);
+    if (!context) return { items: [], offset, limit, total: 0, hasOlder: false, hasNewer: false };
+
+    const records = await context.repository.listEncryptedNewestFirst();
     const loaded: ImageDisplayRecord[] = [];
     for (const record of records) {
       try {
-        const payload = await context.repository.open(record.uuid, context.session.key);
+        const payload = await context.repository.openRecord(record, context.bookmarkKey.key);
         if (payload) loaded.push(toDisplayRecord(record.uuid, payload));
       } catch {
-        // Bookmarks encrypted with unavailable session keys stay durable but locked.
+        // Bookmarks encrypted with unavailable legacy keys stay durable but hidden.
       }
     }
-    return loaded.sort((left, right) => right.timestamp.localeCompare(left.timestamp));
+    const total = loaded.length;
+    const clampedOffset = clampPageOffset(offset, limit, total);
+    const items = loaded.slice(clampedOffset, clampedOffset + limit);
+    return {
+      items,
+      offset: clampedOffset,
+      limit,
+      total,
+      hasOlder: clampedOffset + limit < total,
+      hasNewer: clampedOffset > 0,
+    };
   }
 
   async save(record: ImageDisplayRecord): Promise<ImageDisplayRecord> {
@@ -38,7 +75,7 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
 
     const existing = await context.repository.getEncryptedByUrl(bookmark.url);
     const uuid = existing?.uuid ?? crypto.randomUUID();
-    await context.repository.sealAndPut(uuid, toPayload(bookmark), context.session.key, context.session.reference);
+    await context.repository.sealAndPut(uuid, toPayload(bookmark), context.bookmarkKey.key, context.bookmarkKey.reference);
     return { ...bookmark, id: uuid };
   }
 
@@ -49,10 +86,16 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
     if (existing) await context.repository.remove(existing.uuid);
   }
 
+  async close(): Promise<void> {
+    const context = await this.ready;
+    context?.db.close();
+    this.ready = null;
+  }
+
   private openContext(): Promise<{
     readonly db: IDBDatabase;
     readonly repository: BookmarksRepository;
-    readonly session: SessionKeyRecord<'bookmark'>;
+    readonly bookmarkKey: BookmarkKeyContext;
   } | null> {
     this.ready ??= this.createContext();
     return this.ready;
@@ -61,14 +104,42 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
   private async createContext(): Promise<{
     readonly db: IDBDatabase;
     readonly repository: BookmarksRepository;
-    readonly session: SessionKeyRecord<'bookmark'>;
+    readonly bookmarkKey: BookmarkKeyContext;
   } | null> {
     const result = await openImageTrailDb();
     if (!result.db) return null;
-    const session = await createSessionKey('bookmark');
-    await new KeysRepository(result.db).put(session.metadata);
-    return { db: result.db, repository: new BookmarksRepository(result.db), session };
+    const bookmarkKey = await ensureDurableBookmarkKey(new KeysRepository(result.db));
+    return { db: result.db, repository: new BookmarksRepository(result.db), bookmarkKey };
   }
+}
+
+async function ensureDurableBookmarkKey(repository: KeysRepository): Promise<BookmarkKeyContext> {
+  const existing = (await repository.listByKind('bookmark')).find(isDurableBookmarkKeyRecord);
+  if (existing) return { reference: existing, key: existing.key };
+
+  const uuid = crypto.randomUUID();
+  const reference = createKeyReference('bookmark', uuid);
+  const now = new Date().toISOString();
+  const record: DurableBookmarkKeyRecord = {
+    ...reference,
+    key: await generateAesGcmKey(false),
+    createdAt: now,
+    updatedAt: now,
+    wrapping: { mode: 'indexeddb', algorithm: 'none' },
+    extractable: false,
+  };
+  await repository.put(record);
+  return { reference, key: record.key };
+}
+
+function isDurableBookmarkKeyRecord(record: StoredKeyRecord): record is DurableBookmarkKeyRecord {
+  return typeof CryptoKey !== 'undefined' && record.kind === 'bookmark' && record.key instanceof CryptoKey;
+}
+
+function clampPageOffset(offset: number, limit: number, total: number): number {
+  if (total <= 0) return 0;
+  const lastPageOffset = Math.floor((total - 1) / limit) * limit;
+  return Math.min(offset, lastPageOffset);
 }
 
 function toPayload(record: ImageDisplayRecord): DurableBookmarkPayloadV1 {

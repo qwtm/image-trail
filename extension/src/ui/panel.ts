@@ -9,6 +9,7 @@ import { Slideshow } from '../core/automation/slideshow.js';
 import { createInitialPanelState, setAutomationState, setTargetState } from '../core/state.js';
 import type { BookmarkStore, PanelAction, PanelState, TargetState } from '../core/types.js';
 import { isCapturedResult } from '../core/image/capture-result.js';
+import { DEFAULT_LOCAL_SETTINGS, LocalSettingsRepository } from '../data/local-settings.js';
 import { applyImageUrl } from '../core/image/image-navigation.js';
 import { parseUrl } from '../core/url/parse-url.js';
 import { bumpUrlField, rebuildUrl, setUrlFieldValue } from '../core/url/rebuild-url.js';
@@ -49,6 +50,8 @@ export class ImageTrailPanel {
   private readonly keyboard: KeyboardRouter;
   private readonly slideshow: Slideshow;
   private readonly retry: Retry404;
+  private readonly bookmarkLimit = new LocalSettingsRepository().load().visibleBookmarkSoftMax;
+  private bookmarkMutationQueue: Promise<void> = Promise.resolve();
 
   constructor(
     private readonly pageAdapter: PageAdapter,
@@ -65,7 +68,7 @@ export class ImageTrailPanel {
       this.render();
     });
     this.unsubscribeFromBookmarkRequests = this.pageAdapter.subscribeToBookmarkRequests((target) => {
-      void this.bookmarkUrl(target.url);
+      this.enqueueBookmarkMutation(() => this.bookmarkUrl(target.url));
     });
     void this.loadBookmarks();
     void this.refreshStorageUsage();
@@ -129,8 +132,21 @@ export class ImageTrailPanel {
 
   private loadBookmarks = async (): Promise<void> => {
     if (!this.bookmarkStore) return;
-    const bookmarks = await this.bookmarkStore.load();
-    this.state = { ...this.state, bookmarks: bookmarks.slice(0, 200) };
+    await this.loadBookmarkPage(0);
+  };
+
+  private loadBookmarkPage = async (offset: number): Promise<void> => {
+    if (!this.bookmarkStore) return;
+    const page = await this.bookmarkStore.loadPage({ offset, limit: this.bookmarkLimit || DEFAULT_LOCAL_SETTINGS.visibleBookmarkSoftMax });
+    this.state = reducePanelAction(this.state, {
+      name: 'bookmarks/page-loaded',
+      bookmarks: page.items,
+      offset: page.offset,
+      limit: page.limit,
+      total: page.total,
+      hasOlder: page.hasOlder,
+      hasNewer: page.hasNewer,
+    });
     this.render();
   };
 
@@ -159,6 +175,16 @@ export class ImageTrailPanel {
 
     if (action.name === 'bookmark/remove') {
       void this.removeBookmark(action.id);
+      return;
+    }
+
+    if (action.name === 'bookmarks/older') {
+      void this.loadBookmarkPage(this.state.bookmarkOffset + this.state.bookmarkLimit);
+      return;
+    }
+
+    if (action.name === 'bookmarks/newer') {
+      void this.loadBookmarkPage(Math.max(0, this.state.bookmarkOffset - this.state.bookmarkLimit));
       return;
     }
 
@@ -392,6 +418,11 @@ export class ImageTrailPanel {
     await this.bookmarkUrl(url);
   }
 
+  private enqueueBookmarkMutation(work: () => Promise<void>): void {
+    this.bookmarkMutationQueue = this.bookmarkMutationQueue.then(work, work);
+    void this.bookmarkMutationQueue;
+  }
+
   private async bookmarkUrl(url: string): Promise<void> {
     if (!isDurableImageSourceUrl(url)) {
       this.state = {
@@ -406,12 +437,8 @@ export class ImageTrailPanel {
     const sourceUrl = sourceUrlForBookmark(url);
     const draft = createDisplayRecord({ id: sourceUrl, url: sourceUrl, source: 'bookmark' });
     const bookmark = this.bookmarkStore ? await this.bookmarkStore.save(draft) : draft;
-    this.state = {
-      ...this.state,
-      bookmarks: [bookmark, ...this.state.bookmarks.filter((item) => item.url !== bookmark.url)],
-      message: `Added to Image Trail: ${bookmark.url}`,
-      lastUpdatedAt: Date.now(),
-    };
+    this.state = { ...this.state, message: `Added to Image Trail: ${bookmark.url}`, lastUpdatedAt: Date.now() };
+    await this.loadBookmarkPage(0);
     this.render();
   }
 
@@ -428,6 +455,7 @@ export class ImageTrailPanel {
     if (!bookmark) return;
     await this.bookmarkStore?.remove(bookmark);
     this.state = reducePanelAction(this.state, { name: 'bookmark/remove', id });
+    await this.loadBookmarkPage(this.state.bookmarkOffset);
     this.render();
   }
 
@@ -451,6 +479,7 @@ export class ImageTrailPanel {
       const updatedBookmark = this.state.bookmarks.find((b) => b.id === sourceRecordId);
       if (updatedBookmark) {
         await this.bookmarkStore.save(updatedBookmark);
+        await this.loadBookmarkPage(this.state.bookmarkOffset);
       }
     }
     await this.refreshStorageUsage();
@@ -462,6 +491,11 @@ export class ImageTrailPanel {
     this.state = reducePanelAction(this.state, { name: 'capture/delete', id: recordId, blobId });
     const { usage } = await this.captureStore.requestDeleteBlob(blobId);
     this.state = reducePanelAction(this.state, { name: 'storage/update', usage });
+    const updatedBookmark = this.state.bookmarks.find((b) => b.id === recordId);
+    if (updatedBookmark && this.bookmarkStore) {
+      await this.bookmarkStore.save(updatedBookmark);
+      await this.loadBookmarkPage(this.state.bookmarkOffset);
+    }
     this.render();
   }
 

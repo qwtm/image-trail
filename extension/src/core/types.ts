@@ -32,6 +32,11 @@ export interface PanelState {
   readonly target: TargetState;
   readonly history: readonly ImageDisplayRecord[];
   readonly bookmarks: readonly ImageDisplayRecord[];
+  readonly bookmarkOffset: number;
+  readonly bookmarkLimit: number;
+  readonly bookmarkTotal: number;
+  readonly hasOlderBookmarks: boolean;
+  readonly hasNewerBookmarks: boolean;
   readonly captureInProgress: boolean;
   readonly captureResult: CaptureResult | null;
   readonly storageUsage: StorageUsageSummary | null;
@@ -59,6 +64,9 @@ export type PanelActionName =
   | 'bookmark/current'
   | 'bookmark/load'
   | 'bookmark/remove'
+  | 'bookmarks/page-loaded'
+  | 'bookmarks/older'
+  | 'bookmarks/newer'
   | 'capture/request'
   | 'capture/start'
   | 'capture/complete'
@@ -91,6 +99,7 @@ export type PanelAction =
         | 'active-field/set'
         | 'bookmark/load'
         | 'bookmark/remove'
+        | 'bookmarks/page-loaded'
         | 'capture/request'
         | 'capture/start'
         | 'capture/complete'
@@ -104,6 +113,15 @@ export type PanelAction =
     }
   | { readonly name: 'history/add-loaded'; readonly url: string; readonly title?: string; readonly timestamp?: string }
   | { readonly name: 'history/remove' | 'bookmark/load' | 'bookmark/remove' | 'history/select'; readonly id: string }
+  | {
+      readonly name: 'bookmarks/page-loaded';
+      readonly bookmarks: readonly ImageDisplayRecord[];
+      readonly offset: number;
+      readonly limit: number;
+      readonly total: number;
+      readonly hasOlder: boolean;
+      readonly hasNewer: boolean;
+    }
   | { readonly name: 'history/load' | 'history/download' }
   | { readonly name: 'active-field/set'; readonly id: string | null }
   | { readonly name: 'field-value-change'; readonly id: string; readonly value: string }
@@ -119,6 +137,14 @@ export type PanelAction =
 
 export interface BookmarkStore {
   readonly load: () => Promise<readonly ImageDisplayRecord[]>;
+  readonly loadPage: (input: { readonly offset: number; readonly limit: number }) => Promise<{
+    readonly items: readonly ImageDisplayRecord[];
+    readonly offset: number;
+    readonly limit: number;
+    readonly total: number;
+    readonly hasOlder: boolean;
+    readonly hasNewer: boolean;
+  }>;
   readonly save: (record: ImageDisplayRecord) => Promise<ImageDisplayRecord>;
   readonly remove: (record: ImageDisplayRecord) => Promise<void>;
 }

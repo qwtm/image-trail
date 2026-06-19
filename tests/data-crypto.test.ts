@@ -87,6 +87,7 @@ test('loads typed plaintext local settings through defaults and migrations', () 
   repository.save({ ...DEFAULT_LOCAL_SETTINGS, showHistoryThumbnails: true, panelDock: 'left' });
   assert.equal(repository.load().showHistoryThumbnails, true);
   assert.equal(repository.load().panelDock, 'left');
+  assert.equal(repository.load().visibleBookmarkSoftMax, 30);
 });
 
 test('falls back to plaintext local setting defaults when storage is corrupt', () => {
@@ -110,6 +111,25 @@ test('rejects out-of-range request throttle setting migrations', () => {
 
   assert.equal(high.load().requestThrottleMs, DEFAULT_LOCAL_SETTINGS.requestThrottleMs);
   assert.equal(negative.load().requestThrottleMs, DEFAULT_LOCAL_SETTINGS.requestThrottleMs);
+});
+
+test('rejects out-of-range bookmark soft max setting migrations', () => {
+  const high = new LocalSettingsRepository({
+    getItem: () => JSON.stringify({ visibleBookmarkSoftMax: 201 }),
+    setItem: () => {},
+  });
+  const low = new LocalSettingsRepository({
+    getItem: () => JSON.stringify({ visibleBookmarkSoftMax: 0 }),
+    setItem: () => {},
+  });
+  const valid = new LocalSettingsRepository({
+    getItem: () => JSON.stringify({ visibleBookmarkSoftMax: 75 }),
+    setItem: () => {},
+  });
+
+  assert.equal(high.load().visibleBookmarkSoftMax, DEFAULT_LOCAL_SETTINGS.visibleBookmarkSoftMax);
+  assert.equal(low.load().visibleBookmarkSoftMax, DEFAULT_LOCAL_SETTINGS.visibleBookmarkSoftMax);
+  assert.equal(valid.load().visibleBookmarkSoftMax, 75);
 });
 
 test('tracks session unlock state without persisting key material', async () => {

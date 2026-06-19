@@ -4,6 +4,8 @@ type BookmarkAction =
   | { readonly name: 'bookmark/current' }
   | { readonly name: 'bookmark/load'; readonly id: string }
   | { readonly name: 'bookmark/remove'; readonly id: string }
+  | { readonly name: 'bookmarks/older' }
+  | { readonly name: 'bookmarks/newer' }
   | { readonly name: 'capture/request'; readonly url: string; readonly sourceType: 'bookmark'; readonly sourceRecordId: string }
   | { readonly name: 'capture/preview'; readonly blobId: string }
   | { readonly name: 'capture/delete'; readonly id: string; readonly blobId: string };
@@ -12,6 +14,13 @@ export function createBookmarksView(
   currentUrl: string | null,
   items: readonly ImageDisplayRecord[],
   captureInProgress: boolean,
+  page: {
+    readonly offset: number;
+    readonly limit: number;
+    readonly total: number;
+    readonly hasOlder: boolean;
+    readonly hasNewer: boolean;
+  },
   dispatch: (action: BookmarkAction) => void,
 ): HTMLElement {
   const section = document.createElement('section');
@@ -25,6 +34,26 @@ export function createBookmarksView(
   add.textContent = 'Bookmark current image';
   add.disabled = currentUrl === null;
   add.addEventListener('click', () => dispatch({ name: 'bookmark/current' }));
+
+  const pageMeta = document.createElement('p');
+  pageMeta.className = 'image-trail-panel__meta';
+  const pageStart = page.total === 0 ? 0 : page.offset + 1;
+  const pageEnd = Math.min(page.offset + page.limit, page.total);
+  pageMeta.textContent = `Bookmarks ${pageStart}-${pageEnd} of ${page.total}`;
+
+  const pager = document.createElement('div');
+  pager.className = 'image-trail-panel__actions';
+  const newer = document.createElement('button');
+  newer.type = 'button';
+  newer.textContent = 'Newer';
+  newer.disabled = !page.hasNewer;
+  newer.addEventListener('click', () => dispatch({ name: 'bookmarks/newer' }));
+  const older = document.createElement('button');
+  older.type = 'button';
+  older.textContent = 'Older';
+  older.disabled = !page.hasOlder;
+  older.addEventListener('click', () => dispatch({ name: 'bookmarks/older' }));
+  pager.append(newer, older);
 
   const list = document.createElement('ol');
   list.className = 'image-trail-panel__record-list';
@@ -79,7 +108,7 @@ export function createBookmarksView(
   const empty = document.createElement('p');
   empty.className = 'image-trail-panel__meta';
   empty.textContent = 'Saved image URLs persist through the encrypted bookmarks repository.';
-  section.append(heading, add, items.length ? list : empty);
+  section.append(heading, add, pageMeta, pager, items.length ? list : empty);
   return section;
 }
 

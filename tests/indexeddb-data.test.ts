@@ -7,6 +7,9 @@ import { HistoryRepository, type EncryptedHistoryRecord } from '../extension/src
 import { BookmarksRepository, type EncryptedBookmarkRecord } from '../extension/src/data/repositories/bookmarks-repository.js';
 import { KeysRepository } from '../extension/src/data/repositories/keys-repository.js';
 import type { StoredKeyRecord } from '../extension/src/data/crypto/types.js';
+import { IndexedDbBookmarkStore } from '../extension/src/content/bookmarks-controller.js';
+import { createDisplayRecord } from '../extension/src/core/display-records.js';
+import { DEFAULT_LOCAL_SETTINGS } from '../extension/src/data/local-settings.js';
 
 async function deleteImageTrailDb(): Promise<void> {
   await new Promise<void>((resolve, reject) => {
@@ -158,6 +161,198 @@ test('BookmarksRepository writes encrypted records and dedupes by URL index', as
   assert.deepEqual(await repository.listEncrypted(), [record]);
   assert.deepEqual(await repository.getEncryptedByUrl(record.url), record);
   assert.equal(await repository.getEncryptedByUrl('https://example.test/missing.jpg'), undefined);
+});
+
+test('BookmarksRepository pages encrypted records newest first', async (t) => {
+  const db = await openFreshImageTrailDb();
+  t.after(() => db.close());
+  const repository = new BookmarksRepository(db);
+
+  await repository.putEncrypted(bookmarkRecord('bookmark-old'));
+  await repository.putEncrypted({
+    ...bookmarkRecord('bookmark-new'),
+    url: 'https://example.test/new.jpg',
+    envelope: { ...bookmarkRecord('bookmark-new').envelope, updatedAt: '2026-06-17T00:00:03.000Z' },
+  });
+  await repository.putEncrypted({
+    ...bookmarkRecord('bookmark-middle'),
+    url: 'https://example.test/middle.jpg',
+    envelope: { ...bookmarkRecord('bookmark-middle').envelope, updatedAt: '2026-06-17T00:00:02.000Z' },
+  });
+
+  assert.equal(await repository.countEncrypted(), 3);
+  assert.deepEqual(
+    (await repository.listEncryptedPage({ offset: 0, limit: 2 })).map((record) => record.uuid),
+    ['bookmark-new', 'bookmark-middle'],
+  );
+  assert.deepEqual(
+    (await repository.listEncryptedPage({ offset: 2, limit: 2 })).map((record) => record.uuid),
+    ['bookmark-old'],
+  );
+});
+
+test('BookmarksRepository exposes one older page after the bookmark soft max is exceeded', async (t) => {
+  const db = await openFreshImageTrailDb();
+  t.after(() => db.close());
+  const repository = new BookmarksRepository(db);
+  const limit = DEFAULT_LOCAL_SETTINGS.visibleBookmarkSoftMax;
+
+  for (let index = 0; index <= limit; index += 1) {
+    const id = `bookmark-${String(index).padStart(2, '0')}`;
+    await repository.putEncrypted({
+      ...bookmarkRecord(id),
+      url: `https://example.test/${id}.jpg`,
+      envelope: {
+        ...bookmarkRecord(id).envelope,
+        updatedAt: `2026-06-17T00:00:${String(index).padStart(2, '0')}.000Z`,
+      },
+    });
+  }
+
+  const newestPage = await repository.listEncryptedPage({ offset: 0, limit });
+  const olderPage = await repository.listEncryptedPage({ offset: limit, limit });
+  const newerAgain = await repository.listEncryptedPage({ offset: 0, limit });
+
+  assert.equal(await repository.countEncrypted(), limit + 1);
+  assert.equal(newestPage.length, limit);
+  assert.equal(newestPage[0]?.uuid, `bookmark-${String(limit).padStart(2, '0')}`);
+  assert.equal(newestPage.at(-1)?.uuid, 'bookmark-01');
+  assert.deepEqual(
+    olderPage.map((record) => record.uuid),
+    ['bookmark-00'],
+  );
+  assert.deepEqual(
+    newerAgain.map((record) => record.uuid),
+    newestPage.map((record) => record.uuid),
+  );
+});
+
+test('IndexedDbBookmarkStore recalls saved bookmarks after a new store instance opens', async () => {
+  await deleteImageTrailDb();
+  const firstStore = new IndexedDbBookmarkStore();
+  try {
+    await firstStore.save(
+      createDisplayRecord({
+        id: 'https://example.test/recalled.jpg',
+        url: 'https://example.test/recalled.jpg',
+        label: 'recalled.jpg',
+        timestamp: '2026-06-19T00:00:00.000Z',
+        source: 'bookmark',
+      }),
+    );
+  } finally {
+    await firstStore.close();
+  }
+
+  const reloadedStore = new IndexedDbBookmarkStore();
+  try {
+    const page = await reloadedStore.loadPage({ offset: 0, limit: 30 });
+
+    assert.equal(page.total, 1);
+    assert.equal(page.items.length, 1);
+    assert.equal(page.items[0]?.url, 'https://example.test/recalled.jpg');
+    assert.equal(page.hasOlder, false);
+    assert.equal(page.hasNewer, false);
+  } finally {
+    await reloadedStore.close();
+  }
+});
+
+test('IndexedDbBookmarkStore paginates visible bookmarks without counting undecryptable legacy rows', async () => {
+  await deleteImageTrailDb();
+  const firstStore = new IndexedDbBookmarkStore();
+  try {
+    for (let index = 0; index < 6; index += 1) {
+      await firstStore.save(
+        createDisplayRecord({
+          id: `https://example.test/visible-${index}.jpg`,
+          url: `https://example.test/visible-${index}.jpg`,
+          label: `visible-${index}.jpg`,
+          timestamp: `2026-06-19T00:00:0${index}.000Z`,
+          source: 'bookmark',
+        }),
+      );
+    }
+  } finally {
+    await firstStore.close();
+  }
+
+  const openResult = await openImageTrailDb();
+  assert.ok(openResult.db);
+  try {
+    const repository = new BookmarksRepository(openResult.db);
+    await repository.putEncrypted({
+      ...bookmarkRecord('legacy-hidden-newer'),
+      url: 'https://example.test/legacy-hidden-newer.jpg',
+      envelope: {
+        ...bookmarkRecord('legacy-hidden-newer').envelope,
+        updatedAt: '2999-01-01T00:00:00.000Z',
+      },
+    });
+    await repository.putEncrypted({
+      ...bookmarkRecord('legacy-hidden-middle'),
+      url: 'https://example.test/legacy-hidden-middle.jpg',
+      envelope: {
+        ...bookmarkRecord('legacy-hidden-middle').envelope,
+        updatedAt: '2026-06-19T00:00:03.500Z',
+      },
+    });
+  } finally {
+    openResult.db.close();
+  }
+
+  const reloadedStore = new IndexedDbBookmarkStore();
+  try {
+    const firstPage = await reloadedStore.loadPage({ offset: 0, limit: 3 });
+    const secondPage = await reloadedStore.loadPage({ offset: 3, limit: 3 });
+
+    assert.equal(firstPage.total, 6);
+    assert.equal(firstPage.items.length, 3);
+    assert.equal(firstPage.hasOlder, true);
+    assert.equal(firstPage.hasNewer, false);
+    assert.equal(secondPage.total, 6);
+    assert.equal(secondPage.items.length, 3);
+    assert.equal(secondPage.hasOlder, false);
+    assert.equal(secondPage.hasNewer, true);
+    assert.deepEqual(
+      [...firstPage.items, ...secondPage.items].map((item) => item.url).sort(),
+      Array.from({ length: 6 }, (_, index) => `https://example.test/visible-${index}.jpg`).sort(),
+    );
+  } finally {
+    await reloadedStore.close();
+  }
+});
+
+test('IndexedDbBookmarkStore clamps offsets after visible bookmark totals shrink', async () => {
+  await deleteImageTrailDb();
+  const store = new IndexedDbBookmarkStore();
+  try {
+    for (let index = 0; index < 4; index += 1) {
+      await store.save(
+        createDisplayRecord({
+          id: `https://example.test/clamp-${index}.jpg`,
+          url: `https://example.test/clamp-${index}.jpg`,
+          label: `clamp-${index}.jpg`,
+          timestamp: `2026-06-19T00:00:0${index}.000Z`,
+          source: 'bookmark',
+        }),
+      );
+    }
+
+    const lastPage = await store.loadPage({ offset: 3, limit: 3 });
+    assert.equal(lastPage.offset, 3);
+    assert.equal(lastPage.items.length, 1);
+    await store.remove(lastPage.items[0]!);
+
+    const clampedPage = await store.loadPage({ offset: 3, limit: 3 });
+    assert.equal(clampedPage.total, 3);
+    assert.equal(clampedPage.offset, 0);
+    assert.equal(clampedPage.items.length, 3);
+    assert.equal(clampedPage.hasOlder, false);
+    assert.equal(clampedPage.hasNewer, false);
+  } finally {
+    await store.close();
+  }
 });
 
 test('repository transaction failures are surfaced to callers', async (t) => {
