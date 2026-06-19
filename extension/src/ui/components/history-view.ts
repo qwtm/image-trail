@@ -21,6 +21,7 @@ export function createHistoryView(
   list.className = 'image-trail-panel__record-list';
   for (const item of items) {
     const entry = document.createElement('li');
+    const visual = createRecordVisual(item);
     const link = document.createElement('a');
     link.href = item.url;
     link.textContent = item.label ?? item.url;
@@ -57,7 +58,7 @@ export function createHistoryView(
     remove.textContent = 'Remove';
     remove.addEventListener('click', () => dispatch({ name: 'history/remove', id: item.id }));
     actions.append(remove);
-    entry.append(link, actions);
+    entry.append(visual, link, actions);
     list.append(entry);
   }
 
@@ -66,4 +67,20 @@ export function createHistoryView(
   empty.textContent = 'Loaded images will appear here newest-first.';
   section.append(heading, items.length ? list : empty);
   return section;
+}
+
+function createRecordVisual(item: ImageDisplayRecord): HTMLElement {
+  if (item.thumbnail) {
+    const image = document.createElement('img');
+    image.className = 'image-trail-panel__record-thumbnail';
+    image.src = item.thumbnail;
+    image.alt = '';
+    image.loading = 'lazy';
+    return image;
+  }
+
+  const fallback = document.createElement('span');
+  fallback.className = 'image-trail-panel__record-thumbnail image-trail-panel__record-thumbnail--empty';
+  fallback.textContent = 'IMG';
+  return fallback;
 }

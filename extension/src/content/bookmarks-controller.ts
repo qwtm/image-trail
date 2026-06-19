@@ -75,7 +75,13 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
 
     const existing = await context.repository.getEncryptedByUrl(bookmark.url);
     const uuid = existing?.uuid ?? crypto.randomUUID();
-    await context.repository.sealAndPut(uuid, toPayload(bookmark), context.bookmarkKey.key, context.bookmarkKey.reference);
+    await context.repository.sealAndPut(
+      uuid,
+      toPayload(bookmark),
+      context.bookmarkKey.key,
+      context.bookmarkKey.reference,
+      existing?.envelope.updatedAt,
+    );
     return { ...bookmark, id: uuid };
   }
 

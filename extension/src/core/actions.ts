@@ -47,7 +47,13 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
     case 'stop-target-picker':
       return { ...state, status: 'ready', message: state.target.message, lastUpdatedAt: Date.now() };
     case 'history/add-loaded': {
-      const item = createDisplayRecord({ url: action.url, title: action.title, timestamp: action.timestamp, source: 'history' });
+      const item = createDisplayRecord({
+        url: action.url,
+        title: action.title,
+        timestamp: action.timestamp,
+        thumbnail: action.thumbnail,
+        source: 'history',
+      });
       return {
         ...state,
         history: [item, ...state.history.filter((entry) => entry.url !== item.url && entry.id !== item.id)].slice(0, 30),

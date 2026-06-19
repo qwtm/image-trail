@@ -2,6 +2,7 @@ import { applyImageUrl } from '../core/image/image-navigation.js';
 import { DomObserver } from './dom-observer.js';
 import { createTargetImageInfo, findQualifyingImages, isQualifyingImage, type TargetImageInfo } from './target-image.js';
 import { markHoveredTarget, markPickModeCandidate, markSelectedTarget, restoreElementStyles } from './page-style.js';
+import { createThumbnailDataUrlFromImage } from './thumbnail-generator.js';
 
 export type TargetSelectionMode = 'auto' | 'manual' | 'none';
 
@@ -14,8 +15,8 @@ export interface TargetSelectionSnapshot {
 }
 
 export type TargetSelectionListener = (snapshot: TargetSelectionSnapshot) => void;
-export type TargetLoadListener = (target: TargetImageInfo) => void;
-export type TargetBookmarkRequestListener = (target: TargetImageInfo) => void;
+export type TargetLoadListener = (target: TargetImageInfo & { readonly thumbnail?: string }) => void;
+export type TargetBookmarkRequestListener = (target: TargetImageInfo & { readonly thumbnail?: string }) => void;
 
 export class PageAdapter {
   private selected: HTMLImageElement | null = null;
@@ -182,8 +183,13 @@ export class PageAdapter {
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
-    for (const listener of this.bookmarkRequestListeners) listener(info);
+    void this.emitBookmarkRequest(image, info);
   };
+
+  private async emitBookmarkRequest(image: HTMLImageElement, info: TargetImageInfo): Promise<void> {
+    const thumbnail = (await createThumbnailDataUrlFromImage(image)) ?? undefined;
+    for (const listener of this.bookmarkRequestListeners) listener({ ...info, thumbnail });
+  }
 
   private selectTarget(image: HTMLImageElement, mode: TargetSelectionMode): void {
     this.restoreSelectedTarget();
@@ -207,7 +213,7 @@ export class PageAdapter {
   private watchSelectedLoad(image: HTMLImageElement): void {
     this.clearPendingLoadTarget();
     if (isSuccessfulImageLoad(image)) {
-      this.emitSuccessfulLoad(image);
+      void this.emitSuccessfulLoad(image);
       return;
     }
 
@@ -226,7 +232,7 @@ export class PageAdapter {
   private onSelectedLoad = (event: Event): void => {
     const image = event.currentTarget;
     if (image instanceof HTMLImageElement && image === this.selected && isSuccessfulImageLoad(image)) {
-      this.emitSuccessfulLoad(image);
+      void this.emitSuccessfulLoad(image);
     }
     this.clearPendingLoadTarget();
   };
@@ -235,10 +241,11 @@ export class PageAdapter {
     if (event.currentTarget === this.pendingLoadTarget) this.clearPendingLoadTarget();
   };
 
-  private emitSuccessfulLoad(image: HTMLImageElement): void {
+  private async emitSuccessfulLoad(image: HTMLImageElement): Promise<void> {
     const target = createTargetImageInfo(image);
     if (!target) return;
-    for (const listener of this.loadListeners) listener(target);
+    const thumbnail = (await createThumbnailDataUrlFromImage(image)) ?? undefined;
+    for (const listener of this.loadListeners) listener({ ...target, thumbnail });
   }
 
   private clearHover(): void {

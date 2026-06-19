@@ -36,6 +36,23 @@ test('runtime history keeps loaded images newest-first, deduped, and visibly bou
   );
 });
 
+test('history/add-loaded preserves session thumbnail for matching visible record', () => {
+  let state = createInitialPanelState(0);
+  state = reducePanelAction(state, {
+    name: 'history/add-loaded',
+    url: 'https://example.test/thumb.jpg',
+    thumbnail: 'data:image/jpeg;base64,abc',
+    timestamp: '2026-06-19T00:00:00.000Z',
+  });
+
+  assert.equal(state.history[0]?.thumbnail, 'data:image/jpeg;base64,abc');
+});
+
+test('bookmark thumbnail refresh action is a reducer no-op', () => {
+  const state = createInitialPanelState(0);
+  assert.equal(reducePanelAction(state, { name: 'bookmarks/refresh-thumbnails' }), state);
+});
+
 test('undo stack returns session restore actions in last-action-first order', () => {
   const undo = new UndoStack<{ readonly name: 'bookmark/restore'; readonly id: string }>(2);
   undo.push({ label: 'Restore first', action: { name: 'bookmark/restore', id: 'first' } });

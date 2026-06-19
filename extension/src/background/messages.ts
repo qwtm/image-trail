@@ -15,6 +15,8 @@ export const MessageType = {
   RetrieveBlobResult: 'imageTrail.retrieveBlobResult',
   CreateBlobPreview: 'imageTrail.createBlobPreview',
   CreateBlobPreviewResult: 'imageTrail.createBlobPreviewResult',
+  FetchThumbnailSource: 'imageTrail.fetchThumbnailSource',
+  FetchThumbnailSourceResult: 'imageTrail.fetchThumbnailSourceResult',
   GrantPermissionAndCapture: 'imageTrail.grantPermissionAndCapture',
   SetupBlobKey: 'imageTrail.setupBlobKey',
   UnlockBlobKey: 'imageTrail.unlockBlobKey',
@@ -124,6 +126,20 @@ export interface CreateBlobPreviewResultMessage {
     | { readonly ok: false; readonly reason: string; readonly message: string };
 }
 
+export interface FetchThumbnailSourceMessage {
+  readonly type: typeof MessageType.FetchThumbnailSource;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload: { readonly url: string };
+}
+
+export interface FetchThumbnailSourceResultMessage {
+  readonly type: typeof MessageType.FetchThumbnailSourceResult;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload:
+    | { readonly ok: true; readonly dataUrl: string; readonly mimeType: string; readonly byteLength: number }
+    | { readonly ok: false; readonly reason: string; readonly message: string };
+}
+
 export interface GrantPermissionAndCaptureMessage {
   readonly type: typeof MessageType.GrantPermissionAndCapture;
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
@@ -162,6 +178,7 @@ export type ExtensionRequest =
   | DeleteBlobMessage
   | RetrieveBlobMessage
   | CreateBlobPreviewMessage
+  | FetchThumbnailSourceMessage
   | GrantPermissionAndCaptureMessage
   | SetupBlobKeyMessage
   | UnlockBlobKeyMessage;
@@ -173,6 +190,7 @@ export type ExtensionResponse =
   | DeleteBlobResultMessage
   | RetrieveBlobResultMessage
   | CreateBlobPreviewResultMessage
+  | FetchThumbnailSourceResultMessage
   | BlobKeyResultMessage;
 export type ExtensionMessage = ExtensionRequest | ExtensionResponse;
 
@@ -222,12 +240,22 @@ export function createCreateBlobPreviewMessage(blobId: string): CreateBlobPrevie
   return { type: MessageType.CreateBlobPreview, version: MESSAGE_PROTOCOL_VERSION, payload: { blobId } };
 }
 
+export function createFetchThumbnailSourceMessage(url: string): FetchThumbnailSourceMessage {
+  return { type: MessageType.FetchThumbnailSource, version: MESSAGE_PROTOCOL_VERSION, payload: { url } };
+}
+
 export function createRetrieveBlobResultMessage(payload: RetrieveBlobResultMessage['payload']): RetrieveBlobResultMessage {
   return { type: MessageType.RetrieveBlobResult, version: MESSAGE_PROTOCOL_VERSION, payload };
 }
 
 export function createCreateBlobPreviewResultMessage(payload: CreateBlobPreviewResultMessage['payload']): CreateBlobPreviewResultMessage {
   return { type: MessageType.CreateBlobPreviewResult, version: MESSAGE_PROTOCOL_VERSION, payload };
+}
+
+export function createFetchThumbnailSourceResultMessage(
+  payload: FetchThumbnailSourceResultMessage['payload'],
+): FetchThumbnailSourceResultMessage {
+  return { type: MessageType.FetchThumbnailSourceResult, version: MESSAGE_PROTOCOL_VERSION, payload };
 }
 
 export function createGrantPermissionAndCaptureMessage(
@@ -273,6 +301,7 @@ export function isExtensionRequest(value: unknown): value is ExtensionRequest {
     value.type === MessageType.DeleteBlob ||
     value.type === MessageType.RetrieveBlob ||
     value.type === MessageType.CreateBlobPreview ||
+    value.type === MessageType.FetchThumbnailSource ||
     value.type === MessageType.GrantPermissionAndCapture ||
     value.type === MessageType.SetupBlobKey ||
     value.type === MessageType.UnlockBlobKey
@@ -289,6 +318,7 @@ export function isExtensionResponse(value: unknown): value is ExtensionResponse 
     value.type === MessageType.DeleteBlobResult ||
     value.type === MessageType.RetrieveBlobResult ||
     value.type === MessageType.CreateBlobPreviewResult ||
+    value.type === MessageType.FetchThumbnailSourceResult ||
     value.type === MessageType.BlobKeyResult
   );
 }
@@ -306,6 +336,11 @@ export function isRetrieveBlobResultMessage(value: unknown): value is RetrieveBl
 export function isCreateBlobPreviewResultMessage(value: unknown): value is CreateBlobPreviewResultMessage {
   if (!hasVersionedObjectShape(value)) return false;
   return value.type === MessageType.CreateBlobPreviewResult;
+}
+
+export function isFetchThumbnailSourceResultMessage(value: unknown): value is FetchThumbnailSourceResultMessage {
+  if (!hasVersionedObjectShape(value)) return false;
+  return value.type === MessageType.FetchThumbnailSourceResult;
 }
 
 export function isCaptureResultMessage(value: unknown): value is CaptureResultMessage {

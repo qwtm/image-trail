@@ -114,6 +114,7 @@ export class BookmarksRepository {
     payload: DurableBookmarkPayloadV1,
     key: CryptoKey,
     keyReference: EncryptedBookmarkRecord['envelope']['key'],
+    now?: string,
   ): Promise<EncryptedBookmarkRecord> {
     const envelope = await sealJsonEnvelope({
       payload,
@@ -121,6 +122,7 @@ export class BookmarksRepository {
       key,
       keyReference,
       authenticatedMetadata: { recordType: 'bookmark' as const },
+      now,
     });
     const record = { uuid, url: payload.url, envelope };
     await this.putEncrypted(record);

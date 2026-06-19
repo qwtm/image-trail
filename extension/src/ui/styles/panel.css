@@ -246,12 +246,33 @@
 
 .image-trail-panel-root .image-trail-panel__record-list li {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
   gap: 6px;
   align-items: start;
   min-width: 0;
   padding: 6px 0;
   border-top: 1px solid rgb(255 255 255 / 12%);
+}
+
+.image-trail-panel-root .image-trail-panel__record-thumbnail {
+  display: block;
+  inline-size: 44px;
+  block-size: 44px;
+  max-inline-size: 44px;
+  object-fit: cover;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 5px;
+  background: #111;
+}
+
+.image-trail-panel-root .image-trail-panel__record-thumbnail--empty {
+  display: grid;
+  place-items: center;
+  color: rgb(255 255 255 / 72%);
+  font: 700 9px/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  text-shadow:
+    0 0 4px rgb(255 255 255 / 55%),
+    0 0 10px rgb(143 255 221 / 35%);
 }
 
 .image-trail-panel-root .image-trail-panel__record-list a {

@@ -7,6 +7,8 @@ import {
   createCaptureResultMessage,
   createDeleteBlobMessage,
   createDeleteBlobResultMessage,
+  createFetchThumbnailSourceMessage,
+  createFetchThumbnailSourceResultMessage,
   createPingMessage,
   createRetrieveBlobMessage,
   createRetrieveBlobResultMessage,
@@ -18,6 +20,7 @@ import {
   isCaptureResultMessage,
   isExtensionRequest,
   isExtensionResponse,
+  isFetchThumbnailSourceResultMessage,
   isRetrieveBlobResultMessage,
   isStatusMessage,
 } from '../extension/src/background/messages.js';
@@ -60,6 +63,7 @@ test('recognizes capture-related messages as extension requests', () => {
   assert.equal(isExtensionRequest(createStorageUsageRequestMessage()), true);
   assert.equal(isExtensionRequest(createDeleteBlobMessage('blob-1')), true);
   assert.equal(isExtensionRequest(createRetrieveBlobMessage('blob-1')), true);
+  assert.equal(isExtensionRequest(createFetchThumbnailSourceMessage('https://example.com/a.jpg')), true);
 });
 
 test('creates capture result response messages for success and failure', () => {
@@ -86,6 +90,28 @@ test('creates capture result response messages for success and failure', () => {
     origin: 'https://cdn.example.com',
   });
   assert.equal(remoteOnly.payload.status, 'remote-only');
+});
+
+test('creates thumbnail source fetch messages', () => {
+  const request = createFetchThumbnailSourceMessage('https://example.test/thumb.jpg');
+  assert.equal(request.type, MessageType.FetchThumbnailSource);
+  assert.equal(request.payload.url, 'https://example.test/thumb.jpg');
+  assert.equal(isExtensionRequest(request), true);
+
+  const success = createFetchThumbnailSourceResultMessage({
+    ok: true,
+    dataUrl: 'data:image/jpeg;base64,abc',
+    mimeType: 'image/jpeg',
+    byteLength: 3,
+  });
+  assert.equal(success.type, MessageType.FetchThumbnailSourceResult);
+  assert.equal(success.payload.ok, true);
+  assert.equal(isExtensionResponse(success), true);
+  assert.equal(isFetchThumbnailSourceResultMessage(success), true);
+
+  const failure = createFetchThumbnailSourceResultMessage({ ok: false, reason: 'network-error', message: 'Nope.' });
+  assert.equal(failure.payload.ok, false);
+  assert.equal(isFetchThumbnailSourceResultMessage(failure), true);
 });
 
 test('recognizes capture result messages as extension responses', () => {

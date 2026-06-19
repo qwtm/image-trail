@@ -16,6 +16,7 @@ import {
   createCaptureResultMessage,
   createCreateBlobPreviewResultMessage,
   createDeleteBlobResultMessage,
+  createFetchThumbnailSourceResultMessage,
   createPingMessage,
   createRetrieveBlobResultMessage,
   createStorageUsageResponseMessage,
@@ -24,6 +25,7 @@ import {
   isStatusMessage,
 } from './messages.js';
 import type { CaptureImageMessage, DeleteBlobMessage, RetrieveBlobMessage, GrantPermissionAndCaptureMessage } from './messages.js';
+import type { FetchThumbnailSourceMessage } from './messages.js';
 import type { CreateBlobPreviewMessage } from './messages.js';
 import type { SetupBlobKeyMessage, UnlockBlobKeyMessage, BlobKeyResultMessage } from './messages.js';
 import { extractOrigin, hasOriginPermission, requestOriginPermission } from './permissions.js';
@@ -31,6 +33,7 @@ import { extractOrigin, hasOriginPermission, requestOriginPermission } from './p
 const CONTENT_SCRIPT_FILE = 'src/content/content-script.js';
 const SUPPORTED_PAGE_PATTERN = /^https?:\/\//u;
 const PREVIEW_TTL_MS = 60_000;
+const MAX_THUMBNAIL_SOURCE_BYTES = 5 * 1024 * 1024;
 
 interface PreviewPayload {
   readonly dataUrl: string;
@@ -220,6 +223,21 @@ async function handleCreateBlobPreview(message: CreateBlobPreviewMessage): Promi
   };
 }
 
+async function handleFetchThumbnailSource(
+  message: FetchThumbnailSourceMessage,
+): Promise<import('./messages.js').FetchThumbnailSourceResultMessage['payload']> {
+  const fetchResult = await fetchImageBytes(canonicalCaptureUrl(message.payload.url), MAX_THUMBNAIL_SOURCE_BYTES);
+  if (!fetchResult.ok) {
+    return { ok: false, reason: fetchResult.reason, message: fetchResult.message };
+  }
+  return {
+    ok: true,
+    dataUrl: `data:${fetchResult.mimeType};base64,${arrayBufferToBase64(fetchResult.bytes)}`,
+    mimeType: fetchResult.mimeType,
+    byteLength: fetchResult.byteLength,
+  };
+}
+
 async function handleStorageUsage(): Promise<StorageUsageSummary> {
   const db = await getDb();
   if (!db) return { totalBytes: 0, blobCount: 0 };
@@ -304,6 +322,14 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
       handleCreateBlobPreview(message)
         .then((result) => sendResponse(createCreateBlobPreviewResultMessage(result)))
         .catch(() => sendResponse(createCreateBlobPreviewResultMessage({ ok: false, reason: 'unknown', message: 'Preview creation failed.' })));
+      return true;
+
+    case MessageType.FetchThumbnailSource:
+      handleFetchThumbnailSource(message)
+        .then((result) => sendResponse(createFetchThumbnailSourceResultMessage(result)))
+        .catch(() =>
+          sendResponse(createFetchThumbnailSourceResultMessage({ ok: false, reason: 'unknown', message: 'Thumbnail source fetch failed.' })),
+        );
       return true;
 
     case MessageType.SetupBlobKey:

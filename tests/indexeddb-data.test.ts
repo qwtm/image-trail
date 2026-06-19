@@ -258,6 +258,72 @@ test('IndexedDbBookmarkStore recalls saved bookmarks after a new store instance 
   }
 });
 
+test('IndexedDbBookmarkStore recalls encrypted bookmark thumbnails after reload', async () => {
+  await deleteImageTrailDb();
+  const firstStore = new IndexedDbBookmarkStore();
+  try {
+    await firstStore.save(
+      createDisplayRecord({
+        id: 'https://example.test/thumbnailed.jpg',
+        url: 'https://example.test/thumbnailed.jpg',
+        label: 'thumbnailed.jpg',
+        thumbnail: 'data:image/jpeg;base64,thumbnail',
+        timestamp: '2026-06-19T00:00:00.000Z',
+        source: 'bookmark',
+      }),
+    );
+  } finally {
+    await firstStore.close();
+  }
+
+  const reloadedStore = new IndexedDbBookmarkStore();
+  try {
+    const page = await reloadedStore.loadPage({ offset: 0, limit: 30 });
+
+    assert.equal(page.items.length, 1);
+    assert.equal(page.items[0]?.thumbnail, 'data:image/jpeg;base64,thumbnail');
+  } finally {
+    await reloadedStore.close();
+  }
+});
+
+test('IndexedDbBookmarkStore keeps bookmark order stable when refreshing an existing thumbnail', async () => {
+  await deleteImageTrailDb();
+  const store = new IndexedDbBookmarkStore();
+  try {
+    await store.save(
+      createDisplayRecord({
+        id: 'https://example.test/first.jpg',
+        url: 'https://example.test/first.jpg',
+        label: 'first.jpg',
+        timestamp: '2026-06-19T00:00:00.000Z',
+        source: 'bookmark',
+      }),
+    );
+    await store.save(
+      createDisplayRecord({
+        id: 'https://example.test/second.jpg',
+        url: 'https://example.test/second.jpg',
+        label: 'second.jpg',
+        timestamp: '2026-06-19T00:00:01.000Z',
+        source: 'bookmark',
+      }),
+    );
+
+    const before = await store.loadPage({ offset: 0, limit: 30 });
+    await store.save({ ...before.items[1]!, thumbnail: 'data:image/jpeg;base64,thumbnail' });
+    const after = await store.loadPage({ offset: 0, limit: 30 });
+
+    assert.deepEqual(
+      after.items.map((item) => item.url),
+      before.items.map((item) => item.url),
+    );
+    assert.equal(after.items[1]?.thumbnail, 'data:image/jpeg;base64,thumbnail');
+  } finally {
+    await store.close();
+  }
+});
+
 test('IndexedDbBookmarkStore paginates visible bookmarks without counting undecryptable legacy rows', async () => {
   await deleteImageTrailDb();
   const firstStore = new IndexedDbBookmarkStore();

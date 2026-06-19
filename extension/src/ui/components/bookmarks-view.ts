@@ -6,6 +6,7 @@ type BookmarkAction =
   | { readonly name: 'bookmark/remove'; readonly id: string }
   | { readonly name: 'bookmarks/older' }
   | { readonly name: 'bookmarks/newer' }
+  | { readonly name: 'bookmarks/refresh-thumbnails' }
   | { readonly name: 'capture/request'; readonly url: string; readonly sourceType: 'bookmark'; readonly sourceRecordId: string }
   | { readonly name: 'capture/preview'; readonly blobId: string }
   | { readonly name: 'capture/delete'; readonly id: string; readonly blobId: string };
@@ -35,6 +36,12 @@ export function createBookmarksView(
   add.disabled = currentUrl === null;
   add.addEventListener('click', () => dispatch({ name: 'bookmark/current' }));
 
+  const refreshThumbnails = document.createElement('button');
+  refreshThumbnails.type = 'button';
+  refreshThumbnails.textContent = 'Refresh thumbnails';
+  refreshThumbnails.disabled = items.length === 0;
+  refreshThumbnails.addEventListener('click', () => dispatch({ name: 'bookmarks/refresh-thumbnails' }));
+
   const pageMeta = document.createElement('p');
   pageMeta.className = 'image-trail-panel__meta';
   const pageStart = page.total === 0 ? 0 : page.offset + 1;
@@ -59,6 +66,7 @@ export function createBookmarksView(
   list.className = 'image-trail-panel__record-list';
   for (const item of items) {
     const entry = document.createElement('li');
+    const visual = createRecordVisual(item);
     const bookmarkLabel = document.createElement('div');
     bookmarkLabel.className = 'image-trail-panel__bookmark-label';
     const source = document.createElement('span');
@@ -101,15 +109,31 @@ export function createBookmarksView(
     remove.textContent = 'Remove';
     remove.addEventListener('click', () => dispatch({ name: 'bookmark/remove', id: item.id }));
     actions.append(remove);
-    entry.append(bookmarkLabel, actions);
+    entry.append(visual, bookmarkLabel, actions);
     list.append(entry);
   }
 
   const empty = document.createElement('p');
   empty.className = 'image-trail-panel__meta';
   empty.textContent = 'Saved image URLs persist through the encrypted bookmarks repository.';
-  section.append(heading, add, pageMeta, pager, items.length ? list : empty);
+  section.append(heading, add, refreshThumbnails, pageMeta, pager, items.length ? list : empty);
   return section;
+}
+
+function createRecordVisual(item: ImageDisplayRecord): HTMLElement {
+  if (item.thumbnail) {
+    const image = document.createElement('img');
+    image.className = 'image-trail-panel__record-thumbnail';
+    image.src = item.thumbnail;
+    image.alt = '';
+    image.loading = 'lazy';
+    return image;
+  }
+
+  const fallback = document.createElement('span');
+  fallback.className = 'image-trail-panel__record-thumbnail image-trail-panel__record-thumbnail--empty';
+  fallback.textContent = extensionLabelFor(item).slice(0, 4);
+  return fallback;
 }
 
 function extensionLabelFor(item: ImageDisplayRecord): string {

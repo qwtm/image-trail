@@ -14,6 +14,7 @@ import { applyImageUrl } from '../core/image/image-navigation.js';
 import { parseUrl } from '../core/url/parse-url.js';
 import { bumpUrlField, rebuildUrl, setUrlFieldValue } from '../core/url/rebuild-url.js';
 import { collectUrlFields, selectDefaultField } from '../core/url/tokenize-fields.js';
+import { createThumbnailDataUrlFromImage, createThumbnailDataUrlFromUrl } from '../content/thumbnail-generator.js';
 import { renderPanel } from './render.js';
 
 const ROOT_ID = 'image-trail-panel-root';
@@ -64,11 +65,11 @@ export class ImageTrailPanel {
     });
     this.unsubscribeFromLoads = this.pageAdapter.subscribeToSuccessfulLoads((target) => {
       if (!isDurableImageSourceUrl(target.url)) return;
-      this.state = reducePanelAction(this.state, { name: 'history/add-loaded', url: target.url });
+      this.state = reducePanelAction(this.state, { name: 'history/add-loaded', url: target.url, thumbnail: target.thumbnail });
       this.render();
     });
     this.unsubscribeFromBookmarkRequests = this.pageAdapter.subscribeToBookmarkRequests((target) => {
-      this.enqueueBookmarkMutation(() => this.bookmarkUrl(target.url));
+      this.enqueueBookmarkMutation(() => this.bookmarkUrl(target.url, target.thumbnail));
     });
     void this.loadBookmarks();
     void this.refreshStorageUsage();
@@ -185,6 +186,11 @@ export class ImageTrailPanel {
 
     if (action.name === 'bookmarks/newer') {
       void this.loadBookmarkPage(Math.max(0, this.state.bookmarkOffset - this.state.bookmarkLimit));
+      return;
+    }
+
+    if (action.name === 'bookmarks/refresh-thumbnails') {
+      void this.refreshBookmarkThumbnails();
       return;
     }
 
@@ -415,7 +421,8 @@ export class ImageTrailPanel {
   private async bookmarkCurrentImage(): Promise<void> {
     const url = this.state.target.selectedUrl;
     if (!url) return;
-    await this.bookmarkUrl(url);
+    const image = this.state.target.selectedHandleId ? this.findSelectedImage(this.state.target.selectedHandleId) : null;
+    await this.bookmarkUrl(url, image ? (await createThumbnailDataUrlFromImage(image)) ?? undefined : undefined);
   }
 
   private enqueueBookmarkMutation(work: () => Promise<void>): void {
@@ -423,7 +430,7 @@ export class ImageTrailPanel {
     void this.bookmarkMutationQueue;
   }
 
-  private async bookmarkUrl(url: string): Promise<void> {
+  private async bookmarkUrl(url: string, thumbnail?: string): Promise<void> {
     if (!isDurableImageSourceUrl(url)) {
       this.state = {
         ...this.state,
@@ -435,7 +442,7 @@ export class ImageTrailPanel {
       return;
     }
     const sourceUrl = sourceUrlForBookmark(url);
-    const draft = createDisplayRecord({ id: sourceUrl, url: sourceUrl, source: 'bookmark' });
+    const draft = createDisplayRecord({ id: sourceUrl, url: sourceUrl, thumbnail, source: 'bookmark' });
     const bookmark = this.bookmarkStore ? await this.bookmarkStore.save(draft) : draft;
     this.state = { ...this.state, message: `Added to Image Trail: ${bookmark.url}`, lastUpdatedAt: Date.now() };
     await this.loadBookmarkPage(0);
@@ -456,6 +463,35 @@ export class ImageTrailPanel {
     await this.bookmarkStore?.remove(bookmark);
     this.state = reducePanelAction(this.state, { name: 'bookmark/remove', id });
     await this.loadBookmarkPage(this.state.bookmarkOffset);
+    this.render();
+  }
+
+  private async refreshBookmarkThumbnails(): Promise<void> {
+    if (!this.bookmarkStore) return;
+    const bookmarks = this.state.bookmarks;
+    if (bookmarks.length === 0) return;
+
+    this.state = { ...this.state, message: `Refreshing ${bookmarks.length} visible bookmark thumbnail(s)...`, lastUpdatedAt: Date.now() };
+    this.render();
+
+    let refreshed = 0;
+    let unavailable = 0;
+    for (const bookmark of bookmarks) {
+      const thumbnail = await createThumbnailDataUrlFromUrl(bookmark.url);
+      if (!thumbnail) {
+        unavailable += 1;
+        continue;
+      }
+      await this.bookmarkStore.save({ ...bookmark, thumbnail });
+      refreshed += 1;
+    }
+
+    await this.loadBookmarkPage(this.state.bookmarkOffset);
+    this.state = {
+      ...this.state,
+      message: `Refreshed ${refreshed} thumbnail${refreshed === 1 ? '' : 's'}${unavailable ? `; ${unavailable} unavailable` : ''}.`,
+      lastUpdatedAt: Date.now(),
+    };
     this.render();
   }
 
