@@ -1,13 +1,14 @@
 import type { PanelAction, PanelState } from '../core/types.js';
 import { createBookmarksView } from './components/bookmarks-view.js';
 import { createControlsView } from './components/controls-view.js';
-import { createFieldsView } from './components/fields-view.js';
+import { createFieldsView, type EditableField } from './components/fields-view.js';
 import { createUrlEditorView } from './components/url-editor-view.js';
 import { createHistoryView } from './components/history-view.js';
 import { createStatusView } from './components/status-view.js';
 import { createTargetPickerView } from './components/target-picker-view.js';
 import { parseUrl } from '../core/url/parse-url.js';
-import { collectUrlFields } from '../core/url/tokenize-fields.js';
+import { collectUrlFields, tokenValue } from '../core/url/tokenize-fields.js';
+import type { ParsedUrlModel, UrlField } from '../core/url/types.js';
 
 export interface PanelRenderTarget {
   readonly root: HTMLElement;
@@ -26,14 +27,40 @@ function makeButton(label: string, action: PanelAction, dispatch: (action: Panel
 export function renderPanel(target: PanelRenderTarget, state: PanelState): void {
   target.root.replaceChildren();
 
-  const fields = (() => {
-    if (!state.target.selectedUrl) return [];
-    try {
-      return collectUrlFields(parseUrl(state.target.selectedUrl));
-    } catch {
-      return [];
+  const fieldValueFor = (model: ParsedUrlModel, field: UrlField): string => {
+    if (field.location === 'path' && field.partIndex !== undefined) {
+      const part = model.pathParts[field.partIndex];
+      if (!part || part.type !== 'segment') return '';
+      const token = part.tokens[field.tokenIndex];
+      return token ? tokenValue(token) : '';
     }
-  })();
+
+    if (field.location === 'query' && field.queryIndex !== undefined) {
+      const queryField = model.queryFields[field.queryIndex];
+      const token = queryField?.valueTokens[field.tokenIndex];
+      return token ? tokenValue(token) : '';
+    }
+
+    return '';
+  };
+
+  const parseSelectedUrl = (): ParsedUrlModel | null => {
+    if (!state.target.selectedUrl) return null;
+    try {
+      return parseUrl(state.target.selectedUrl);
+    } catch {
+      return null;
+    }
+  };
+
+  const targetModel = parseSelectedUrl();
+  const fields = targetModel ? collectUrlFields(targetModel) : [];
+  const editableFields: EditableField[] = targetModel
+    ? fields.map((field) => ({
+        field,
+        value: fieldValueFor(targetModel, field),
+      }))
+    : [];
 
   const dispatchActiveField = (delta: -1 | 1): void => {
     if (fields.length === 0) return;
@@ -115,13 +142,31 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
   target.root.append(
     heading,
     createStatusView(state, target.dispatch),
+    createUrlEditorView(
+      { url: state.target.selectedUrl },
+      {
+        onApply: (url) => {
+          target.dispatch({ name: 'selected-url/apply', url });
+        },
+      },
+    ),
     createTargetPickerView(state.target, target.dispatch),
+    createFieldsView(
+      editableFields,
+      state.activeFieldId,
+      {
+        onActivate: (fieldId) => {
+          target.dispatch({ name: 'active-field/set', id: fieldId });
+        },
+        onValueChange: (fieldId, value) => {
+          target.dispatch({ name: 'field-value-change', id: fieldId, value });
+        },
+      },
+    ),
     createControlsView({
       onPrevious: () => dispatchActiveField(-1),
       onNext: () => dispatchActiveField(1),
     }),
-    createFieldsView(fields, state.activeFieldId),
-    createUrlEditorView({ url: state.target.selectedUrl }),
     captureSection,
     navSection,
     autoSection,

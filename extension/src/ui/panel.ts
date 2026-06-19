@@ -11,12 +11,11 @@ import type { BookmarkStore, PanelAction, PanelState, TargetState } from '../cor
 import { isCapturedResult } from '../core/image/capture-result.js';
 import { applyImageUrl } from '../core/image/image-navigation.js';
 import { parseUrl } from '../core/url/parse-url.js';
-import { bumpUrlField, rebuildUrl } from '../core/url/rebuild-url.js';
+import { bumpUrlField, rebuildUrl, setUrlFieldValue } from '../core/url/rebuild-url.js';
 import { collectUrlFields, selectDefaultField } from '../core/url/tokenize-fields.js';
 import { renderPanel } from './render.js';
 
 const ROOT_ID = 'image-trail-panel-root';
-const STYLE_ID = 'image-trail-panel-style';
 const STYLE_PATH = 'src/ui/styles/panel.css';
 
 function toTargetState(snapshot: TargetSelectionSnapshot): TargetState {
@@ -102,7 +101,6 @@ export class ImageTrailPanel {
   private cleanupMountedElements(): void {
     this.pageAdapter.cleanup();
     document.getElementById(ROOT_ID)?.remove();
-    document.getElementById(STYLE_ID)?.remove();
     this.root = null;
   }
 
@@ -146,6 +144,16 @@ export class ImageTrailPanel {
 
     if (action.name === 'bookmark/remove') {
       void this.removeBookmark(action.id);
+      return;
+    }
+
+    if (action.name === 'field-value-change') {
+      this.updateFieldValue(action.id, action.value);
+      return;
+    }
+
+    if (action.name === 'selected-url/apply') {
+      this.applySelectedUrl(action.url);
       return;
     }
 
@@ -289,6 +297,38 @@ export class ImageTrailPanel {
     this.render();
   }
 
+  private updateFieldValue(fieldId: string, nextValue: string): void {
+    const snapshot = this.pageAdapter.getSnapshot();
+    if (!snapshot.selected) return;
+
+    const image = this.findSelectedImage(snapshot.selected.handleId);
+    if (!image || !image.src) return;
+
+    const model = parseUrl(image.src);
+    const fields = collectUrlFields(model);
+    const field = fields.find((item) => item.id === fieldId);
+    if (!field) return;
+
+    const nextModel = setUrlFieldValue(model, field, nextValue);
+    const nextUrl = rebuildUrl(nextModel);
+    applyImageUrl(image, nextUrl);
+
+    this.state = setTargetState(this.state, { ...this.state.target, selectedUrl: nextUrl });
+    this.render();
+  }
+
+  private applySelectedUrl(nextUrl: string): void {
+    const snapshot = this.pageAdapter.getSnapshot();
+    if (!snapshot.selected) return;
+
+    const image = this.findSelectedImage(snapshot.selected.handleId);
+    if (!image) return;
+
+    applyImageUrl(image, nextUrl);
+    this.state = setTargetState(this.state, { ...this.state.target, selectedUrl: nextUrl });
+    this.render();
+  }
+
   private async tryReloadCurrent(): Promise<boolean> {
     const snapshot = this.pageAdapter.getSnapshot();
     if (!snapshot.selected) return false;
@@ -379,20 +419,18 @@ export class ImageTrailPanel {
 
   private mount(): void {
     if (!this.root) {
-      this.root = document.getElementById(ROOT_ID) ?? document.createElement('aside');
-      this.root.id = ROOT_ID;
-      this.root.className = 'image-trail-panel';
-      this.root.setAttribute('role', 'dialog');
-      this.root.setAttribute('aria-label', 'Image Trail panel');
-      (document.body ?? document.documentElement).append(this.root);
-    }
-
-    if (!document.getElementById(STYLE_ID)) {
+      const host = document.getElementById(ROOT_ID) ?? document.createElement('div');
+      host.id = ROOT_ID;
+      const shadow = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
       const link = document.createElement('link');
-      link.id = STYLE_ID;
       link.rel = 'stylesheet';
       link.href = chrome.runtime.getURL(STYLE_PATH);
-      (document.head ?? document.documentElement).append(link);
+      this.root = document.createElement('aside');
+      this.root.className = 'image-trail-panel-root image-trail-panel';
+      this.root.setAttribute('role', 'dialog');
+      this.root.setAttribute('aria-label', 'Image Trail panel');
+      shadow.replaceChildren(link, this.root);
+      (document.body ?? document.documentElement).append(host);
     }
   }
 

@@ -54,6 +54,8 @@ export type PanelActionName =
   | 'history/download'
   | 'history/select'
   | 'active-field/set'
+  | 'field-value-change'
+  | 'selected-url/apply'
   | 'bookmark/current'
   | 'bookmark/load'
   | 'bookmark/remove'
@@ -81,6 +83,8 @@ export type PanelAction =
         | 'history/add-loaded'
         | 'history/remove'
         | 'history/select'
+        | 'field-value-change'
+        | 'selected-url/apply'
         | 'active-field/set'
         | 'bookmark/load'
         | 'bookmark/remove'
@@ -96,6 +100,8 @@ export type PanelAction =
   | { readonly name: 'history/remove' | 'bookmark/load' | 'bookmark/remove' | 'history/select'; readonly id: string }
   | { readonly name: 'history/load' | 'history/download' }
   | { readonly name: 'active-field/set'; readonly id: string | null }
+  | { readonly name: 'field-value-change'; readonly id: string; readonly value: string }
+  | { readonly name: 'selected-url/apply'; readonly url: string }
   | { readonly name: 'capture/request'; readonly url: string; readonly sourceType: CaptureSourceType; readonly sourceRecordId?: string }
   | { readonly name: 'capture/start' }
   | { readonly name: 'capture/complete'; readonly result: CaptureResult; readonly sourceRecordId?: string }
