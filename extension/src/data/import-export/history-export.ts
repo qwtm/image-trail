@@ -68,7 +68,12 @@ export async function exportEncryptedHistory(input: HistoryExportInput): Promise
     };
   } catch (cause) {
     return {
-      status: { ok: false, code: 'encryption-failed', message: 'Failed to encrypt history export.', cause },
+      status: {
+        ok: false,
+        code: 'encryption-failed',
+        message: `Failed to encrypt history export${cause instanceof Error ? `: ${cause.message}` : '.'}`,
+        cause,
+      },
     };
   }
 }

@@ -235,6 +235,27 @@ test('bookmarks-export: shift/plain export imports without password', async () =
   assert.equal(importResult.entries[0].payload.url, 'https://example.test/plain-bookmark.webp');
 });
 
+test('bookmarks-export: encrypts large thumbnail payloads', async () => {
+  const largeThumbnail = `data:image/jpeg;base64,${'a'.repeat(180_000)}`;
+  const entries = [
+    {
+      uuid: 'large-bookmark-1',
+      payload: {
+        url: 'https://example.test/large.jpg',
+        bookmarkedAt: '2026-06-18T00:00:00.000Z',
+        thumbnail: largeThumbnail,
+      },
+    },
+  ];
+
+  const exportResult = await exportEncryptedBookmarks({ entries, password: 'bookmark-pass', now: '2026-06-18T12:00:00.000Z' });
+  assert.ok(exportResult.status.ok, exportResult.status.message);
+
+  const importResult = await importBookmarks(exportResult.fileContent!, 'bookmark-pass');
+  assert.ok(importResult.status.ok, importResult.status.message);
+  assert.equal(importResult.entries[0].payload.thumbnail, largeThumbnail);
+});
+
 test('bookmarklet-import: imports favorites and deduplicates URLs', () => {
   const json = JSON.stringify({
     favorites: [

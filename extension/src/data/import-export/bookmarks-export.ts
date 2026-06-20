@@ -51,7 +51,14 @@ export async function exportEncryptedBookmarks(input: BookmarksExportInput): Pro
     const fileName = `image-trail-bookmarks-${now.slice(0, 10)}.json`;
     return { status: { ok: true, code: 'ok', message: `Exported ${entries.length} bookmark(s).` }, fileContent, fileName };
   } catch (cause) {
-    return { status: { ok: false, code: 'encryption-failed', message: 'Failed to encrypt bookmarks export.', cause } };
+    return {
+      status: {
+        ok: false,
+        code: 'encryption-failed',
+        message: `Failed to encrypt bookmarks export${cause instanceof Error ? `: ${cause.message}` : '.'}`,
+        cause,
+      },
+    };
   }
 }
 
