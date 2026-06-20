@@ -623,6 +623,14 @@
   background: rgb(90 180 200 / 18%);
 }
 
+.image-trail-panel-root .image-trail-panel__field-row.is-error {
+  border-color: rgb(255 126 126 / 78%);
+  background: rgb(170 38 38 / 20%);
+  box-shadow:
+    0 0 0 1px rgb(255 126 126 / 16%),
+    0 0 14px rgb(255 80 80 / 20%);
+}
+
 .image-trail-panel-root .image-trail-panel__field-control {
   display: grid;
   grid-template-columns: minmax(0, 1fr);

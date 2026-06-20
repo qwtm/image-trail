@@ -490,7 +490,7 @@ export class ImageTrailPanel {
 
     const nextModel = setUrlFieldValue(model, field, nextValue);
     const nextUrl = rebuildUrl(nextModel);
-    await this.applySelectedUrl(nextUrl);
+    await this.applySelectedUrl(nextUrl, field.location === 'query' ? fieldId : null);
   }
 
   private async bumpFieldValue(fieldId: string, delta: 1 | -1): Promise<void> {
@@ -504,13 +504,20 @@ export class ImageTrailPanel {
     const nextModel = bumpUrlField(model, field, delta);
     const nextUrl = rebuildUrl(nextModel);
     this.state = reducePanelAction(this.state, { name: 'active-field/set', id: fieldId });
-    await this.applySelectedUrl(nextUrl);
+    await this.applySelectedUrl(nextUrl, field.location === 'query' ? fieldId : null);
   }
 
-  private async applySelectedUrl(nextUrl: string): Promise<boolean> {
+  private async applySelectedUrl(nextUrl: string, failedFieldId: string | null = null): Promise<boolean> {
     const preload = await this.preloadImageUrl(nextUrl);
     if (!preload.ok) {
-      this.state = { ...this.state, draftUrl: nextUrl, message: preload.message, status: 'error', lastUpdatedAt: Date.now() };
+      this.state = {
+        ...this.state,
+        draftUrl: nextUrl,
+        failedFieldId,
+        message: preload.message,
+        status: 'error',
+        lastUpdatedAt: Date.now(),
+      };
       this.render();
       return false;
     }
@@ -520,6 +527,7 @@ export class ImageTrailPanel {
       const nextSnapshot = this.pageAdapter.applyUrlToSelected(nextUrl, preload.displayUrl);
       this.state = setTargetState(this.state, toTargetState(nextSnapshot));
     }
+    this.state = { ...this.state, failedFieldId: null };
     pushVisibleUrlWhenSameOrigin(nextUrl);
     this.render();
     return true;

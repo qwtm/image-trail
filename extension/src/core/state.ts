@@ -46,6 +46,7 @@ export function createInitialPanelState(now = Date.now()): PanelState {
     automation: EMPTY_AUTOMATION_STATE,
     selectedHistoryId: null,
     activeFieldId: null,
+    failedFieldId: null,
   };
 }
 
@@ -71,6 +72,7 @@ export function setTargetState(state: PanelState, target: TargetState, now = Dat
     message: target.message,
     target,
     draftUrl: null,
+    failedFieldId: null,
     lastUpdatedAt: now,
   };
 }

@@ -231,7 +231,7 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
       },
       target.dispatch,
     ),
-    createFieldsView(editableFields, state.activeFieldId, {
+    createFieldsView(editableFields, state.activeFieldId, state.failedFieldId, {
       onActivate: (fieldId) => {
         target.dispatch({ name: 'active-field/set', id: fieldId });
       },

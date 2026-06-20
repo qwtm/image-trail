@@ -56,6 +56,7 @@ export interface PanelState {
   readonly automation: AutomationState;
   readonly selectedHistoryId: string | null;
   readonly activeFieldId: string | null;
+  readonly failedFieldId: string | null;
 }
 
 export type CaptureSourceType = 'target' | 'history' | 'bookmark';

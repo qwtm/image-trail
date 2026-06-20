@@ -11,7 +11,12 @@ export interface FieldsViewCallbacks {
   readonly onActivate: (fieldId: string) => void;
 }
 
-export function createFieldsView(fields: EditableField[], activeFieldId: string | null, callbacks: FieldsViewCallbacks): HTMLElement {
+export function createFieldsView(
+  fields: EditableField[],
+  activeFieldId: string | null,
+  failedFieldId: string | null,
+  callbacks: FieldsViewCallbacks,
+): HTMLElement {
   const wrapper = document.createElement('section');
   wrapper.className = 'image-trail-panel__section image-trail-panel__fields';
   const heading = document.createElement('h3');
@@ -27,7 +32,7 @@ export function createFieldsView(fields: EditableField[], activeFieldId: string 
     const item = document.createElement('li');
     item.className = 'image-trail-panel__field-item';
     const container = document.createElement('div');
-    container.className = `image-trail-panel__field-row${field.field.id === activeFieldId ? ' is-active' : ''}`;
+    container.className = `image-trail-panel__field-row${field.field.id === activeFieldId ? ' is-active' : ''}${field.field.id === failedFieldId ? ' is-error' : ''}`;
 
     const value = document.createElement('input');
     value.type = 'text';
@@ -46,7 +51,7 @@ export function createFieldsView(fields: EditableField[], activeFieldId: string 
 
     const meta = document.createElement('span');
     meta.className = 'image-trail-panel__field-meta';
-    meta.textContent = `${field.field.location} · ${field.field.tokenKind} · ${field.field.value || '(empty)'}${field.field.id === activeFieldId ? ' · active' : ''}`;
+    meta.textContent = `${field.field.location} · ${field.field.tokenKind} · ${field.field.value || '(empty)'}${field.field.id === activeFieldId ? ' · active' : ''}${field.field.id === failedFieldId ? ' · failed load' : ''}`;
 
     const controls = document.createElement('span');
     const hasStepControls = field.field.tokenKind === 'int' || field.field.tokenKind === 'hex';

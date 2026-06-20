@@ -65,7 +65,12 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
     case 'history/remove':
       return { ...state, history: state.history.filter((item) => item.id !== action.id), lastUpdatedAt: Date.now() };
     case 'active-field/set':
-      return { ...state, activeFieldId: action.id, lastUpdatedAt: Date.now() };
+      return {
+        ...state,
+        activeFieldId: action.id,
+        failedFieldId: action.id === state.failedFieldId ? state.failedFieldId : null,
+        lastUpdatedAt: Date.now(),
+      };
     case 'bookmark/current':
       return state.target.selectedUrl
         ? {
