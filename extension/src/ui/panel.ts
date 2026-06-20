@@ -278,6 +278,17 @@ export class ImageTrailPanel {
       return;
     }
 
+    if (
+      action.name === 'history-selection/toggle' ||
+      action.name === 'history-selection/clear' ||
+      action.name === 'bookmark-selection/toggle' ||
+      action.name === 'bookmark-selection/clear'
+    ) {
+      this.state = reducePanelAction(this.state, action);
+      this.render();
+      return;
+    }
+
     if (action.name === 'field-value-change') {
       void this.updateFieldValue(action.id, action.value);
       return;
