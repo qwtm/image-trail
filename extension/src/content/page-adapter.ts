@@ -92,6 +92,7 @@ export class PageAdapter {
     this.observer.stop();
     this.clearHover();
     for (const image of this.candidates) {
+      this.unbindCandidateEvents(image);
       if (image !== this.selected) restoreElementStyles(image);
     }
     this.candidates.clear();
@@ -156,10 +157,14 @@ export class PageAdapter {
   }
 
   private unbindCandidate(image: HTMLImageElement): void {
+    this.unbindCandidateEvents(image);
+    restoreElementStyles(image);
+  }
+
+  private unbindCandidateEvents(image: HTMLImageElement): void {
     image.removeEventListener('mouseenter', this.onMouseEnter, true);
     image.removeEventListener('mouseleave', this.onMouseLeave, true);
     image.removeEventListener('click', this.onClick, true);
-    restoreElementStyles(image);
   }
 
   private onMouseEnter = (event: MouseEvent): void => {
