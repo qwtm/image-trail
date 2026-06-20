@@ -13,7 +13,7 @@ export interface ImportExportViewState {
 
 export function createImportExportView(state: ImportExportViewState, dispatch: (action: ImportExportAction) => void): HTMLElement {
   const section = document.createElement('section');
-  section.className = 'image-trail-panel__section';
+  section.className = 'image-trail-panel__section image-trail-panel__import-export';
 
   const heading = document.createElement('h3');
   heading.textContent = 'Import / Export';
@@ -43,38 +43,49 @@ function createExportGroup(state: ImportExportViewState, dispatch: (action: Impo
   passwordInput.type = 'password';
   passwordInput.placeholder = 'Export password';
   passwordInput.autocomplete = 'new-password';
-  group.append(passwordInput);
+  passwordInput.className = 'image-trail-panel__password-input';
 
-  const hint = document.createElement('p');
-  hint.className = 'image-trail-panel__meta';
-  hint.textContent = 'Click exports encrypted. Shift-click exports plaintext to disk.';
-  group.append(hint);
+  const plaintext = createToggle('Plaintext');
+
+  const controls = document.createElement('div');
+  controls.className = 'image-trail-panel__control-stack';
+  controls.append(passwordInput, plaintext.label);
 
   const historyBtn = document.createElement('button');
   historyBtn.type = 'button';
   historyBtn.textContent = 'Export history';
-  historyBtn.title = 'Shift-click to export plaintext history.';
   historyBtn.disabled = state.busy;
-  historyBtn.addEventListener('click', (event) => {
-    const plaintext = event.shiftKey;
-    if (!plaintext && passwordInput.value.length < 4) return;
-    dispatch({ name: 'export/history', password: passwordInput.value, plaintext });
+  historyBtn.addEventListener('click', () => {
+    dispatch({ name: 'export/history', password: passwordInput.value, plaintext: plaintext.input.checked });
     passwordInput.value = '';
+    updateExportControls();
   });
 
   const bookmarksBtn = document.createElement('button');
   bookmarksBtn.type = 'button';
   bookmarksBtn.textContent = 'Export bookmarks';
-  bookmarksBtn.title = 'Shift-click to export plaintext bookmarks.';
   bookmarksBtn.disabled = state.busy;
-  bookmarksBtn.addEventListener('click', (event) => {
-    const plaintext = event.shiftKey;
-    if (!plaintext && passwordInput.value.length < 4) return;
-    dispatch({ name: 'export/bookmarks', password: passwordInput.value, plaintext });
+  bookmarksBtn.addEventListener('click', () => {
+    dispatch({ name: 'export/bookmarks', password: passwordInput.value, plaintext: plaintext.input.checked });
     passwordInput.value = '';
+    updateExportControls();
   });
 
-  group.append(historyBtn, bookmarksBtn);
+  const actions = document.createElement('div');
+  actions.className = 'image-trail-panel__actions';
+  actions.append(historyBtn, bookmarksBtn);
+
+  const updateExportControls = (): void => {
+    const locked = state.busy || (!plaintext.input.checked && passwordInput.value.length < 4);
+    historyBtn.disabled = locked;
+    bookmarksBtn.disabled = locked;
+    passwordInput.disabled = plaintext.input.checked || state.busy;
+  };
+  passwordInput.addEventListener('input', updateExportControls);
+  plaintext.input.addEventListener('change', updateExportControls);
+  updateExportControls();
+
+  group.append(controls, actions);
   return group;
 }
 
@@ -90,10 +101,12 @@ function createImportGroup(state: ImportExportViewState, dispatch: (action: Impo
   passwordInput.type = 'password';
   passwordInput.placeholder = 'Import password';
   passwordInput.autocomplete = 'current-password';
+  passwordInput.className = 'image-trail-panel__password-input';
 
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
   fileInput.accept = '.json';
+  fileInput.className = 'image-trail-panel__file-input';
 
   const historyBtn = document.createElement('button');
   historyBtn.type = 'button';
@@ -127,8 +140,27 @@ function createImportGroup(state: ImportExportViewState, dispatch: (action: Impo
     });
   });
 
-  group.append(fileInput, passwordInput, historyBtn, bookmarksBtn, bookmarkletBtn);
+  const controls = document.createElement('div');
+  controls.className = 'image-trail-panel__control-stack';
+  controls.append(fileInput, passwordInput);
+
+  const actions = document.createElement('div');
+  actions.className = 'image-trail-panel__actions';
+  actions.append(historyBtn, bookmarksBtn, bookmarkletBtn);
+
+  group.append(controls, actions);
   return group;
+}
+
+function createToggle(text: string): { readonly label: HTMLLabelElement; readonly input: HTMLInputElement } {
+  const label = document.createElement('label');
+  label.className = 'image-trail-panel__toggle';
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  const copy = document.createElement('span');
+  copy.textContent = text;
+  label.append(input, copy);
+  return { label, input };
 }
 
 function readFileInput(input: HTMLInputElement, onRead: (content: string) => void): void {
