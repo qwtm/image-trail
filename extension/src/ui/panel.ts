@@ -37,25 +37,6 @@ function sourceUrlForBookmark(url: string): string {
   }
 }
 
-function imageUrlLoads(url: string, timeoutMs = 8_000): Promise<boolean> {
-  return new Promise((resolve) => {
-    const image = new Image();
-    let settled = false;
-    const finish = (ok: boolean): void => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timeout);
-      image.onload = null;
-      image.onerror = null;
-      resolve(ok);
-    };
-    const timeout = window.setTimeout(() => finish(false), timeoutMs);
-    image.onload = () => finish(image.naturalWidth > 0 && image.naturalHeight > 0);
-    image.onerror = () => finish(false);
-    image.src = url;
-  });
-}
-
 function toTargetState(snapshot: TargetSelectionSnapshot): TargetState {
   const selectedUrl = snapshot.selected?.url ?? null;
   return {
@@ -630,11 +611,13 @@ export class ImageTrailPanel {
   private async validateRecordUrlForAdd(url: string): Promise<ReturnType<typeof validateImageRecordUrl>> {
     const validation = this.validateRecordUrl(url);
     if (!validation.ok || !validation.sourceUrl) return validation;
-    if (await imageUrlLoads(validation.sourceUrl)) return validation;
+    if (validation.sourceUrl.startsWith('data:image/')) return validation;
+    const fetchResult = await fetchThumbnailSource(validation.sourceUrl);
+    if (fetchResult.ok) return validation;
 
     this.state = {
       ...this.state,
-      message: 'Image Trail could not save this URL because the image failed to load.',
+      message: `Image Trail could not save this URL because the image failed to load: ${fetchResult.message}`,
       status: 'error',
       lastUpdatedAt: Date.now(),
     };
