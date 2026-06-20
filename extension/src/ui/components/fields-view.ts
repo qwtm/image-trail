@@ -64,6 +64,7 @@ export function createFieldsView(
     value.value = field.value;
     value.placeholder = field.field.label;
     value.className = 'image-trail-panel__field-input';
+    value.title = field.value;
     value.setAttribute('aria-label', `Edit ${field.field.label}`);
     value.dataset.fieldId = field.field.id;
     value.addEventListener('focus', () => {
@@ -73,6 +74,7 @@ export function createFieldsView(
     const label = document.createElement('span');
     label.className = 'image-trail-panel__field-label';
     label.textContent = field.field.label;
+    label.title = field.field.label;
 
     const meta = document.createElement('span');
     meta.className = 'image-trail-panel__field-meta';
@@ -87,6 +89,7 @@ export function createFieldsView(
       isFailed ? 'failed load' : '',
     ].filter(Boolean);
     meta.textContent = `${field.field.location} · ${field.field.tokenKind} · ${fieldDisplayValue(field)}${statuses.length ? ` · ${statuses.join(' · ')}` : ''}`;
+    meta.title = meta.textContent;
 
     const hasStepControls = field.field.tokenKind === 'int' || field.field.tokenKind === 'hex';
     const controls = document.createElement('span');

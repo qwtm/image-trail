@@ -130,9 +130,11 @@ export function createBookmarksView(
     const source = document.createElement('span');
     source.className = 'image-trail-panel__bookmark-source';
     source.textContent = extensionLabelFor(item);
+    source.title = source.textContent;
     const label = document.createElement('span');
     label.className = 'image-trail-panel__bookmark-name';
     label.textContent = item.label ?? item.url;
+    label.title = item.url;
     bookmarkLabel.append(source, label);
 
     const actions = document.createElement('span');

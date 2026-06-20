@@ -23,6 +23,7 @@ export function createTargetPickerView(target: TargetState, dispatch: (action: P
   const current = document.createElement('p');
   current.className = 'image-trail-panel__target-url';
   current.textContent = target.selectedUrl?.startsWith('data:') ? 'data URL' : (target.selectedUrl ?? 'No host image selected yet.');
+  current.title = target.selectedUrl ?? current.textContent;
 
   const actions = document.createElement('div');
   actions.className = 'image-trail-panel__actions';

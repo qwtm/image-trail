@@ -64,6 +64,7 @@ export function createHistoryView(
     const link = document.createElement('span');
     link.className = 'image-trail-panel__record-link';
     link.textContent = item.label ?? item.url;
+    link.title = item.url;
 
     const actions = document.createElement('span');
     actions.className = 'image-trail-panel__item-actions';

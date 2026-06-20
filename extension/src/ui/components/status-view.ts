@@ -15,7 +15,9 @@ export function createStatusView(state: PanelState, dispatch: (action: StatusAct
 
   const status = document.createElement('p');
   status.className = 'image-trail-panel__status';
-  status.textContent = state.message.trim() || 'Image Trail is ready.';
+  const statusText = state.message.trim() || 'Image Trail is ready.';
+  status.textContent = statusText;
+  status.title = statusText;
 
   const meta = document.createElement('p');
   meta.className = 'image-trail-panel__meta';
