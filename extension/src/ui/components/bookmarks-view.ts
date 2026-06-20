@@ -5,6 +5,7 @@ import {
   imageExtensionFromValue,
   type ImageDisplayRecord,
 } from '../../core/display-records.js';
+import { thumbnailSourceForDom } from './thumbnail-source.js';
 
 type BookmarkAction =
   | { readonly name: 'bookmark/current' }
@@ -191,7 +192,7 @@ function createRecordVisual(item: ImageDisplayRecord): HTMLElement {
   if (item.thumbnail) {
     const image = document.createElement('img');
     image.className = 'image-trail-panel__record-thumbnail';
-    image.src = item.thumbnail;
+    image.src = thumbnailSourceForDom(item.thumbnail);
     image.alt = '';
     image.loading = 'lazy';
     return image;

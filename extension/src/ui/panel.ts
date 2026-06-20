@@ -42,6 +42,7 @@ import {
   type DurableBookmarkPayloadV1,
   type DurableHistoryPayloadV1,
 } from '../content/panel-services.js';
+import { revokeThumbnailObjectUrls } from './components/thumbnail-source.js';
 import { renderPanel } from './render.js';
 
 const ROOT_ID = 'image-trail-panel-root';
@@ -167,6 +168,7 @@ export class ImageTrailPanel {
 
   private cleanupMountedElements(): void {
     this.pageAdapter.cleanup();
+    revokeThumbnailObjectUrls();
     document.getElementById(ROOT_ID)?.remove();
     this.root = null;
   }

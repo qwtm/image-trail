@@ -1,4 +1,5 @@
 import { displayTitleForRecord, encryptedBlobIdForRecord, type ImageDisplayRecord } from '../../core/display-records.js';
+import { thumbnailSourceForDom } from './thumbnail-source.js';
 
 type HistoryAction =
   | { readonly name: 'history/remove'; readonly id: string }
@@ -130,7 +131,7 @@ function createRecordVisual(item: ImageDisplayRecord): HTMLElement {
   if (item.thumbnail) {
     const image = document.createElement('img');
     image.className = 'image-trail-panel__record-thumbnail';
-    image.src = item.thumbnail;
+    image.src = thumbnailSourceForDom(item.thumbnail);
     image.alt = '';
     image.loading = 'lazy';
     return image;
