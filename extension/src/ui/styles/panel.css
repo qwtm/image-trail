@@ -97,6 +97,7 @@
 .image-trail-panel-root .image-trail-panel__status {
   display: -webkit-box;
   min-width: 0;
+  min-block-size: 1.4em;
   max-width: 100%;
   max-inline-size: 100%;
   max-block-size: calc(1.4em * 4);
