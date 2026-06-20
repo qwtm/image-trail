@@ -12,6 +12,17 @@ export interface FieldsViewCallbacks {
   readonly onToggleUnlock: (fieldId: string) => void;
 }
 
+export function fieldDisplayValue(field: EditableField): string {
+  if (field.field.tokenKind !== 'hex') return field.field.value || '(empty)';
+  const raw = field.value;
+  try {
+    const digits = raw.replace(/^0[xX]/u, '');
+    return `${raw} (${BigInt(`0x${digits}`).toString(10)})`;
+  } catch {
+    return raw || '(empty)';
+  }
+}
+
 export function createFieldsView(
   fields: EditableField[],
   activeFieldId: string | null,
@@ -68,7 +79,7 @@ export function createFieldsView(
       isUnchanged ? 'unchanged' : '',
       isFailed ? 'failed load' : '',
     ].filter(Boolean);
-    meta.textContent = `${field.field.location} · ${field.field.tokenKind} · ${field.field.value || '(empty)'}${statuses.length ? ` · ${statuses.join(' · ')}` : ''}`;
+    meta.textContent = `${field.field.location} · ${field.field.tokenKind} · ${fieldDisplayValue(field)}${statuses.length ? ` · ${statuses.join(' · ')}` : ''}`;
 
     const hasStepControls = field.field.tokenKind === 'int' || field.field.tokenKind === 'hex';
     const controls = document.createElement('span');
