@@ -89,9 +89,7 @@ function restoreFocusedTextControl(root: HTMLElement, snapshot: FocusedTextContr
 }
 
 function scrollSnapshots(root: HTMLElement): readonly ScrollSnapshot[] {
-  const snapshots: ScrollSnapshot[] = [
-    { selector: null, scrollTop: root.scrollTop, scrollLeft: root.scrollLeft, anchor: visibleScrollAnchor(root) },
-  ];
+  const snapshots: ScrollSnapshot[] = [{ selector: null, scrollTop: root.scrollTop, scrollLeft: root.scrollLeft }];
   for (const selector of SCROLL_SNAPSHOT_SELECTORS) {
     const element = root.querySelector<HTMLElement>(selector);
     if (!element) continue;
