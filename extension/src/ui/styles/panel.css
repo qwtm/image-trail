@@ -225,10 +225,12 @@
 }
 
 .image-trail-panel-root .image-trail-panel__target-badge.is-selected {
-  border-color: rgb(89 255 178 / 42%);
-  background: rgb(89 255 178 / 12%);
-  color: rgb(216 255 236 / 92%);
-  box-shadow: 0 0 10px rgb(89 255 178 / 16%);
+  border-color: rgb(89 255 178 / 76%);
+  background: rgb(89 255 178 / 20%);
+  color: rgb(232 255 244);
+  box-shadow:
+    0 0 0 1px rgb(89 255 178 / 22%),
+    0 0 16px rgb(89 255 178 / 34%);
 }
 
 .image-trail-panel-root .image-trail-panel__target-summary::-webkit-details-marker {
@@ -583,17 +585,39 @@
 }
 
 .image-trail-panel-root .image-trail-panel__record-list li.is-captured {
-  border-color: rgb(89 255 178 / 58%);
+  border-color: rgb(89 255 178 / 28%);
   background:
-    linear-gradient(135deg, rgb(89 255 178 / 10%), transparent 45%),
-    rgb(8 28 18 / 42%);
+    linear-gradient(135deg, rgb(89 255 178 / 5%), transparent 45%),
+    rgb(8 28 18 / 24%);
   box-shadow:
-    0 0 0 1px rgb(89 255 178 / 18%),
-    0 0 14px rgb(89 255 178 / 22%);
+    0 0 0 1px rgb(89 255 178 / 8%),
+    0 0 10px rgb(89 255 178 / 10%);
+}
+
+.image-trail-panel-root .image-trail-panel__record-list li.is-locked-encrypted {
+  border-color: rgb(255 96 112 / 34%);
+  background:
+    linear-gradient(135deg, rgb(255 96 112 / 7%), transparent 45%),
+    rgb(38 10 16 / 34%);
+  box-shadow:
+    0 0 0 1px rgb(255 96 112 / 10%),
+    0 0 12px rgb(255 96 112 / 14%);
+  opacity: 0.72;
+}
+
+.image-trail-panel-root .image-trail-panel__record-list li.is-locked-encrypted .image-trail-panel__record-thumbnail,
+.image-trail-panel-root .image-trail-panel__record-list li.is-locked-encrypted .image-trail-panel__record-link,
+.image-trail-panel-root .image-trail-panel__record-list li.is-locked-encrypted .image-trail-panel__bookmark-label {
+  filter: saturate(0.55);
+  opacity: 0.72;
 }
 
 .image-trail-panel-root .image-trail-panel__record-list li[role='button'] {
   cursor: pointer;
+}
+
+.image-trail-panel-root .image-trail-panel__record-list li[aria-disabled='true'] {
+  cursor: not-allowed;
 }
 
 .image-trail-panel-root .image-trail-panel__record-list li[role='button']:hover {

@@ -249,11 +249,12 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
     captureSection,
     navSection,
     autoSection,
-    createHistoryView(state.history, state.captureInProgress, target.dispatch),
+    createHistoryView(state.history, state.captureInProgress, state.blobKeyUnlocked, target.dispatch),
     createBookmarksView(
       state.target.selectedUrl,
       state.bookmarks,
       state.captureInProgress,
+      state.blobKeyUnlocked,
       state.bookmarkVisibilityScope,
       {
         offset: state.bookmarkOffset,

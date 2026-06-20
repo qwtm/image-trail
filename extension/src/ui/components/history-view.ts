@@ -9,6 +9,7 @@ type HistoryAction =
 export function createHistoryView(
   items: readonly ImageDisplayRecord[],
   captureInProgress: boolean,
+  blobKeyUnlocked: boolean,
   dispatch: (action: HistoryAction) => void,
 ): HTMLElement {
   const section = document.createElement('section');
@@ -20,18 +21,26 @@ export function createHistoryView(
   const list = document.createElement('ol');
   list.className = 'image-trail-panel__record-list';
   for (const item of items) {
+    const lockedEncrypted = isLockedEncryptedRecord(item, blobKeyUnlocked);
+    const previewableEncrypted = isPreviewableEncryptedRecord(item, blobKeyUnlocked);
     const entry = document.createElement('li');
     entry.className = 'image-trail-panel__history-item';
-    if (item.captureStatus === 'captured' && item.blobId) entry.classList.add('is-captured');
-    entry.tabIndex = 0;
-    entry.setAttribute('role', 'button');
-    entry.title = 'Preview this image in the selected host image, or open it in a new tab.';
-    entry.addEventListener('click', () => dispatch({ name: 'capture/preview', url: item.url, blobId: item.blobId }));
-    entry.addEventListener('keydown', (event) => {
-      if (event.key !== 'Enter' && event.key !== ' ') return;
-      event.preventDefault();
-      dispatch({ name: 'capture/preview', url: item.url, blobId: item.blobId });
-    });
+    if (previewableEncrypted) entry.classList.add('is-captured');
+    if (lockedEncrypted) {
+      entry.classList.add('is-locked-encrypted');
+      entry.setAttribute('aria-disabled', 'true');
+      entry.title = 'Unlock encrypted originals before previewing this row.';
+    } else {
+      entry.tabIndex = 0;
+      entry.setAttribute('role', 'button');
+      entry.title = 'Preview this image in the selected host image, or open it in a new tab.';
+      entry.addEventListener('click', () => dispatch({ name: 'capture/preview', url: item.url, blobId: item.blobId }));
+      entry.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        dispatch({ name: 'capture/preview', url: item.url, blobId: item.blobId });
+      });
+    }
     const visual = createRecordVisual(item);
     const link = document.createElement('span');
     link.className = 'image-trail-panel__record-link';
@@ -73,6 +82,14 @@ export function createHistoryView(
   empty.textContent = 'Loaded images will appear here newest-first.';
   section.append(heading, items.length ? list : empty);
   return section;
+}
+
+function isLockedEncryptedRecord(item: ImageDisplayRecord, blobKeyUnlocked: boolean): boolean {
+  return item.captureStatus === 'captured' && !!item.blobId && !blobKeyUnlocked;
+}
+
+function isPreviewableEncryptedRecord(item: ImageDisplayRecord, blobKeyUnlocked: boolean): boolean {
+  return item.captureStatus === 'captured' && !!item.blobId && blobKeyUnlocked && !!item.thumbnail;
 }
 
 function createRecordVisual(item: ImageDisplayRecord): HTMLElement {

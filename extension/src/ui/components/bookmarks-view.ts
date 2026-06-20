@@ -17,6 +17,7 @@ export function createBookmarksView(
   currentUrl: string | null,
   items: readonly ImageDisplayRecord[],
   captureInProgress: boolean,
+  blobKeyUnlocked: boolean,
   visibilityScope: 'global' | 'site',
   page: {
     readonly offset: number;
@@ -80,17 +81,25 @@ export function createBookmarksView(
   const list = document.createElement('ol');
   list.className = 'image-trail-panel__record-list';
   for (const item of items) {
+    const lockedEncrypted = isLockedEncryptedRecord(item, blobKeyUnlocked);
+    const previewableEncrypted = isPreviewableEncryptedRecord(item, blobKeyUnlocked);
     const entry = document.createElement('li');
-    if (item.captureStatus === 'captured' && item.blobId) entry.classList.add('is-captured');
-    entry.tabIndex = 0;
-    entry.setAttribute('role', 'button');
-    entry.title = 'Preview this image in the selected host image, or open it in a new tab.';
-    entry.addEventListener('click', () => dispatch({ name: 'capture/preview', url: item.url, blobId: item.blobId }));
-    entry.addEventListener('keydown', (event) => {
-      if (event.key !== 'Enter' && event.key !== ' ') return;
-      event.preventDefault();
-      dispatch({ name: 'capture/preview', url: item.url, blobId: item.blobId });
-    });
+    if (previewableEncrypted) entry.classList.add('is-captured');
+    if (lockedEncrypted) {
+      entry.classList.add('is-locked-encrypted');
+      entry.setAttribute('aria-disabled', 'true');
+      entry.title = 'Unlock encrypted originals before previewing this row.';
+    } else {
+      entry.tabIndex = 0;
+      entry.setAttribute('role', 'button');
+      entry.title = 'Preview this image in the selected host image, or open it in a new tab.';
+      entry.addEventListener('click', () => dispatch({ name: 'capture/preview', url: item.url, blobId: item.blobId }));
+      entry.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        dispatch({ name: 'capture/preview', url: item.url, blobId: item.blobId });
+      });
+    }
     const visual = createRecordVisual(item);
     const bookmarkLabel = document.createElement('div');
     bookmarkLabel.className = 'image-trail-panel__bookmark-label';
@@ -162,4 +171,12 @@ function createRecordVisual(item: ImageDisplayRecord): HTMLElement {
 export function extensionLabelFor(item: ImageDisplayRecord): string {
   const extension = imageExtensionFromValue(item.label) ?? imageExtensionFromUrl(item.url);
   return extension ? extension.toUpperCase() : 'IMAGE';
+}
+
+function isLockedEncryptedRecord(item: ImageDisplayRecord, blobKeyUnlocked: boolean): boolean {
+  return item.captureStatus === 'captured' && !!item.blobId && !blobKeyUnlocked;
+}
+
+function isPreviewableEncryptedRecord(item: ImageDisplayRecord, blobKeyUnlocked: boolean): boolean {
+  return item.captureStatus === 'captured' && !!item.blobId && blobKeyUnlocked && !!item.thumbnail;
 }
