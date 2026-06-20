@@ -73,6 +73,7 @@ export type PanelActionName =
   | 'history/select'
   | 'active-field/set'
   | 'field-value-change'
+  | 'field-value-bump'
   | 'selected-url/apply'
   | 'bookmark/current'
   | 'bookmark/load'
@@ -123,6 +124,7 @@ export type PanelAction =
         | 'history/remove'
         | 'history/select'
         | 'field-value-change'
+        | 'field-value-bump'
         | 'selected-url/apply'
         | 'active-field/set'
         | 'bookmark/load'
@@ -164,6 +166,7 @@ export type PanelAction =
   | { readonly name: 'history/load' | 'history/download' }
   | { readonly name: 'active-field/set'; readonly id: string | null }
   | { readonly name: 'field-value-change'; readonly id: string; readonly value: string }
+  | { readonly name: 'field-value-bump'; readonly id: string; readonly delta: 1 | -1 }
   | { readonly name: 'selected-url/apply'; readonly url: string }
   | { readonly name: 'capture/request'; readonly url: string; readonly sourceType: CaptureSourceType; readonly sourceRecordId?: string }
   | { readonly name: 'capture/start' }

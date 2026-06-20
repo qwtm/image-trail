@@ -271,6 +271,11 @@ export class ImageTrailPanel {
       return;
     }
 
+    if (action.name === 'field-value-bump') {
+      this.bumpFieldValue(action.id, action.delta);
+      return;
+    }
+
     if (action.name === 'active-field/set') {
       this.state = reducePanelAction(this.state, action);
       return;
@@ -490,6 +495,29 @@ export class ImageTrailPanel {
     if (snapshot.selected) {
       const nextSnapshot = this.pageAdapter.applyUrlToSelected(nextUrl);
       this.state = setTargetState(this.state, toTargetState(nextSnapshot));
+    }
+    pushVisibleUrlWhenSameOrigin(nextUrl);
+    this.render();
+  }
+
+  private bumpFieldValue(fieldId: string, delta: 1 | -1): void {
+    const snapshot = this.pageAdapter.getSnapshot();
+
+    const model = parseUrl(snapshot.selected?.url ?? window.location.href);
+    const fields = collectUrlFields(model);
+    const field = fields.find((item) => item.id === fieldId);
+    if (!field) return;
+
+    const nextModel = bumpUrlField(model, field, delta);
+    const nextUrl = rebuildUrl(nextModel);
+    if (snapshot.selected) {
+      const nextSnapshot = this.pageAdapter.applyUrlToSelected(nextUrl);
+      this.state = setTargetState(
+        reducePanelAction(this.state, { name: 'active-field/set', id: fieldId }),
+        toTargetState(nextSnapshot),
+      );
+    } else {
+      this.state = reducePanelAction(this.state, { name: 'active-field/set', id: fieldId });
     }
     pushVisibleUrlWhenSameOrigin(nextUrl);
     this.render();

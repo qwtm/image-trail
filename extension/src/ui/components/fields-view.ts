@@ -7,6 +7,7 @@ export interface EditableField {
 
 export interface FieldsViewCallbacks {
   readonly onValueChange: (fieldId: string, value: string) => void;
+  readonly onStep: (fieldId: string, delta: 1 | -1) => void;
   readonly onActivate: (fieldId: string) => void;
 }
 
@@ -25,7 +26,7 @@ export function createFieldsView(fields: EditableField[], activeFieldId: string 
   for (const field of fields) {
     const item = document.createElement('li');
     item.className = 'image-trail-panel__field-item';
-    const container = document.createElement('label');
+    const container = document.createElement('div');
     container.className = `image-trail-panel__field-row${field.field.id === activeFieldId ? ' is-active' : ''}`;
 
     const value = document.createElement('input');
@@ -47,6 +48,31 @@ export function createFieldsView(fields: EditableField[], activeFieldId: string 
     meta.className = 'image-trail-panel__field-meta';
     meta.textContent = `${field.field.location} · ${field.field.tokenKind} · ${field.field.value || '(empty)'}${field.field.id === activeFieldId ? ' · active' : ''}`;
 
+    const controls = document.createElement('span');
+    const hasStepControls = field.field.tokenKind === 'int' || field.field.tokenKind === 'hex';
+    controls.className = `image-trail-panel__field-control${hasStepControls ? ' has-step-controls' : ''}`;
+    controls.append(value);
+
+    if (hasStepControls) {
+      const decrement = document.createElement('button');
+      decrement.type = 'button';
+      decrement.className = 'image-trail-panel__field-step-button';
+      decrement.textContent = '-';
+      decrement.title = `Decrement ${field.field.label}`;
+      decrement.setAttribute('aria-label', `Decrement ${field.field.label}`);
+      decrement.addEventListener('click', () => callbacks.onStep(field.field.id, -1));
+
+      const increment = document.createElement('button');
+      increment.type = 'button';
+      increment.className = 'image-trail-panel__field-step-button';
+      increment.textContent = '+';
+      increment.title = `Increment ${field.field.label}`;
+      increment.setAttribute('aria-label', `Increment ${field.field.label}`);
+      increment.addEventListener('click', () => callbacks.onStep(field.field.id, 1));
+
+      controls.append(decrement, increment);
+    }
+
     value.addEventListener('change', () => {
       callbacks.onValueChange(field.field.id, value.value);
     });
@@ -57,7 +83,7 @@ export function createFieldsView(fields: EditableField[], activeFieldId: string 
       }
     });
 
-    container.append(label, meta, value);
+    container.append(label, meta, controls);
     item.append(container);
     list.append(item);
   }

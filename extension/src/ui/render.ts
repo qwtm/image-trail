@@ -240,6 +240,9 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
         onValueChange: (fieldId, value) => {
           target.dispatch({ name: 'field-value-change', id: fieldId, value });
         },
+        onStep: (fieldId, delta) => {
+          target.dispatch({ name: 'field-value-bump', id: fieldId, delta });
+        },
       },
     ),
     createControlsView({

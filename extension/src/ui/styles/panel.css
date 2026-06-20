@@ -496,6 +496,12 @@
   border-color: #8fd;
 }
 
+.image-trail-panel-root .image-trail-panel__field-input {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .image-trail-panel-root .image-trail-panel__password-input:focus {
   outline: 1px solid #8fd;
   border-color: #8fd;
@@ -546,6 +552,43 @@
 .image-trail-panel-root .image-trail-panel__field-row.is-active {
   border-color: #9ee;
   background: rgb(90 180 200 / 18%);
+}
+
+.image-trail-panel-root .image-trail-panel__field-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.image-trail-panel-root .image-trail-panel__field-control.has-step-controls {
+  grid-template-columns: minmax(0, 1fr) 26px 26px;
+}
+
+.image-trail-panel-root .image-trail-panel__field-step-button {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 22%);
+  border-radius: 4px;
+  background: #2a2a2a;
+  color: #f2f2f2;
+  cursor: pointer;
+  font: 700 15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  line-height: 1;
+}
+
+.image-trail-panel-root .image-trail-panel__field-step-button:hover {
+  border-color: #8fd;
+  background: #333;
+}
+
+.image-trail-panel-root .image-trail-panel__field-step-button:focus {
+  outline: 1px solid #8fd;
+  outline-offset: 1px;
 }
 
 .image-trail-panel-root .image-trail-panel__field-label {
