@@ -76,10 +76,12 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
 
   async save(record: ImageDisplayRecord): Promise<ImageDisplayRecord> {
     const context = await this.openContext();
-    const bookmark = createDisplayRecord({ ...record, id: record.url, source: 'bookmark' });
+    const importedDataUrl = record.url.startsWith('data:image/');
+    const bookmark = createDisplayRecord({ ...record, id: importedDataUrl ? record.id : record.url, source: 'bookmark' });
     if (!context) return bookmark;
 
-    const existing = await context.repository.getEncryptedByUrl(bookmark.url);
+    const indexUrl = importedDataUrl ? `image-trail-import:${bookmark.id}` : bookmark.url;
+    const existing = importedDataUrl ? undefined : await context.repository.getEncryptedByUrl(bookmark.url);
     const uuid = existing?.uuid ?? crypto.randomUUID();
     await context.repository.sealAndPut(
       uuid,
@@ -87,6 +89,7 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
       context.bookmarkKey.key,
       context.bookmarkKey.reference,
       existing?.envelope.updatedAt,
+      indexUrl,
     );
     return { ...bookmark, id: uuid };
   }

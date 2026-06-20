@@ -167,6 +167,36 @@ test('BookmarksRepository writes encrypted records and dedupes by URL index', as
   assert.equal(await repository.getEncryptedByUrl('https://example.test/missing.jpg'), undefined);
 });
 
+test('BookmarksRepository can index imported data URL bookmarks by a small key', async (t) => {
+  const db = await openFreshImageTrailDb();
+  t.after(() => db.close());
+  const repository = new BookmarksRepository(db);
+  const session = await createSessionKey('bookmark', 'bookmark-key', '2026-06-20T00:00:00.000Z');
+  const dataUrl = `data:image/png;base64,${'a'.repeat(2048)}`;
+  const indexUrl = 'image-trail-import:2026-06-20T00:00:00.000Z:photo.png';
+
+  const encrypted = await repository.sealAndPut(
+    'imported-photo',
+    {
+      url: dataUrl,
+      title: 'photo.png',
+      label: 'photo.png',
+      thumbnail: dataUrl,
+      bookmarkedAt: '2026-06-20T00:00:00.000Z',
+      sourceCompatibility: 'favorites',
+    },
+    session.key,
+    session.reference,
+    undefined,
+    indexUrl,
+  );
+
+  assert.equal(encrypted.url, indexUrl);
+  assert.deepEqual(await repository.getEncryptedByUrl(indexUrl), encrypted);
+  assert.equal(await repository.getEncryptedByUrl(dataUrl), undefined);
+  assert.equal((await repository.openRecord(encrypted, session.key)).url, dataUrl);
+});
+
 test('DownloadsRepository writes encrypted records newest first and checks duplicates after decrypting', async (t) => {
   const db = await openFreshImageTrailDb();
   t.after(() => db.close());
