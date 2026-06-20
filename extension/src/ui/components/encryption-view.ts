@@ -64,6 +64,11 @@ export function createEncryptionView(
   actions.className = 'image-trail-panel__actions';
 
   const unlockWithPassword = (): void => {
+    if (!state.hasKey) {
+      dispatch({ name: 'blob-key/setup', password: password.value });
+      password.value = '';
+      return;
+    }
     dispatch({ name: 'blob-key/unlock', password: password.value });
     password.value = '';
   };
@@ -90,8 +95,11 @@ export function createEncryptionView(
     }
   });
 
-  actions.append(unlock);
-  if (!state.hasKey) actions.append(setup);
+  if (state.hasKey) {
+    actions.append(unlock);
+  } else {
+    actions.append(setup);
+  }
   body.append(password, actions);
   section.append(summary, body);
   return section;

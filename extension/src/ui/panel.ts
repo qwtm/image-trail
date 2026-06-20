@@ -827,7 +827,7 @@ export class ImageTrailPanel {
     const result = await this.captureStore.unlockBlobKey(password);
     this.state = reducePanelAction(
       { ...this.state, message: result.message, status: result.ok ? 'ready' : 'error', lastUpdatedAt: Date.now() },
-      { name: 'blob-key/status', unlocked: result.ok, keyReference: result.ok ? result.keyReference : null, hasKey: true },
+      { name: 'blob-key/status', unlocked: result.ok, keyReference: result.ok ? result.keyReference : null, hasKey: this.state.blobKeyAvailable },
     );
     this.render();
   }
