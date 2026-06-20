@@ -52,13 +52,13 @@ export function createHistoryView(
       entry.addEventListener('click', (event) => {
         if (isMultiSelectClick(event)) return;
         if (selectedIds.length > 0) dispatch({ name: 'history-selection/clear' });
-        dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId, scrollAnchorId: `history:${item.id}` });
+        dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId });
       });
       entry.addEventListener('keydown', (event) => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
         event.preventDefault();
         if (selectedIds.length > 0) dispatch({ name: 'history-selection/clear' });
-        dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId, scrollAnchorId: `history:${item.id}` });
+        dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId });
       });
     }
     const visual = createRecordVisual(item);
