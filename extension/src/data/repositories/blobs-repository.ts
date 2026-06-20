@@ -20,6 +20,13 @@ export class BlobsRepository {
     return result;
   }
 
+  async list(): Promise<readonly StoredBlobRecord[]> {
+    const transaction = this.db.transaction(DataStore.Blobs, 'readonly');
+    const result = await requestToPromise<StoredBlobRecord[]>(transaction.objectStore(DataStore.Blobs).getAll());
+    await transactionDone(transaction);
+    return result;
+  }
+
   async remove(id: string): Promise<void> {
     const existing = await this.get(id);
     if (!existing) return;

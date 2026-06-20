@@ -261,6 +261,11 @@ export class ImageTrailPanel {
       return;
     }
 
+    if (action.name === 'capture/cleanup-orphans') {
+      void this.cleanupOrphanedBlobs();
+      return;
+    }
+
     if (action.name === 'capture/preview') {
       void this.previewRecord(action.url, action.blobId);
       return;
@@ -536,6 +541,21 @@ export class ImageTrailPanel {
     if (!this.captureStore) return;
     const { usage } = await this.captureStore.requestDeleteBlob(blobId);
     this.state = reducePanelAction(this.state, { name: 'storage/update', usage });
+  }
+
+  private async cleanupOrphanedBlobs(): Promise<void> {
+    if (!this.captureStore) return;
+    const { deletedCount, usage } = await this.captureStore.requestCleanupOrphanedBlobs();
+    this.state = reducePanelAction(
+      {
+        ...this.state,
+        message: `Cleaned up ${deletedCount} unused original${deletedCount === 1 ? '' : 's'}.`,
+        status: 'ready',
+        lastUpdatedAt: Date.now(),
+      },
+      { name: 'storage/update', usage },
+    );
+    this.render();
   }
 
   private async refreshBookmarkThumbnails(): Promise<void> {

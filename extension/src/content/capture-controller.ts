@@ -1,6 +1,7 @@
 import type { CaptureResult, StorageUsageSummary } from '../core/image/capture-result.js';
 import {
   createCaptureImageMessage,
+  createCleanupOrphanedBlobsMessage,
   createCreateBlobPreviewMessage,
   createDeleteBlobMessage,
   createRetrieveBlobMessage,
@@ -12,6 +13,7 @@ import {
   isBlobKeyStatusResultMessage,
   isBlobKeyResultMessage,
   isCaptureResultMessage,
+  isCleanupOrphanedBlobsResultMessage,
   isCreateBlobPreviewResultMessage,
   isRetrieveBlobResultMessage,
 } from '../background/messages.js';
@@ -21,6 +23,7 @@ import type { BlobKeyResultMessage, BlobKeyStatusResultMessage, CreateBlobPrevie
 export interface CaptureStore {
   readonly requestCapture: (url: string, sourceType: CaptureSourceType, sourceRecordId?: string) => Promise<CaptureResult>;
   readonly requestDeleteBlob: (blobId: string) => Promise<{ deleted: boolean; usage: StorageUsageSummary }>;
+  readonly requestCleanupOrphanedBlobs: () => Promise<{ deletedCount: number; usage: StorageUsageSummary }>;
   readonly requestRetrieveBlob: (blobId: string) => Promise<RetrieveBlobResultMessage['payload']>;
   readonly requestBlobPreview: (blobId: string) => Promise<CreateBlobPreviewResultMessage['payload']>;
   readonly requestStorageUsage: () => Promise<StorageUsageSummary>;
@@ -53,6 +56,12 @@ export class CaptureController implements CaptureStore {
       return (response as { payload: { deleted: boolean; usage: StorageUsageSummary } }).payload;
     }
     return { deleted: false, usage: { totalBytes: 0, blobCount: 0 } };
+  }
+
+  async requestCleanupOrphanedBlobs(): Promise<{ deletedCount: number; usage: StorageUsageSummary }> {
+    const response = await chrome.runtime.sendMessage(createCleanupOrphanedBlobsMessage());
+    if (isCleanupOrphanedBlobsResultMessage(response)) return response.payload;
+    return { deletedCount: 0, usage: { totalBytes: 0, blobCount: 0 } };
   }
 
   async requestRetrieveBlob(blobId: string): Promise<RetrieveBlobResultMessage['payload']> {

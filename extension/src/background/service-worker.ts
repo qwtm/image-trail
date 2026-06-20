@@ -15,6 +15,7 @@ import {
   createCaptureImageMessage,
   createBlobKeyResultMessage,
   createCaptureResultMessage,
+  createCleanupOrphanedBlobsResultMessage,
   createCreateBlobPreviewResultMessage,
   createDeleteBlobResultMessage,
   createFetchThumbnailSourceResultMessage,
@@ -187,6 +188,31 @@ async function handleDeleteBlob(message: DeleteBlobMessage): Promise<{ deleted: 
   await blobs.remove(message.payload.blobId);
   const usage = await blobs.getStorageUsage();
   return { deleted: true, usage };
+}
+
+async function handleCleanupOrphanedBlobs(): Promise<import('./messages.js').CleanupOrphanedBlobsResultMessage['payload']> {
+  const db = await getDb();
+  if (!db) return { deletedCount: 0, usage: { totalBytes: 0, blobCount: 0 } };
+
+  const referencedBlobIds = new Set<string>();
+  for (const bookmark of await bookmarkStore.load()) {
+    if (bookmark.blobId) referencedBlobIds.add(bookmark.blobId);
+  }
+  for (const history of recentHistoryBySite.values()) {
+    for (const item of history) {
+      if (item.blobId) referencedBlobIds.add(item.blobId);
+    }
+  }
+
+  const blobs = new BlobsRepository(db);
+  let deletedCount = 0;
+  for (const blob of await blobs.list()) {
+    if (referencedBlobIds.has(blob.id)) continue;
+    await blobs.remove(blob.id);
+    deletedCount += 1;
+  }
+
+  return { deletedCount, usage: await blobs.getStorageUsage() };
 }
 
 async function handleBlobKeyStatus(): Promise<import('./messages.js').BlobKeyStatusResultMessage['payload']> {
@@ -417,6 +443,12 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
       handleDeleteBlob(message)
         .then(({ deleted, usage }) => sendResponse(createDeleteBlobResultMessage(deleted, usage)))
         .catch(() => sendResponse(createDeleteBlobResultMessage(false, { totalBytes: 0, blobCount: 0 })));
+      return true;
+
+    case MessageType.CleanupOrphanedBlobs:
+      handleCleanupOrphanedBlobs()
+        .then((result) => sendResponse(createCleanupOrphanedBlobsResultMessage(result)))
+        .catch(() => sendResponse(createCleanupOrphanedBlobsResultMessage({ deletedCount: 0, usage: { totalBytes: 0, blobCount: 0 } })));
       return true;
 
     case MessageType.RetrieveBlob:

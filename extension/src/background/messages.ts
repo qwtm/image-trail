@@ -11,6 +11,8 @@ export const MessageType = {
   StorageUsageResponse: 'imageTrail.storageUsageResponse',
   DeleteBlob: 'imageTrail.deleteBlob',
   DeleteBlobResult: 'imageTrail.deleteBlobResult',
+  CleanupOrphanedBlobs: 'imageTrail.cleanupOrphanedBlobs',
+  CleanupOrphanedBlobsResult: 'imageTrail.cleanupOrphanedBlobsResult',
   RetrieveBlob: 'imageTrail.retrieveBlob',
   RetrieveBlobResult: 'imageTrail.retrieveBlobResult',
   CreateBlobPreview: 'imageTrail.createBlobPreview',
@@ -103,6 +105,18 @@ export interface DeleteBlobResultMessage {
   readonly type: typeof MessageType.DeleteBlobResult;
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
   readonly payload: { readonly deleted: boolean; readonly usage: import('../core/image/capture-result.js').StorageUsageSummary };
+}
+
+export interface CleanupOrphanedBlobsMessage {
+  readonly type: typeof MessageType.CleanupOrphanedBlobs;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload: Record<string, never>;
+}
+
+export interface CleanupOrphanedBlobsResultMessage {
+  readonly type: typeof MessageType.CleanupOrphanedBlobsResult;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload: { readonly deletedCount: number; readonly usage: import('../core/image/capture-result.js').StorageUsageSummary };
 }
 
 export interface RetrieveBlobMessage {
@@ -290,6 +304,7 @@ export type ExtensionRequest =
   | CaptureImageMessage
   | StorageUsageRequestMessage
   | DeleteBlobMessage
+  | CleanupOrphanedBlobsMessage
   | RetrieveBlobMessage
   | CreateBlobPreviewMessage
   | FetchThumbnailSourceMessage
@@ -309,6 +324,7 @@ export type ExtensionResponse =
   | CaptureResultMessage
   | StorageUsageResponseMessage
   | DeleteBlobResultMessage
+  | CleanupOrphanedBlobsResultMessage
   | RetrieveBlobResultMessage
   | CreateBlobPreviewResultMessage
   | FetchThumbnailSourceResultMessage
@@ -360,6 +376,10 @@ export function createDeleteBlobMessage(blobId: string): DeleteBlobMessage {
   return { type: MessageType.DeleteBlob, version: MESSAGE_PROTOCOL_VERSION, payload: { blobId } };
 }
 
+export function createCleanupOrphanedBlobsMessage(): CleanupOrphanedBlobsMessage {
+  return { type: MessageType.CleanupOrphanedBlobs, version: MESSAGE_PROTOCOL_VERSION, payload: {} };
+}
+
 export function createRetrieveBlobMessage(blobId: string): RetrieveBlobMessage {
   return { type: MessageType.RetrieveBlob, version: MESSAGE_PROTOCOL_VERSION, payload: { blobId } };
 }
@@ -407,6 +427,12 @@ export function createDeleteBlobResultMessage(
   usage: import('../core/image/capture-result.js').StorageUsageSummary,
 ): DeleteBlobResultMessage {
   return { type: MessageType.DeleteBlobResult, version: MESSAGE_PROTOCOL_VERSION, payload: { deleted, usage } };
+}
+
+export function createCleanupOrphanedBlobsResultMessage(
+  payload: CleanupOrphanedBlobsResultMessage['payload'],
+): CleanupOrphanedBlobsResultMessage {
+  return { type: MessageType.CleanupOrphanedBlobsResult, version: MESSAGE_PROTOCOL_VERSION, payload };
 }
 
 export function createSetupBlobKeyMessage(password: string): SetupBlobKeyMessage {
@@ -490,6 +516,7 @@ export function isExtensionRequest(value: unknown): value is ExtensionRequest {
     value.type === MessageType.CaptureImage ||
     value.type === MessageType.StorageUsageRequest ||
     value.type === MessageType.DeleteBlob ||
+    value.type === MessageType.CleanupOrphanedBlobs ||
     value.type === MessageType.RetrieveBlob ||
     value.type === MessageType.CreateBlobPreview ||
     value.type === MessageType.FetchThumbnailSource ||
@@ -514,6 +541,7 @@ export function isExtensionResponse(value: unknown): value is ExtensionResponse 
     value.type === MessageType.CaptureResult ||
     value.type === MessageType.StorageUsageResponse ||
     value.type === MessageType.DeleteBlobResult ||
+    value.type === MessageType.CleanupOrphanedBlobsResult ||
     value.type === MessageType.RetrieveBlobResult ||
     value.type === MessageType.CreateBlobPreviewResult ||
     value.type === MessageType.FetchThumbnailSourceResult ||
@@ -541,6 +569,11 @@ export function isBlobKeyStatusResultMessage(value: unknown): value is BlobKeySt
 export function isRetrieveBlobResultMessage(value: unknown): value is RetrieveBlobResultMessage {
   if (!hasVersionedObjectShape(value)) return false;
   return value.type === MessageType.RetrieveBlobResult;
+}
+
+export function isCleanupOrphanedBlobsResultMessage(value: unknown): value is CleanupOrphanedBlobsResultMessage {
+  if (!hasVersionedObjectShape(value)) return false;
+  return value.type === MessageType.CleanupOrphanedBlobsResult;
 }
 
 export function isCreateBlobPreviewResultMessage(value: unknown): value is CreateBlobPreviewResultMessage {
