@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { reducePanelAction } from '../extension/src/core/actions.js';
+import { applyFieldLoadFailureToState, reducePanelAction } from '../extension/src/core/actions.js';
 import { createInitialPanelState, setTargetState } from '../extension/src/core/state.js';
 import type { UrlFieldSplitSpec } from '../extension/src/core/url/types.js';
 
@@ -105,6 +105,29 @@ test('Previous/Next inclusion toggle only changes successful fields', () => {
   const ignored = reducePanelAction(state, { name: 'field-unlock/toggle', id: 'q:1:0' });
   assert.deepEqual(ignored.unlockedFieldIds, []);
   assert.deepEqual(ignored.manuallyExcludedFieldIds, []);
+});
+
+test('failed field load preserves Previous/Next inclusion choices', () => {
+  const state = {
+    ...createInitialPanelState(),
+    successfulFieldIds: ['q:0:0', 'q:1:0'],
+    unchangedFieldIds: ['q:0:0'],
+    unlockedFieldIds: ['q:0:0', 'q:1:0'],
+    manuallyExcludedFieldIds: ['q:2:0'],
+  };
+
+  const next = applyFieldLoadFailureToState(state, {
+    draftUrl: 'https://example.test/missing.jpg?date=02012001&page=2',
+    attemptedFieldIds: ['q:0:0', 'q:1:0'],
+    message: 'Image failed to load: HTTP 404',
+  });
+
+  assert.equal(next.failedFieldId, 'q:0:0');
+  assert.equal(next.draftUrl, 'https://example.test/missing.jpg?date=02012001&page=2');
+  assert.deepEqual(next.successfulFieldIds, ['q:0:0', 'q:1:0']);
+  assert.deepEqual(next.unchangedFieldIds, []);
+  assert.deepEqual(next.unlockedFieldIds, ['q:0:0', 'q:1:0']);
+  assert.deepEqual(next.manuallyExcludedFieldIds, ['q:2:0']);
 });
 
 test('clearing split specs collapses fields and clears related markers', () => {

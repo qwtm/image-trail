@@ -75,7 +75,8 @@ This milestone extracts and ports URL parsing, URL rebuilding, token field movem
 - Same-origin `history.pushState` is attempted only when safe; cross-origin updates are skipped with status.
 - Request throttle governs rapid manual controls before automation is introduced.
 - Failed query-field edits turn that field red, keep the previous image applied,
-  and leave the draft URL editable for another attempt.
+  leave the draft URL editable for another attempt, and do not clear existing
+  Previous/Next include/exclude choices.
 - Query-field edits that load the same image stay neutral/unchanged and do not
   include the field in Previous/Next navigation.
 - Query-field edits that load a different image turn green; successful numeric
@@ -127,7 +128,8 @@ This milestone extracts and ports URL parsing, URL rebuilding, token field movem
 - Manual 404 load confirms no history commit.
 - Test query field feedback for failed load, different-image success, same-image
   unchanged, one-time automatic Previous/Next inclusion, manual exclude/include,
-  and global Previous/Next over all included fields.
+  global Previous/Next over all included fields, and failed global navigation
+  preserving include/exclude state.
 - Test split patterns for parse/rebuild round-trip, split part bumping,
   reparse persistence, invalid pattern handling, target-change reset, and clear
   split collapse.

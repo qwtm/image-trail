@@ -10,7 +10,7 @@ import {
   type ImageRecordUrlValidation,
 } from '../core/display-records.js';
 import type { ImageDisplayRecord } from '../core/display-records.js';
-import { applyFieldSplitSpecToState, reducePanelAction } from '../core/actions.js';
+import { applyFieldLoadFailureToState, applyFieldSplitSpecToState, reducePanelAction } from '../core/actions.js';
 import { Retry404 } from '../core/automation/retry-404.js';
 import { Slideshow } from '../core/automation/slideshow.js';
 import { createInitialPanelState, setAutomationState, setTargetState } from '../core/state.js';
@@ -570,17 +570,7 @@ export class ImageTrailPanel {
     const baselineFingerprint = await this.currentImageFingerprint();
     const preload = await this.preloadImageUrl(nextUrl);
     if (!preload.ok) {
-      this.state = {
-        ...this.state,
-        draftUrl: nextUrl,
-        failedFieldId: attemptedFieldIds[0] ?? null,
-        successfulFieldIds: removeItems(this.state.successfulFieldIds, attemptedFieldIds),
-        unchangedFieldIds: removeItems(this.state.unchangedFieldIds, attemptedFieldIds),
-        unlockedFieldIds: removeItems(this.state.unlockedFieldIds, attemptedFieldIds),
-        message: preload.message,
-        status: 'error',
-        lastUpdatedAt: Date.now(),
-      };
+      this.state = applyFieldLoadFailureToState(this.state, { draftUrl: nextUrl, attemptedFieldIds, message: preload.message });
       this.render();
       return false;
     }

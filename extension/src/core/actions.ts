@@ -99,6 +99,21 @@ export function clearFieldSplitSpecFromState(state: PanelState, baseFieldId: str
   };
 }
 
+export function applyFieldLoadFailureToState(
+  state: PanelState,
+  input: { readonly draftUrl: string; readonly attemptedFieldIds: readonly string[]; readonly message: string },
+): PanelState {
+  return {
+    ...state,
+    draftUrl: input.draftUrl,
+    failedFieldId: input.attemptedFieldIds[0] ?? null,
+    unchangedFieldIds: removeItems(state.unchangedFieldIds, input.attemptedFieldIds),
+    message: input.message,
+    status: 'error',
+    lastUpdatedAt: Date.now(),
+  };
+}
+
 export function reducePanelAction(state: PanelState, action: PanelAction): PanelState {
   switch (action.name) {
     case 'toggle-panel':
