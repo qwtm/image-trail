@@ -188,10 +188,7 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
 
   const actions = document.createElement('div');
   actions.className = 'image-trail-panel__actions';
-  actions.append(
-    makeButton('Ping status', { name: 'ping-status' }, target.dispatch),
-    makeButton('Close', { name: 'close-panel' }, target.dispatch),
-  );
+  actions.append(makeButton('Close', { name: 'close-panel' }, target.dispatch));
 
   target.root.append(
     heading,

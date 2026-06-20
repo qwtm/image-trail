@@ -71,7 +71,6 @@ export type CaptureSourceType = 'target' | 'history' | 'bookmark';
 export type PanelActionName =
   | 'toggle-panel'
   | 'close-panel'
-  | 'ping-status'
   | 'start-target-picker'
   | 'stop-target-picker'
   | 'target/release'
