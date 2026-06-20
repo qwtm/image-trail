@@ -100,6 +100,7 @@ export function createBookmarksView(
       if (!isMultiSelectClick(event)) return;
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation();
       dispatch({ name: 'bookmark-selection/toggle', id: item.id });
     });
     if (lockedEncrypted) {

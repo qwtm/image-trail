@@ -36,6 +36,7 @@ export function createHistoryView(
       if (!isMultiSelectClick(event)) return;
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation();
       dispatch({ name: 'history-selection/toggle', id: item.id });
     });
     if (lockedEncrypted) {
