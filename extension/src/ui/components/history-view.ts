@@ -30,6 +30,7 @@ export function createHistoryView(
     const selected = selectedIds.includes(item.id);
     const entry = document.createElement('li');
     entry.className = 'image-trail-panel__history-item';
+    entry.dataset.imageTrailScrollAnchor = `history:${item.id}`;
     if (previewableEncrypted) entry.classList.add('is-captured');
     if (selected) entry.classList.add('is-selected');
     entry.setAttribute('aria-selected', String(selected));

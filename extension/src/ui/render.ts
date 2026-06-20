@@ -29,6 +29,10 @@ interface ScrollSnapshot {
   readonly selector: string | null;
   readonly scrollTop: number;
   readonly scrollLeft: number;
+  readonly anchor?: {
+    readonly id: string;
+    readonly top: number;
+  };
 }
 
 const SCROLL_SNAPSHOT_SELECTORS = [
@@ -85,11 +89,13 @@ function restoreFocusedTextControl(root: HTMLElement, snapshot: FocusedTextContr
 }
 
 function scrollSnapshots(root: HTMLElement): readonly ScrollSnapshot[] {
-  const snapshots: ScrollSnapshot[] = [{ selector: null, scrollTop: root.scrollTop, scrollLeft: root.scrollLeft }];
+  const snapshots: ScrollSnapshot[] = [
+    { selector: null, scrollTop: root.scrollTop, scrollLeft: root.scrollLeft, anchor: visibleScrollAnchor(root) },
+  ];
   for (const selector of SCROLL_SNAPSHOT_SELECTORS) {
     const element = root.querySelector<HTMLElement>(selector);
     if (!element) continue;
-    snapshots.push({ selector, scrollTop: element.scrollTop, scrollLeft: element.scrollLeft });
+    snapshots.push({ selector, scrollTop: element.scrollTop, scrollLeft: element.scrollLeft, anchor: visibleScrollAnchor(element) });
   }
   return snapshots;
 }
@@ -101,11 +107,32 @@ function restoreScrollSnapshots(root: HTMLElement, snapshots: readonly ScrollSna
       if (!element) continue;
       element.scrollTop = snapshot.scrollTop;
       element.scrollLeft = snapshot.scrollLeft;
+      restoreScrollAnchor(element, snapshot.anchor);
     }
   };
 
   restore();
   queueMicrotask(restore);
+}
+
+function visibleScrollAnchor(container: HTMLElement): ScrollSnapshot['anchor'] {
+  const containerRect = container.getBoundingClientRect();
+  const anchors = Array.from(container.querySelectorAll<HTMLElement>('[data-image-trail-scroll-anchor]'));
+  for (const anchor of anchors) {
+    const rect = anchor.getBoundingClientRect();
+    if (rect.bottom <= containerRect.top || rect.top >= containerRect.bottom) continue;
+    const id = anchor.dataset.imageTrailScrollAnchor;
+    if (!id) continue;
+    return { id, top: rect.top };
+  }
+  return undefined;
+}
+
+function restoreScrollAnchor(container: HTMLElement, anchor: ScrollSnapshot['anchor']): void {
+  if (!anchor) return;
+  const next = container.querySelector<HTMLElement>(`[data-image-trail-scroll-anchor="${CSS.escape(anchor.id)}"]`);
+  if (!next) return;
+  container.scrollTop += next.getBoundingClientRect().top - anchor.top;
 }
 
 export function renderPanel(target: PanelRenderTarget, state: PanelState): void {

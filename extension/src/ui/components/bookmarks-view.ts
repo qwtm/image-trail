@@ -94,6 +94,7 @@ export function createBookmarksView(
     const previewableEncrypted = isPreviewableEncryptedRecord(item, blobKeyUnlocked);
     const selected = selectedIds.includes(item.id);
     const entry = document.createElement('li');
+    entry.dataset.imageTrailScrollAnchor = `bookmark:${item.id}`;
     if (previewableEncrypted) entry.classList.add('is-captured');
     if (selected) entry.classList.add('is-selected');
     entry.setAttribute('aria-selected', String(selected));
