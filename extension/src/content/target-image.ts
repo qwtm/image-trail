@@ -129,7 +129,6 @@ export function getImageRejectionReason(image: HTMLImageElement): string | null 
   const style = window.getComputedStyle(image);
   if (style.display === 'none') return 'Image is not displayed.';
   if (style.visibility === 'hidden') return 'Image is hidden.';
-  if (Number(style.opacity) === 0) return 'Image is fully transparent.';
   return null;
 }
 

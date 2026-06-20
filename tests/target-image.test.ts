@@ -124,6 +124,7 @@ test('qualifies only connected visible images with usable dimensions and URLs', 
   assert.equal(isQualifyingImage(fakeImage({ srcAttribute: 'https://example.test/image.jpg', connected: false })), false);
   assert.equal(isQualifyingImage(fakeImage({ srcAttribute: 'https://example.test/image.jpg', naturalWidth: 20 })), false);
   assert.equal(isQualifyingImage(fakeImage({ srcAttribute: 'https://example.test/image.jpg', display: 'none' })), false);
+  assert.equal(isQualifyingImage(fakeImage({ srcAttribute: 'https://example.test/image.jpg', opacity: '0' })), true);
   assert.equal(isQualifyingImage(fakeImage({})), false);
 });
 
