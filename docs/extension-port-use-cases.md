@@ -58,3 +58,32 @@ Living notes from manual Mile 9 testing. These scenarios should be converted int
 - Backup/share means exporting stored history/bookmarks/originals, encrypted or unencrypted depending on settings.
 - Reloading the browser/extension should recall saved bookmarks from extension storage.
 - Future gallery views should build on the same durable storage and recall behavior.
+
+## Data URL containment
+
+- Decrypted captured originals may project into a host image as `data:` URLs.
+- The panel must never render a full `data:` URL into the Host target loaded display.
+- The Host target loaded display should show a short sentinel such as `data URL` and remain constrained with ellipsis/hidden overflow.
+- The status message should say `Loaded data URL`, not include the full payload.
+- The top URL editor should fall back to the page location URL when the selected host image currently contains a `data:` URL.
+- Focus restoration must not reinsert an old raw `data:` URL into the top URL editor after rerender.
+
+## Orphaned encrypted originals cleanup
+
+- `Delete original` removes only the encrypted original blob reference and keeps the visible row.
+- `Remove` removes the visible row and must also decrement/delete any captured original blob reference attached to that row.
+- Orphan cleanup must not decrypt blob contents.
+- Orphan cleanup should compare plaintext operational blob IDs against referenced blob IDs from durable bookmarks and current recent-history rows.
+- Orphan cleanup must be unavailable while encrypted originals are locked.
+- The service worker must refuse orphan cleanup while locked even if a stale UI or direct message tries to invoke it.
+- Manual orphan tests are easiest when deleting bookmark metadata while leaving the blob row intact; recent-history-only tests may look flaky because recent history is service-worker memory.
+- Future improvement: show cleanup only when unused originals are detected, or show an unused-original count before deletion.
+
+## Sensitive metadata and future encryption work
+
+- Source URLs are sensitive metadata and should be treated as security-relevant, not harmless bookkeeping.
+- Blob payload source URL is intended to live inside encrypted authenticated payload metadata.
+- Durable bookmark/history URL storage should be reviewed for plaintext leakage.
+- Plaintext URL indexes and dedupe paths should be removed, encrypted, or replaced with a private/keyed lookup design.
+- Thumbnail storage should be reviewed with the same sensitivity as original images because thumbnails can reveal content.
+- Before LLM features consume stored data, sensitive URLs, thumbnails, and originals should have clear encrypted-at-rest and unlock semantics.
