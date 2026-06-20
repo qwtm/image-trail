@@ -1,5 +1,6 @@
 import type { StorageUsageSummary } from '../core/image/capture-result.js';
 import { sourceImageUrlFrom } from '../core/display-records.js';
+import { IndexedDbBookmarkStore } from '../content/bookmarks-controller.js';
 import { getActiveBlobKey } from '../data/crypto/blob-keyring.js';
 import { activateWrappedBlobKey, createAndActivateWrappedBlobKey } from '../data/crypto/blob-keyring.js';
 import { openBlobPayload, sealBlobPayload } from '../data/crypto/binary-envelope.js';
@@ -17,6 +18,13 @@ import {
   createCreateBlobPreviewResultMessage,
   createDeleteBlobResultMessage,
   createFetchThumbnailSourceResultMessage,
+  createLoadBookmarksResultMessage,
+  createAddRecentHistoryResultMessage,
+  createLoadRecentHistoryResultMessage,
+  createRemoveBookmarkResultMessage,
+  createRemoveRecentHistoryResultMessage,
+  createSaveBookmarkResultMessage,
+  createBlobKeyStatusResultMessage,
   createPingMessage,
   createRetrieveBlobResultMessage,
   createStorageUsageResponseMessage,
@@ -25,6 +33,8 @@ import {
   isStatusMessage,
 } from './messages.js';
 import type { CaptureImageMessage, DeleteBlobMessage, RetrieveBlobMessage, GrantPermissionAndCaptureMessage } from './messages.js';
+import type { LoadBookmarksMessage, RemoveBookmarkMessage, SaveBookmarkMessage } from './messages.js';
+import type { AddRecentHistoryMessage, LoadRecentHistoryMessage, RemoveRecentHistoryMessage } from './messages.js';
 import type { FetchThumbnailSourceMessage } from './messages.js';
 import type { CreateBlobPreviewMessage } from './messages.js';
 import type { SetupBlobKeyMessage, UnlockBlobKeyMessage, BlobKeyResultMessage } from './messages.js';
@@ -42,6 +52,9 @@ interface PreviewPayload {
 }
 
 const previewPayloads = new Map<string, PreviewPayload>();
+const bookmarkStore = new IndexedDbBookmarkStore();
+const recentHistoryBySite = new Map<string, import('../core/display-records.js').ImageDisplayRecord[]>();
+const MAX_RECENT_HISTORY_ITEMS = 30;
 
 async function requestStatus(tabId: number): Promise<boolean> {
   try {
@@ -84,6 +97,14 @@ function canonicalCaptureUrl(url: string): string {
     return sourceImageUrlFrom(url).href;
   } catch {
     return url;
+  }
+}
+
+function recentHistoryKey(pageUrl: string): string {
+  try {
+    return new URL(pageUrl).hostname;
+  } catch {
+    return 'unknown';
   }
 }
 
@@ -168,6 +189,15 @@ async function handleDeleteBlob(message: DeleteBlobMessage): Promise<{ deleted: 
   return { deleted: true, usage };
 }
 
+async function handleBlobKeyStatus(): Promise<import('./messages.js').BlobKeyStatusResultMessage['payload']> {
+  const activeBlobKey = getActiveBlobKey();
+  if (activeBlobKey) return { unlocked: true, keyReference: activeBlobKey.reference.reference, hasKey: true };
+  const db = await getDb();
+  if (!db) return { unlocked: false, keyReference: null, hasKey: false };
+  const blobKeys = await new KeysRepository(db).listByKind('blob');
+  return { unlocked: false, keyReference: null, hasKey: blobKeys.length > 0 };
+}
+
 async function handleRetrieveBlob(message: RetrieveBlobMessage): Promise<import('./messages.js').RetrieveBlobResultMessage['payload']> {
   const activeBlobKey = getActiveBlobKey();
   if (!activeBlobKey) {
@@ -244,6 +274,42 @@ async function handleStorageUsage(): Promise<StorageUsageSummary> {
   return new BlobsRepository(db).getStorageUsage();
 }
 
+async function handleLoadBookmarks(message: LoadBookmarksMessage): Promise<import('./messages.js').LoadBookmarksResultMessage['payload']> {
+  return bookmarkStore.loadPage(message.payload);
+}
+
+async function handleSaveBookmark(message: SaveBookmarkMessage): Promise<import('./messages.js').SaveBookmarkResultMessage['payload']> {
+  const record = await bookmarkStore.save(message.payload.record);
+  return { ok: true, record };
+}
+
+async function handleRemoveBookmark(message: RemoveBookmarkMessage): Promise<import('./messages.js').RemoveBookmarkResultMessage['payload']> {
+  await bookmarkStore.remove(message.payload.record);
+  return { ok: true };
+}
+
+function handleLoadRecentHistory(message: LoadRecentHistoryMessage): import('./messages.js').LoadRecentHistoryResultMessage['payload'] {
+  return { items: recentHistoryBySite.get(recentHistoryKey(message.payload.pageUrl)) ?? [] };
+}
+
+function handleAddRecentHistory(message: AddRecentHistoryMessage): import('./messages.js').AddRecentHistoryResultMessage['payload'] {
+  const key = recentHistoryKey(message.payload.pageUrl);
+  const item = message.payload.item;
+  const next = [item, ...(recentHistoryBySite.get(key) ?? []).filter((entry) => entry.url !== item.url && entry.id !== item.id)].slice(
+    0,
+    MAX_RECENT_HISTORY_ITEMS,
+  );
+  recentHistoryBySite.set(key, next);
+  return { items: next };
+}
+
+function handleRemoveRecentHistory(message: RemoveRecentHistoryMessage): import('./messages.js').RemoveRecentHistoryResultMessage['payload'] {
+  const key = recentHistoryKey(message.payload.pageUrl);
+  const next = (recentHistoryBySite.get(key) ?? []).filter((entry) => entry.id !== message.payload.id);
+  recentHistoryBySite.set(key, next);
+  return { items: next };
+}
+
 async function handleSetupBlobKey(message: SetupBlobKeyMessage): Promise<BlobKeyResultMessage['payload']> {
   const password = message.payload.password.trim();
   if (!password) return { ok: false, reason: 'empty-password', message: 'Enter a password to set up encrypted blob storage.' };
@@ -306,6 +372,47 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
         .catch(() => sendResponse(createStorageUsageResponseMessage({ totalBytes: 0, blobCount: 0 })));
       return true;
 
+    case MessageType.LoadBookmarks:
+      handleLoadBookmarks(message)
+        .then((result) => sendResponse(createLoadBookmarksResultMessage(result)))
+        .catch(() =>
+          sendResponse(
+            createLoadBookmarksResultMessage({
+              items: [],
+              offset: message.payload.offset,
+              limit: message.payload.limit,
+              total: 0,
+              hasOlder: false,
+              hasNewer: false,
+            }),
+          ),
+        );
+      return true;
+
+    case MessageType.LoadRecentHistory:
+      sendResponse(createLoadRecentHistoryResultMessage(handleLoadRecentHistory(message).items));
+      return false;
+
+    case MessageType.AddRecentHistory:
+      sendResponse(createAddRecentHistoryResultMessage(handleAddRecentHistory(message).items));
+      return false;
+
+    case MessageType.RemoveRecentHistory:
+      sendResponse(createRemoveRecentHistoryResultMessage(handleRemoveRecentHistory(message).items));
+      return false;
+
+    case MessageType.SaveBookmark:
+      handleSaveBookmark(message)
+        .then((result) => sendResponse(createSaveBookmarkResultMessage(result)))
+        .catch(() => sendResponse(createSaveBookmarkResultMessage({ ok: false, message: 'Bookmark save failed.' })));
+      return true;
+
+    case MessageType.RemoveBookmark:
+      handleRemoveBookmark(message)
+        .then((result) => sendResponse(createRemoveBookmarkResultMessage(result)))
+        .catch(() => sendResponse(createRemoveBookmarkResultMessage({ ok: false })));
+      return true;
+
     case MessageType.DeleteBlob:
       handleDeleteBlob(message)
         .then(({ deleted, usage }) => sendResponse(createDeleteBlobResultMessage(deleted, usage)))
@@ -330,6 +437,12 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
         .catch(() =>
           sendResponse(createFetchThumbnailSourceResultMessage({ ok: false, reason: 'unknown', message: 'Thumbnail source fetch failed.' })),
         );
+      return true;
+
+    case MessageType.BlobKeyStatus:
+      handleBlobKeyStatus()
+        .then((result) => sendResponse(createBlobKeyStatusResultMessage(result)))
+        .catch(() => sendResponse(createBlobKeyStatusResultMessage({ unlocked: false, keyReference: null, hasKey: false })));
       return true;
 
     case MessageType.SetupBlobKey:

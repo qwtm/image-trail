@@ -1,5 +1,5 @@
 import type { ImageDisplayRecord } from '../core/display-records.js';
-import { createDisplayRecord } from '../core/display-records.js';
+import { createDisplayRecord, sourceImageUrlFrom } from '../core/display-records.js';
 import { createKeyReference } from '../data/crypto/key-reference.js';
 import type { KeyReference, StoredKeyRecord } from '../data/crypto/types.js';
 import { generateAesGcmKey } from '../data/crypto/webcrypto.js';
@@ -39,7 +39,12 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
     return (await this.loadPage({ offset: 0, limit: DEFAULT_LOCAL_SETTINGS.visibleBookmarkSoftMax })).items;
   }
 
-  async loadPage(input: { readonly offset: number; readonly limit: number }): Promise<BookmarkPage> {
+  async loadPage(input: {
+    readonly offset: number;
+    readonly limit: number;
+    readonly scope?: 'global' | 'site';
+    readonly currentPageUrl?: string;
+  }): Promise<BookmarkPage> {
     const context = await this.openContext();
     const offset = Math.max(0, input.offset);
     const limit = Math.max(1, input.limit);
@@ -55,9 +60,10 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
         // Bookmarks encrypted with unavailable legacy keys stay durable but hidden.
       }
     }
-    const total = loaded.length;
+    const visible = filterByVisibilityScope(loaded, input.scope ?? 'global', input.currentPageUrl);
+    const total = visible.length;
     const clampedOffset = clampPageOffset(offset, limit, total);
-    const items = loaded.slice(clampedOffset, clampedOffset + limit);
+    const items = visible.slice(clampedOffset, clampedOffset + limit);
     return {
       items,
       offset: clampedOffset,
@@ -116,6 +122,25 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
     if (!result.db) return null;
     const bookmarkKey = await ensureDurableBookmarkKey(new KeysRepository(result.db));
     return { db: result.db, repository: new BookmarksRepository(result.db), bookmarkKey };
+  }
+}
+
+function filterByVisibilityScope(
+  records: readonly ImageDisplayRecord[],
+  scope: 'global' | 'site',
+  currentPageUrl: string | undefined,
+): readonly ImageDisplayRecord[] {
+  if (scope !== 'site' || !currentPageUrl) return records;
+  const currentHostname = hostnameFromUrl(currentPageUrl);
+  if (!currentHostname) return records;
+  return records.filter((record) => hostnameFromUrl(record.url) === currentHostname);
+}
+
+function hostnameFromUrl(url: string): string | null {
+  try {
+    return sourceImageUrlFrom(url).hostname;
+  } catch {
+    return null;
   }
 }
 

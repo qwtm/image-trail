@@ -91,15 +91,19 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
     return '';
   };
 
-  const parsePageUrl = (): ParsedUrlModel | null => {
+  const selectedUrl = state.target.selectedUrl;
+  const selectedIsDataUrl = selectedUrl?.startsWith('data:') === true;
+  const activeUrl = selectedIsDataUrl ? window.location.href : (selectedUrl ?? window.location.href);
+
+  const parseActiveUrl = (): ParsedUrlModel | null => {
     try {
-      return parseUrl(window.location.href);
+      return parseUrl(activeUrl);
     } catch {
       return null;
     }
   };
 
-  const targetModel = parsePageUrl();
+  const targetModel = parseActiveUrl();
   const fields = targetModel ? collectUrlFields(targetModel) : [];
   const editableFields: EditableField[] = targetModel
     ? fields.map((field) => ({
@@ -189,7 +193,7 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
     heading,
     createStatusView(state, target.dispatch),
     createUrlEditorView(
-      { url: window.location.href },
+      { url: activeUrl },
       {
         onApply: (url) => {
           target.dispatch({ name: 'selected-url/apply', url });
@@ -197,7 +201,7 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
       },
     ),
     createTargetPickerView(state.target, target.dispatch),
-    createEncryptionView(target.dispatch),
+    createEncryptionView({ unlocked: state.blobKeyUnlocked, keyReference: state.blobKeyReference, hasKey: state.blobKeyAvailable }, target.dispatch),
     createFieldsView(
       editableFields,
       state.activeFieldId,
@@ -222,6 +226,7 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
       state.target.selectedUrl,
       state.bookmarks,
       state.captureInProgress,
+      state.bookmarkVisibilityScope,
       {
         offset: state.bookmarkOffset,
         limit: state.bookmarkLimit,

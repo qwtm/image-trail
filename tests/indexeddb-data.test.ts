@@ -5,8 +5,10 @@ import { openImageTrailDb } from '../extension/src/data/db.js';
 import { DataStore, IMAGE_TRAIL_DB_NAME, SchemaIndex } from '../extension/src/data/schema.js';
 import { HistoryRepository, type EncryptedHistoryRecord } from '../extension/src/data/repositories/history-repository.js';
 import { BookmarksRepository, type EncryptedBookmarkRecord } from '../extension/src/data/repositories/bookmarks-repository.js';
+import { DownloadsRepository } from '../extension/src/data/repositories/downloads-repository.js';
 import { KeysRepository } from '../extension/src/data/repositories/keys-repository.js';
 import type { StoredKeyRecord } from '../extension/src/data/crypto/types.js';
+import { createSessionKey } from '../extension/src/data/crypto/keyring.js';
 import { IndexedDbBookmarkStore } from '../extension/src/content/bookmarks-controller.js';
 import { createDisplayRecord } from '../extension/src/core/display-records.js';
 import { DEFAULT_LOCAL_SETTINGS } from '../extension/src/data/local-settings.js';
@@ -96,17 +98,18 @@ test('IndexedDB migrations create data stores, indexes, and schema metadata', as
 
   assert.deepEqual(
     asArray(db.objectStoreNames),
-    [DataStore.Blobs, DataStore.Bookmarks, DataStore.History, DataStore.Keys, DataStore.Metadata].sort(),
+    [DataStore.Blobs, DataStore.Bookmarks, DataStore.Downloads, DataStore.History, DataStore.Keys, DataStore.Metadata].sort(),
   );
 
   const transaction = db.transaction(
-    [DataStore.Metadata, DataStore.Keys, DataStore.History, DataStore.Bookmarks, DataStore.Blobs],
+    [DataStore.Metadata, DataStore.Keys, DataStore.History, DataStore.Bookmarks, DataStore.Blobs, DataStore.Downloads],
     'readonly',
   );
   const keys = transaction.objectStore(DataStore.Keys);
   const history = transaction.objectStore(DataStore.History);
   const bookmarks = transaction.objectStore(DataStore.Bookmarks);
   const blobs = transaction.objectStore(DataStore.Blobs);
+  const downloads = transaction.objectStore(DataStore.Downloads);
 
   assert.deepEqual(asArray(keys.indexNames), [SchemaIndex.KeysByKind, SchemaIndex.KeysByReference, SchemaIndex.KeysByUuid].sort());
   assert.deepEqual(asArray(history.indexNames), [SchemaIndex.HistoryByKeyReference, SchemaIndex.HistoryByUpdatedAt].sort());
@@ -115,6 +118,7 @@ test('IndexedDB migrations create data stores, indexes, and schema metadata', as
     [SchemaIndex.BookmarksByKeyReference, SchemaIndex.BookmarksByUpdatedAt, SchemaIndex.BookmarksByUrl].sort(),
   );
   assert.deepEqual(asArray(blobs.indexNames), [SchemaIndex.BlobsByCreatedAt, SchemaIndex.BlobsByKeyReference].sort());
+  assert.deepEqual(asArray(downloads.indexNames), [SchemaIndex.DownloadsByDownloadedAt, SchemaIndex.DownloadsByKeyReference].sort());
 
   const metadata = await new Promise((resolve, reject) => {
     const request = transaction.objectStore(DataStore.Metadata).get('schema');
@@ -161,6 +165,52 @@ test('BookmarksRepository writes encrypted records and dedupes by URL index', as
   assert.deepEqual(await repository.listEncrypted(), [record]);
   assert.deepEqual(await repository.getEncryptedByUrl(record.url), record);
   assert.equal(await repository.getEncryptedByUrl('https://example.test/missing.jpg'), undefined);
+});
+
+test('DownloadsRepository writes encrypted records newest first and checks duplicates after decrypting', async (t) => {
+  const db = await openFreshImageTrailDb();
+  t.after(() => db.close());
+  const repository = new DownloadsRepository(db);
+  const session = await createSessionKey('download', 'download-key', '2026-06-19T00:00:00.000Z');
+
+  await repository.sealAndPut(
+    'download-old',
+    {
+      sourceUrl: 'https://example.test/old.jpg',
+      filename: 'old.jpg',
+      fingerprint: 'a'.repeat(64),
+      downloadedAt: '2026-06-19T00:00:01.000Z',
+    },
+    session.key,
+    session.reference,
+  );
+  await repository.sealAndPut(
+    'download-new',
+    {
+      sourceUrl: 'https://example.test/new.jpg',
+      filename: 'new.jpg',
+      fingerprint: 'b'.repeat(64),
+      downloadedAt: '2026-06-19T00:00:02.000Z',
+    },
+    session.key,
+    session.reference,
+  );
+
+  assert.deepEqual(
+    (await repository.listEncryptedNewestFirst()).map((record) => record.uuid),
+    ['download-new', 'download-old'],
+  );
+
+  const fingerprintDuplicate = await repository.findDuplicate(
+    { sourceUrl: 'https://example.test/copy.jpg', fingerprint: 'b'.repeat(64) },
+    session.key,
+  );
+  assert.equal(fingerprintDuplicate?.record.uuid, 'download-new');
+  assert.equal(fingerprintDuplicate?.matchedBy, 'fingerprint');
+
+  const urlDuplicate = await repository.findDuplicate({ sourceUrl: 'https://example.test/old.jpg' }, session.key);
+  assert.equal(urlDuplicate?.record.uuid, 'download-old');
+  assert.equal(urlDuplicate?.matchedBy, 'url');
 });
 
 test('BookmarksRepository pages encrypted records newest first', async (t) => {
@@ -416,6 +466,43 @@ test('IndexedDbBookmarkStore clamps offsets after visible bookmark totals shrink
     assert.equal(clampedPage.items.length, 3);
     assert.equal(clampedPage.hasOlder, false);
     assert.equal(clampedPage.hasNewer, false);
+  } finally {
+    await store.close();
+  }
+});
+
+test('IndexedDbBookmarkStore can scope visible bookmarks to the current site', async () => {
+  await deleteImageTrailDb();
+  const store = new IndexedDbBookmarkStore();
+  try {
+    await store.save(
+      createDisplayRecord({
+        id: 'https://duckduckgo.com/image-proxy?u=https%3A%2F%2Fcdn.example.test%2Fduck.jpg',
+        url: 'https://duckduckgo.com/image-proxy?u=https%3A%2F%2Fcdn.example.test%2Fduck.jpg',
+        label: 'duck.jpg',
+        timestamp: '2026-06-19T00:00:00.000Z',
+        source: 'bookmark',
+      }),
+    );
+    await store.save(
+      createDisplayRecord({
+        id: 'https://other.example.test/other.jpg',
+        url: 'https://other.example.test/other.jpg',
+        label: 'other.jpg',
+        timestamp: '2026-06-19T00:00:01.000Z',
+        source: 'bookmark',
+      }),
+    );
+
+    const globalPage = await store.loadPage({ offset: 0, limit: 30, scope: 'global', currentPageUrl: 'https://duckduckgo.com/' });
+    const sitePage = await store.loadPage({ offset: 0, limit: 30, scope: 'site', currentPageUrl: 'https://cdn.example.test/page' });
+
+    assert.equal(globalPage.total, 2);
+    assert.deepEqual(
+      sitePage.items.map((item) => item.url),
+      ['https://duckduckgo.com/image-proxy?u=https%3A%2F%2Fcdn.example.test%2Fduck.jpg'],
+    );
+    assert.equal(sitePage.total, 1);
   } finally {
     await store.close();
   }

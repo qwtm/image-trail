@@ -27,7 +27,6 @@ export function createFieldsView(fields: EditableField[], activeFieldId: string 
     item.className = 'image-trail-panel__field-item';
     const container = document.createElement('label');
     container.className = `image-trail-panel__field-row${field.field.id === activeFieldId ? ' is-active' : ''}`;
-    container.addEventListener('click', () => callbacks.onActivate(field.field.id));
 
     const value = document.createElement('input');
     value.type = 'text';
@@ -36,6 +35,9 @@ export function createFieldsView(fields: EditableField[], activeFieldId: string 
     value.className = 'image-trail-panel__field-input';
     value.setAttribute('aria-label', `Edit ${field.field.label}`);
     value.dataset.fieldId = field.field.id;
+    value.addEventListener('focus', () => {
+      if (field.field.id !== activeFieldId) callbacks.onActivate(field.field.id);
+    });
 
     const label = document.createElement('span');
     label.className = 'image-trail-panel__field-label';
@@ -47,6 +49,12 @@ export function createFieldsView(fields: EditableField[], activeFieldId: string 
 
     value.addEventListener('change', () => {
       callbacks.onValueChange(field.field.id, value.value);
+    });
+    value.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        callbacks.onValueChange(field.field.id, value.value);
+      }
     });
 
     container.append(label, meta, value);

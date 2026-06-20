@@ -6,15 +6,18 @@ type BookmarkAction =
   | { readonly name: 'bookmark/remove'; readonly id: string }
   | { readonly name: 'bookmarks/older' }
   | { readonly name: 'bookmarks/newer' }
+  | { readonly name: 'bookmarks/toggle-scope' }
+  | { readonly name: 'bookmarks/reload' }
   | { readonly name: 'bookmarks/refresh-thumbnails' }
   | { readonly name: 'capture/request'; readonly url: string; readonly sourceType: 'bookmark'; readonly sourceRecordId: string }
-  | { readonly name: 'capture/preview'; readonly blobId: string }
+  | { readonly name: 'capture/preview'; readonly url: string; readonly blobId?: string }
   | { readonly name: 'capture/delete'; readonly id: string; readonly blobId: string };
 
 export function createBookmarksView(
   currentUrl: string | null,
   items: readonly ImageDisplayRecord[],
   captureInProgress: boolean,
+  visibilityScope: 'global' | 'site',
   page: {
     readonly offset: number;
     readonly limit: number;
@@ -42,11 +45,23 @@ export function createBookmarksView(
   refreshThumbnails.disabled = items.length === 0;
   refreshThumbnails.addEventListener('click', () => dispatch({ name: 'bookmarks/refresh-thumbnails' }));
 
+  const scope = document.createElement('button');
+  scope.type = 'button';
+  scope.textContent = visibilityScope === 'global' ? 'Scope: All sites' : 'Scope: This site';
+  scope.title = visibilityScope === 'global' ? 'Showing saved bookmarks from every site.' : 'Showing saved bookmarks for this site only.';
+  scope.addEventListener('click', () => dispatch({ name: 'bookmarks/toggle-scope' }));
+
+  const reload = document.createElement('button');
+  reload.type = 'button';
+  reload.textContent = 'Reload bookmarks';
+  reload.title = 'Reload saved bookmarks from encrypted storage.';
+  reload.addEventListener('click', () => dispatch({ name: 'bookmarks/reload' }));
+
   const pageMeta = document.createElement('p');
   pageMeta.className = 'image-trail-panel__meta';
   const pageStart = page.total === 0 ? 0 : page.offset + 1;
   const pageEnd = Math.min(page.offset + page.limit, page.total);
-  pageMeta.textContent = `Bookmarks ${pageStart}-${pageEnd} of ${page.total}`;
+  pageMeta.textContent = `Bookmarks ${pageStart}-${pageEnd} of ${page.total} (${visibilityScope === 'global' ? 'all sites' : 'this site'})`;
 
   const pager = document.createElement('div');
   pager.className = 'image-trail-panel__actions';
@@ -66,6 +81,16 @@ export function createBookmarksView(
   list.className = 'image-trail-panel__record-list';
   for (const item of items) {
     const entry = document.createElement('li');
+    if (item.captureStatus === 'captured' && item.blobId) entry.classList.add('is-captured');
+    entry.tabIndex = 0;
+    entry.setAttribute('role', 'button');
+    entry.title = 'Preview this image in the selected host image, or open it in a new tab.';
+    entry.addEventListener('click', () => dispatch({ name: 'capture/preview', url: item.url, blobId: item.blobId }));
+    entry.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      dispatch({ name: 'capture/preview', url: item.url, blobId: item.blobId });
+    });
     const visual = createRecordVisual(item);
     const bookmarkLabel = document.createElement('div');
     bookmarkLabel.className = 'image-trail-panel__bookmark-label';
@@ -79,20 +104,15 @@ export function createBookmarksView(
 
     const actions = document.createElement('span');
     actions.className = 'image-trail-panel__item-actions';
+    actions.addEventListener('click', (event) => event.stopPropagation());
+    actions.addEventListener('keydown', (event) => event.stopPropagation());
 
     if (item.captureStatus === 'captured' && item.blobId) {
-      const badge = document.createElement('span');
-      badge.className = 'image-trail-panel__capture-badge';
-      badge.textContent = 'Stored';
-      const preview = document.createElement('button');
-      preview.type = 'button';
-      preview.textContent = 'Preview original';
-      preview.addEventListener('click', () => dispatch({ name: 'capture/preview', blobId: item.blobId! }));
       const deleteCapture = document.createElement('button');
       deleteCapture.type = 'button';
       deleteCapture.textContent = 'Delete original';
       deleteCapture.addEventListener('click', () => dispatch({ name: 'capture/delete', id: item.id, blobId: item.blobId! }));
-      actions.append(badge, preview, deleteCapture);
+      actions.append(deleteCapture);
     } else {
       const capture = document.createElement('button');
       capture.type = 'button';
@@ -115,8 +135,11 @@ export function createBookmarksView(
 
   const empty = document.createElement('p');
   empty.className = 'image-trail-panel__meta';
-  empty.textContent = 'Saved image URLs persist through the encrypted bookmarks repository.';
-  section.append(heading, add, refreshThumbnails, pageMeta, pager, items.length ? list : empty);
+  empty.textContent =
+    visibilityScope === 'global'
+      ? 'No saved bookmarks loaded from encrypted storage.'
+      : 'No saved bookmarks match this site. Switch to All sites to show every saved bookmark.';
+  section.append(heading, add, refreshThumbnails, scope, reload, pageMeta, pager, items.length ? list : empty);
   return section;
 }
 

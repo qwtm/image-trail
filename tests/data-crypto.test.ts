@@ -7,10 +7,10 @@ import { DEFAULT_LOCAL_SETTINGS, LocalSettingsRepository } from '../extension/sr
 import { SessionUnlockState } from '../extension/src/data/runtime/session-unlock.js';
 import { DATA_STORE_NAMES, IMAGE_TRAIL_DB_NAME, IMAGE_TRAIL_DB_VERSION } from '../extension/src/data/schema.js';
 
-test('defines a versioned IndexedDB schema with durable M04 stores', () => {
+test('defines a versioned IndexedDB schema with durable encrypted stores', () => {
   assert.equal(IMAGE_TRAIL_DB_NAME, 'image-trail');
-  assert.equal(IMAGE_TRAIL_DB_VERSION, 4);
-  assert.deepEqual(DATA_STORE_NAMES, ['metadata', 'keys', 'history', 'bookmarks', 'blobs']);
+  assert.equal(IMAGE_TRAIL_DB_VERSION, 5);
+  assert.deepEqual(DATA_STORE_NAMES, ['metadata', 'keys', 'history', 'bookmarks', 'blobs', 'downloads']);
 });
 
 test('seals and opens a versioned AES-GCM JSON envelope with authenticated metadata', async () => {
@@ -88,6 +88,7 @@ test('loads typed plaintext local settings through defaults and migrations', () 
   assert.equal(repository.load().showHistoryThumbnails, true);
   assert.equal(repository.load().panelDock, 'left');
   assert.equal(repository.load().visibleBookmarkSoftMax, 30);
+  assert.equal(repository.load().bookmarkVisibilityScope, 'global');
 });
 
 test('falls back to plaintext local setting defaults when storage is corrupt', () => {
@@ -130,6 +131,20 @@ test('rejects out-of-range bookmark soft max setting migrations', () => {
   assert.equal(high.load().visibleBookmarkSoftMax, DEFAULT_LOCAL_SETTINGS.visibleBookmarkSoftMax);
   assert.equal(low.load().visibleBookmarkSoftMax, DEFAULT_LOCAL_SETTINGS.visibleBookmarkSoftMax);
   assert.equal(valid.load().visibleBookmarkSoftMax, 75);
+});
+
+test('migrates bookmark visibility scope setting safely', () => {
+  const site = new LocalSettingsRepository({
+    getItem: () => JSON.stringify({ bookmarkVisibilityScope: 'site' }),
+    setItem: () => {},
+  });
+  const invalid = new LocalSettingsRepository({
+    getItem: () => JSON.stringify({ bookmarkVisibilityScope: 'nearby-domain' }),
+    setItem: () => {},
+  });
+
+  assert.equal(site.load().bookmarkVisibilityScope, 'site');
+  assert.equal(invalid.load().bookmarkVisibilityScope, DEFAULT_LOCAL_SETTINGS.bookmarkVisibilityScope);
 });
 
 test('tracks session unlock state without persisting key material', async () => {

@@ -35,11 +35,15 @@ export interface PanelState {
   readonly bookmarkOffset: number;
   readonly bookmarkLimit: number;
   readonly bookmarkTotal: number;
+  readonly bookmarkVisibilityScope: 'global' | 'site';
   readonly hasOlderBookmarks: boolean;
   readonly hasNewerBookmarks: boolean;
   readonly captureInProgress: boolean;
   readonly captureResult: CaptureResult | null;
   readonly storageUsage: StorageUsageSummary | null;
+  readonly blobKeyUnlocked: boolean;
+  readonly blobKeyAvailable: boolean;
+  readonly blobKeyReference: string | null;
   readonly automation: AutomationState;
   readonly selectedHistoryId: string | null;
   readonly activeFieldId: string | null;
@@ -53,6 +57,7 @@ export type PanelActionName =
   | 'ping-status'
   | 'start-target-picker'
   | 'stop-target-picker'
+  | 'target/release'
   | 'history/add-loaded'
   | 'history/remove'
   | 'history/load'
@@ -67,6 +72,8 @@ export type PanelActionName =
   | 'bookmarks/page-loaded'
   | 'bookmarks/older'
   | 'bookmarks/newer'
+  | 'bookmarks/toggle-scope'
+  | 'bookmarks/reload'
   | 'bookmarks/refresh-thumbnails'
   | 'capture/request'
   | 'capture/start'
@@ -76,6 +83,7 @@ export type PanelActionName =
   | 'capture/preview'
   | 'blob-key/setup'
   | 'blob-key/unlock'
+  | 'blob-key/status'
   | 'storage/update'
   | 'undo-last'
   | 'slideshow-start'
@@ -109,6 +117,7 @@ export type PanelAction =
         | 'capture/preview'
         | 'blob-key/setup'
         | 'blob-key/unlock'
+        | 'blob-key/status'
         | 'storage/update'
       >;
     }
@@ -132,13 +141,19 @@ export type PanelAction =
   | { readonly name: 'capture/complete'; readonly result: CaptureResult; readonly sourceRecordId?: string }
   | { readonly name: 'capture/clear' }
   | { readonly name: 'capture/delete'; readonly id: string; readonly blobId: string }
-  | { readonly name: 'capture/preview'; readonly blobId: string }
+  | { readonly name: 'capture/preview'; readonly url: string; readonly blobId?: string }
   | { readonly name: 'blob-key/setup' | 'blob-key/unlock'; readonly password: string }
+  | { readonly name: 'blob-key/status'; readonly unlocked: boolean; readonly keyReference?: string | null; readonly hasKey?: boolean }
   | { readonly name: 'storage/update'; readonly usage: StorageUsageSummary };
 
 export interface BookmarkStore {
   readonly load: () => Promise<readonly ImageDisplayRecord[]>;
-  readonly loadPage: (input: { readonly offset: number; readonly limit: number }) => Promise<{
+  readonly loadPage: (input: {
+    readonly offset: number;
+    readonly limit: number;
+    readonly scope?: 'global' | 'site';
+    readonly currentPageUrl?: string;
+  }) => Promise<{
     readonly items: readonly ImageDisplayRecord[];
     readonly offset: number;
     readonly limit: number;

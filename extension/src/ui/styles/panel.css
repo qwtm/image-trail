@@ -63,6 +63,10 @@
   font: 700 12px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
+.image-trail-panel-root summary {
+  cursor: pointer;
+}
+
 .image-trail-panel-root p {
   margin: 0;
 }
@@ -83,6 +87,27 @@
   white-space: normal;
 }
 
+.image-trail-panel-root .image-trail-panel__full-url-input,
+.image-trail-panel-root .image-trail-panel__target-url {
+  min-width: 0;
+  max-width: 100%;
+  max-inline-size: 100%;
+  max-height: 72px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.image-trail-panel-root .image-trail-panel__full-url-input {
+  resize: none;
+  white-space: nowrap;
+}
+
+.image-trail-panel-root .image-trail-panel__target-url {
+  color: #aaa;
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
 .image-trail-panel-root .image-trail-panel__capture-error {
   color: #f88;
   font: 11px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -94,6 +119,202 @@
   min-width: 0;
   padding: 6px 0;
   border-top: 1px solid rgb(255 255 255 / 12%);
+}
+
+.image-trail-panel-root .image-trail-panel__target-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  list-style: none;
+}
+
+.image-trail-panel-root .image-trail-panel__target-utility {
+  gap: 10px;
+}
+
+.image-trail-panel-root .image-trail-panel__target-utility:not([open]) {
+  padding-bottom: 1px;
+}
+
+.image-trail-panel-root .image-trail-panel__target-utility > :not(summary) {
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+@supports selector(::details-content) {
+  .image-trail-panel-root .image-trail-panel__target-utility {
+    interpolate-size: allow-keywords;
+  }
+
+  .image-trail-panel-root .image-trail-panel__target-utility::details-content {
+    block-size: 0;
+    overflow: hidden;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition:
+      block-size 190ms ease,
+      opacity 160ms ease,
+      transform 190ms ease,
+      content-visibility 190ms ease allow-discrete;
+  }
+
+  .image-trail-panel-root .image-trail-panel__target-utility[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.image-trail-panel-root .image-trail-panel__target-body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  margin-block-start: 2px;
+  padding: 9px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 7px;
+  background: rgb(255 255 255 / 3%);
+}
+
+.image-trail-panel-root .image-trail-panel__target-body .image-trail-panel__actions {
+  display: grid;
+  grid-template-columns: max-content max-content minmax(0, 1fr);
+  align-items: center;
+}
+
+.image-trail-panel-root .image-trail-panel__target-utility:not([open]) > :not(summary) {
+  opacity: 0;
+  transform: translateY(-3px);
+}
+
+.image-trail-panel-root .image-trail-panel__target-count,
+.image-trail-panel-root .image-trail-panel__target-badge {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  max-inline-size: 120px;
+  min-block-size: 24px;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 14%);
+  border-radius: 5px;
+  background: rgb(255 255 255 / 6%);
+  color: #aaa;
+  padding: 3px 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 700 10px/1.2 system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.image-trail-panel-root .image-trail-panel__target-count {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  color: #999;
+  padding-inline: 0;
+}
+
+.image-trail-panel-root .image-trail-panel__target-badge {
+  justify-self: center;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.image-trail-panel-root .image-trail-panel__target-badge.is-selected {
+  border-color: rgb(89 255 178 / 42%);
+  background: rgb(89 255 178 / 12%);
+  color: rgb(216 255 236 / 92%);
+  box-shadow: 0 0 10px rgb(89 255 178 / 16%);
+}
+
+.image-trail-panel-root .image-trail-panel__target-summary::-webkit-details-marker {
+  display: none;
+}
+
+.image-trail-panel-root .image-trail-panel__target-summary::after {
+  content: 'Show';
+  margin-left: auto;
+  flex: none;
+  color: #999;
+  font: 11px system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.image-trail-panel-root .image-trail-panel__target-utility[open] .image-trail-panel__target-summary::after {
+  content: 'Hide';
+}
+
+.image-trail-panel-root .image-trail-panel__encryption {
+  gap: 8px;
+}
+
+.image-trail-panel-root .image-trail-panel__encryption-summary {
+  list-style: none;
+}
+
+.image-trail-panel-root .image-trail-panel__encryption-summary::-webkit-details-marker {
+  display: none;
+}
+
+.image-trail-panel-root .image-trail-panel__encryption-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.image-trail-panel-root .image-trail-panel__encryption-badge {
+  display: inline-grid;
+  place-items: center;
+  min-block-size: 22px;
+  margin-left: auto;
+  border: 1px solid rgb(89 255 178 / 34%);
+  border-radius: 5px;
+  background: rgb(89 255 178 / 10%);
+  color: rgb(216 255 236 / 90%);
+  padding: 3px 7px;
+  box-shadow: 0 0 10px rgb(89 255 178 / 12%);
+  font: 700 9px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  letter-spacing: 0.03em;
+}
+
+.image-trail-panel-root .image-trail-panel__encryption-badge.is-unlocked {
+  border-color: rgb(89 255 178 / 48%);
+  background: rgb(89 255 178 / 14%);
+  box-shadow: 0 0 12px rgb(89 255 178 / 18%);
+}
+
+.image-trail-panel-root .image-trail-panel__encryption-body {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 7px;
+  background:
+    linear-gradient(135deg, rgb(89 255 178 / 7%), transparent 48%),
+    rgb(255 255 255 / 3%);
+}
+
+.image-trail-panel-root .image-trail-panel__encryption-body .image-trail-panel__actions {
+  justify-content: space-between;
+}
+
+.image-trail-panel-root .image-trail-panel__primary-action {
+  border-color: rgb(89 255 178 / 42%);
+  background: rgb(18 49 34 / 72%);
+  box-shadow: 0 0 10px rgb(89 255 178 / 14%);
+}
+
+.image-trail-panel-root .image-trail-panel__primary-action:hover:not(:disabled) {
+  background: rgb(24 64 45 / 84%);
+}
+
+.image-trail-panel-root .image-trail-panel__secondary-action {
+  color: #ccc;
 }
 
 .image-trail-panel-root .image-trail-panel__url-editor {
@@ -197,6 +418,15 @@
   list-style: none;
 }
 
+.image-trail-panel-root .image-trail-panel__history-section .image-trail-panel__record-list {
+  max-block-size: 168px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-inline-end: 3px;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
 .image-trail-panel-root .image-trail-panel__field-item,
 .image-trail-panel-root .image-trail-panel__record-list li {
   min-width: 0;
@@ -250,8 +480,43 @@
   gap: 6px;
   align-items: start;
   min-width: 0;
-  padding: 6px 0;
-  border-top: 1px solid rgb(255 255 255 / 12%);
+  padding: 6px;
+  border: 1px solid transparent;
+  border-top-color: rgb(255 255 255 / 12%);
+  border-radius: 7px;
+}
+
+.image-trail-panel-root .image-trail-panel__record-list li.is-captured {
+  border-color: rgb(89 255 178 / 58%);
+  background:
+    linear-gradient(135deg, rgb(89 255 178 / 10%), transparent 45%),
+    rgb(8 28 18 / 42%);
+  box-shadow:
+    0 0 0 1px rgb(89 255 178 / 18%),
+    0 0 14px rgb(89 255 178 / 22%);
+}
+
+.image-trail-panel-root .image-trail-panel__record-list li[role='button'] {
+  cursor: pointer;
+}
+
+.image-trail-panel-root .image-trail-panel__record-list li[role='button']:hover {
+  border-color: rgb(255 255 255 / 28%);
+  background: rgb(255 255 255 / 6%);
+}
+
+.image-trail-panel-root .image-trail-panel__record-list li[role='button']:focus-visible {
+  outline: 1px solid #8fd;
+  outline-offset: 2px;
+}
+
+.image-trail-panel-root .image-trail-panel__history-item {
+  grid-template-columns: 44px minmax(0, 1fr);
+}
+
+.image-trail-panel-root .image-trail-panel__history-item .image-trail-panel__item-actions {
+  grid-column: 1 / -1;
+  justify-content: flex-start;
 }
 
 .image-trail-panel-root .image-trail-panel__record-thumbnail {
@@ -275,19 +540,19 @@
     0 0 10px rgb(143 255 221 / 35%);
 }
 
-.image-trail-panel-root .image-trail-panel__record-list a {
+.image-trail-panel-root .image-trail-panel__record-link {
   min-width: 0;
   max-width: 100%;
   color: #ddd;
   display: block;
   text-decoration: none;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font: 11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-.image-trail-panel-root .image-trail-panel__record-list a:hover {
+.image-trail-panel-root .image-trail-panel__record-list li[role='button']:hover .image-trail-panel__record-link {
   color: #fff;
 }
 
@@ -334,14 +599,4 @@
 .image-trail-panel-root .image-trail-panel__item-actions {
   justify-content: flex-end;
   align-self: start;
-}
-
-.image-trail-panel-root .image-trail-panel__capture-badge {
-  display: inline-block;
-  padding: 1px 6px;
-  border: 1px solid rgb(143 255 221 / 45%);
-  border-radius: 999px;
-  color: #8fd;
-  background: transparent;
-  font: 10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }

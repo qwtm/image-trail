@@ -1,21 +1,28 @@
 import type { PanelAction, TargetState } from '../../core/types.js';
 
 export function createTargetPickerView(target: TargetState, dispatch: (action: PanelAction) => void): HTMLElement {
-  const wrapper = document.createElement('section');
+  const wrapper = document.createElement('details');
   wrapper.className = 'image-trail-panel__section image-trail-panel__target-utility';
+  wrapper.open = target.picking || target.mode !== 'auto' || target.candidateCount !== 1;
 
-  const heading = document.createElement('h3');
-  heading.textContent = 'Host target';
+  const heading = document.createElement('summary');
+  heading.className = 'image-trail-panel__target-summary';
+  const title = document.createElement('h3');
+  title.textContent = 'Host target';
+  const summaryMeta = document.createElement('span');
+  summaryMeta.className = 'image-trail-panel__target-count';
+  summaryMeta.textContent = `${target.candidateCount} candidate${target.candidateCount === 1 ? '' : 's'}`;
+  heading.append(title, summaryMeta);
 
   const description = document.createElement('p');
   description.className = 'image-trail-panel__meta';
   description.textContent = target.selectedUrl
-    ? `Projecting onto ${target.selectedDimensions ?? 'selected image'} from ${target.mode} pick mode.`
+    ? `Rows and URL edits project into this host image.`
     : `Choose which page image receives the current edited URL. ${target.candidateCount} candidate${target.candidateCount === 1 ? '' : 's'} detected.`;
 
   const current = document.createElement('p');
   current.className = 'image-trail-panel__target-url';
-  current.textContent = target.selectedUrl ?? 'No host image selected yet.';
+  current.textContent = target.selectedUrl?.startsWith('data:') ? 'data URL' : (target.selectedUrl ?? 'No host image selected yet.');
 
   const actions = document.createElement('div');
   actions.className = 'image-trail-panel__actions';
@@ -24,7 +31,24 @@ export function createTargetPickerView(target: TargetState, dispatch: (action: P
   pickButton.textContent = target.picking ? 'Cancel host pick' : 'Set host image';
   pickButton.addEventListener('click', () => dispatch({ name: target.picking ? 'stop-target-picker' : 'start-target-picker' }));
   actions.append(pickButton);
+  if (target.selectedUrl) {
+    const releaseButton = document.createElement('button');
+    releaseButton.type = 'button';
+    releaseButton.textContent = 'Release host image';
+    releaseButton.addEventListener('click', () => dispatch({ name: 'target/release' }));
+    actions.append(releaseButton);
+    if (target.selectedDimensions) {
+      const dimensions = document.createElement('span');
+      dimensions.className = 'image-trail-panel__target-badge is-selected';
+      dimensions.textContent = target.selectedDimensions;
+      actions.append(dimensions);
+    }
+  }
 
-  wrapper.append(heading, description, current, actions);
+  const body = document.createElement('div');
+  body.className = 'image-trail-panel__target-body';
+  body.append(description, current, actions);
+
+  wrapper.append(heading, body);
   return wrapper;
 }

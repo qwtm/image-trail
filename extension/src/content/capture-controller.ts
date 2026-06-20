@@ -4,17 +4,19 @@ import {
   createCreateBlobPreviewMessage,
   createDeleteBlobMessage,
   createRetrieveBlobMessage,
+  createBlobKeyStatusMessage,
   createSetupBlobKeyMessage,
   createGrantPermissionAndCaptureMessage,
   createStorageUsageRequestMessage,
   createUnlockBlobKeyMessage,
+  isBlobKeyStatusResultMessage,
   isBlobKeyResultMessage,
   isCaptureResultMessage,
   isCreateBlobPreviewResultMessage,
   isRetrieveBlobResultMessage,
 } from '../background/messages.js';
 import type { CaptureSourceType } from '../background/messages.js';
-import type { BlobKeyResultMessage, CreateBlobPreviewResultMessage, RetrieveBlobResultMessage } from '../background/messages.js';
+import type { BlobKeyResultMessage, BlobKeyStatusResultMessage, CreateBlobPreviewResultMessage, RetrieveBlobResultMessage } from '../background/messages.js';
 
 export interface CaptureStore {
   readonly requestCapture: (url: string, sourceType: CaptureSourceType, sourceRecordId?: string) => Promise<CaptureResult>;
@@ -23,6 +25,7 @@ export interface CaptureStore {
   readonly requestBlobPreview: (blobId: string) => Promise<CreateBlobPreviewResultMessage['payload']>;
   readonly requestStorageUsage: () => Promise<StorageUsageSummary>;
   readonly requestPermissionAndRetry: (url: string, sourceType: CaptureSourceType, sourceRecordId?: string) => Promise<CaptureResult>;
+  readonly requestBlobKeyStatus: () => Promise<BlobKeyStatusResultMessage['payload']>;
   readonly setupBlobKey: (password: string) => Promise<BlobKeyResultMessage['payload']>;
   readonly unlockBlobKey: (password: string, keyReference?: string) => Promise<BlobKeyResultMessage['payload']>;
 }
@@ -70,6 +73,12 @@ export class CaptureController implements CaptureStore {
       return (response as { payload: StorageUsageSummary }).payload;
     }
     return { totalBytes: 0, blobCount: 0 };
+  }
+
+  async requestBlobKeyStatus(): Promise<BlobKeyStatusResultMessage['payload']> {
+    const response = await chrome.runtime.sendMessage(createBlobKeyStatusMessage());
+    if (isBlobKeyStatusResultMessage(response)) return response.payload;
+    return { unlocked: false, keyReference: null, hasKey: false };
   }
 
   async setupBlobKey(password: string): Promise<BlobKeyResultMessage['payload']> {

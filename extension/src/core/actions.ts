@@ -46,6 +46,8 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
       return { ...state, status: 'picking', message: 'Pick mode is active. Click the intended image.', lastUpdatedAt: Date.now() };
     case 'stop-target-picker':
       return { ...state, status: 'ready', message: state.target.message, lastUpdatedAt: Date.now() };
+    case 'target/release':
+      return state;
     case 'history/add-loaded': {
       const item = createDisplayRecord({
         url: action.url,
@@ -62,6 +64,8 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
     }
     case 'history/remove':
       return { ...state, history: state.history.filter((item) => item.id !== action.id), lastUpdatedAt: Date.now() };
+    case 'active-field/set':
+      return { ...state, activeFieldId: action.id, lastUpdatedAt: Date.now() };
     case 'bookmark/current':
       return state.target.selectedUrl
         ? {
@@ -96,6 +100,13 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
         hasNewerBookmarks: action.hasNewer,
         lastUpdatedAt: Date.now(),
       };
+    case 'bookmarks/toggle-scope':
+      return {
+        ...state,
+        bookmarkVisibilityScope: state.bookmarkVisibilityScope === 'global' ? 'site' : 'global',
+        bookmarkOffset: 0,
+        lastUpdatedAt: Date.now(),
+      };
     case 'capture/request':
       return state;
     case 'capture/start':
@@ -121,6 +132,14 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
         ...state,
         history: clearRecordCapture(state.history, action.id),
         bookmarks: clearRecordCapture(state.bookmarks, action.id),
+        lastUpdatedAt: Date.now(),
+      };
+    case 'blob-key/status':
+      return {
+        ...state,
+        blobKeyUnlocked: action.unlocked,
+        blobKeyAvailable: action.unlocked || action.hasKey === true,
+        blobKeyReference: action.unlocked ? (action.keyReference ?? state.blobKeyReference) : null,
         lastUpdatedAt: Date.now(),
       };
     case 'storage/update':

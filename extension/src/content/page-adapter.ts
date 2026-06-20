@@ -22,6 +22,7 @@ export class PageAdapter {
   private selected: HTMLImageElement | null = null;
   private hovered: HTMLImageElement | null = null;
   private candidates = new Set<HTMLImageElement>();
+  private detectedCandidateCount = 0;
   private picking = false;
   private mode: TargetSelectionMode = 'none';
   private lastSnapshot: TargetSelectionSnapshot = this.createSnapshot('No target selected.');
@@ -30,6 +31,8 @@ export class PageAdapter {
   private readonly loadListeners = new Set<TargetLoadListener>();
   private readonly bookmarkRequestListeners = new Set<TargetBookmarkRequestListener>();
   private pendingLoadTarget: HTMLImageElement | null = null;
+  private selectedOriginalUrl: string | null = null;
+  private selectedActiveUrl: string | null = null;
   private bookmarkShortcutActive = false;
 
   subscribe(listener: TargetSelectionListener): () => void {
@@ -62,6 +65,7 @@ export class PageAdapter {
 
   autoSelectSingleImage(): TargetSelectionSnapshot {
     const matches = findQualifyingImages();
+    this.detectedCandidateCount = matches.length;
     if (matches.length === 1) {
       this.selectTarget(matches[0], 'auto');
       return this.emit(`Auto-selected ${this.lastSnapshot.selected?.url ?? 'the only qualifying image'}.`);
@@ -111,13 +115,22 @@ export class PageAdapter {
     }
 
     const result = applyImageUrl(this.selected, url);
+    this.selectedActiveUrl = result.url;
     this.watchSelectedLoad(this.selected);
     return this.emit(result.message);
+  }
+
+  releaseSelectedTarget(): TargetSelectionSnapshot {
+    if (!this.selected) return this.emit('No host image selected.');
+    this.restoreSelectedTarget();
+    this.mode = 'none';
+    return this.emit('Released host image and restored its original URL.');
   }
 
   private refreshPickCandidates(): TargetSelectionSnapshot {
     if (!this.picking) return this.lastSnapshot;
     const nextCandidates = new Set(findQualifyingImages());
+    this.detectedCandidateCount = nextCandidates.size;
 
     for (const oldCandidate of this.candidates) {
       if (!nextCandidates.has(oldCandidate) && oldCandidate !== this.selected) {
@@ -192,8 +205,11 @@ export class PageAdapter {
   }
 
   private selectTarget(image: HTMLImageElement, mode: TargetSelectionMode): void {
+    const originalUrl = createTargetImageInfo(image)?.url ?? null;
     this.restoreSelectedTarget();
     this.selected = image;
+    this.selectedOriginalUrl = originalUrl;
+    this.selectedActiveUrl = originalUrl;
     this.mode = mode;
     const handleId = createTargetImageInfo(image)?.handleId;
     if (handleId) image.setAttribute('data-image-trail-handle', handleId);
@@ -203,11 +219,16 @@ export class PageAdapter {
 
   private restoreSelectedTarget(): void {
     if (this.selected) {
+      if (this.selectedOriginalUrl && createTargetImageInfo(this.selected)?.url !== this.selectedOriginalUrl) {
+        applyImageUrl(this.selected, this.selectedOriginalUrl);
+      }
       this.selected.removeAttribute('data-image-trail-handle');
       restoreElementStyles(this.selected);
     }
     this.clearPendingLoadTarget();
     this.selected = null;
+    this.selectedOriginalUrl = null;
+    this.selectedActiveUrl = null;
   }
 
   private watchSelectedLoad(image: HTMLImageElement): void {
@@ -244,6 +265,10 @@ export class PageAdapter {
   private async emitSuccessfulLoad(image: HTMLImageElement): Promise<void> {
     const target = createTargetImageInfo(image);
     if (!target) return;
+    if (image === this.selected) {
+      this.selectedActiveUrl = target.url;
+      this.emit(`Loaded ${target.url}`);
+    }
     const thumbnail = (await createThumbnailDataUrlFromImage(image)) ?? undefined;
     for (const listener of this.loadListeners) listener({ ...target, thumbnail });
   }
@@ -258,11 +283,12 @@ export class PageAdapter {
   }
 
   private createSnapshot(message: string): TargetSelectionSnapshot {
+    const selected = this.selected?.isConnected ? createTargetImageInfo(this.selected) : null;
     return {
       mode: this.mode,
       picking: this.picking,
-      candidateCount: this.candidates.size,
-      selected: this.selected?.isConnected ? createTargetImageInfo(this.selected) : null,
+      candidateCount: this.picking ? this.candidates.size : this.detectedCandidateCount,
+      selected: selected && this.selectedActiveUrl ? { ...selected, url: this.selectedActiveUrl } : selected,
       message,
     };
   }

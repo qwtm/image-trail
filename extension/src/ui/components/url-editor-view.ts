@@ -1,5 +1,6 @@
 export interface UrlEditorViewState {
   readonly url: string | null;
+  readonly isDataUrl?: boolean;
 }
 
 export interface UrlEditorViewCallbacks {
@@ -17,34 +18,25 @@ export function createUrlEditorView(state: UrlEditorViewState, callbacks: UrlEdi
 
   const value = document.createElement('textarea');
   value.className = 'image-trail-panel__full-url-input';
-  value.rows = 4;
+  value.rows = state.isDataUrl ? 1 : 4;
   value.wrap = 'soft';
   value.spellcheck = false;
-  value.disabled = state.url === null;
-  value.value = state.url ?? '';
+  value.disabled = state.url === null || state.isDataUrl === true;
+  value.value = state.isDataUrl ? 'data URL' : (state.url ?? '');
   value.placeholder = EMPTY_URL_MESSAGE;
 
   const applyUrl = (): void => {
+    if (state.isDataUrl) return;
     callbacks.onApply(value.value);
   };
 
-  const actions = document.createElement('div');
-  actions.className = 'image-trail-panel__actions';
-
-  const apply = document.createElement('button');
-  apply.type = 'button';
-  apply.textContent = 'Apply URL';
-  apply.disabled = state.url === null;
-  apply.addEventListener('click', applyUrl);
-
   value.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+    if (event.key === 'Enter') {
       event.preventDefault();
       applyUrl();
     }
   });
 
-  actions.append(apply);
-  wrapper.append(heading, value, actions);
+  wrapper.append(heading, value);
   return wrapper;
 }

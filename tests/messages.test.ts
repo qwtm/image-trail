@@ -9,9 +9,21 @@ import {
   createDeleteBlobResultMessage,
   createFetchThumbnailSourceMessage,
   createFetchThumbnailSourceResultMessage,
+  createLoadBookmarksMessage,
+  createLoadBookmarksResultMessage,
+  createAddRecentHistoryMessage,
+  createAddRecentHistoryResultMessage,
+  createLoadRecentHistoryMessage,
+  createLoadRecentHistoryResultMessage,
   createPingMessage,
+  createRemoveBookmarkMessage,
+  createRemoveBookmarkResultMessage,
+  createRemoveRecentHistoryMessage,
+  createRemoveRecentHistoryResultMessage,
   createRetrieveBlobMessage,
   createRetrieveBlobResultMessage,
+  createSaveBookmarkMessage,
+  createSaveBookmarkResultMessage,
   createStatusMessage,
   createStorageUsageRequestMessage,
   createStorageUsageResponseMessage,
@@ -21,7 +33,13 @@ import {
   isExtensionRequest,
   isExtensionResponse,
   isFetchThumbnailSourceResultMessage,
+  isLoadBookmarksResultMessage,
+  isAddRecentHistoryResultMessage,
+  isLoadRecentHistoryResultMessage,
+  isRemoveBookmarkResultMessage,
+  isRemoveRecentHistoryResultMessage,
   isRetrieveBlobResultMessage,
+  isSaveBookmarkResultMessage,
   isStatusMessage,
 } from '../extension/src/background/messages.js';
 
@@ -112,6 +130,65 @@ test('creates thumbnail source fetch messages', () => {
   const failure = createFetchThumbnailSourceResultMessage({ ok: false, reason: 'network-error', message: 'Nope.' });
   assert.equal(failure.payload.ok, false);
   assert.equal(isFetchThumbnailSourceResultMessage(failure), true);
+});
+
+test('creates bookmark store messages for extension-origin persistence', () => {
+  const record = {
+    id: 'bookmark-1',
+    url: 'https://example.test/a.jpg',
+    label: 'a.jpg',
+    timestamp: '2026-06-19T00:00:00.000Z',
+    source: 'bookmark' as const,
+  };
+  const load = createLoadBookmarksMessage({ offset: 0, limit: 30, scope: 'global', currentPageUrl: 'https://example.test/' });
+  const loadResult = createLoadBookmarksResultMessage({
+    items: [record],
+    offset: 0,
+    limit: 30,
+    total: 1,
+    hasOlder: false,
+    hasNewer: false,
+  });
+  const save = createSaveBookmarkMessage(record);
+  const saveResult = createSaveBookmarkResultMessage({ ok: true, record });
+  const remove = createRemoveBookmarkMessage(record);
+  const removeResult = createRemoveBookmarkResultMessage({ ok: true });
+
+  assert.equal(isExtensionRequest(load), true);
+  assert.equal(isExtensionResponse(loadResult), true);
+  assert.equal(isLoadBookmarksResultMessage(loadResult), true);
+  assert.equal(isExtensionRequest(save), true);
+  assert.equal(isExtensionResponse(saveResult), true);
+  assert.equal(isSaveBookmarkResultMessage(saveResult), true);
+  assert.equal(isExtensionRequest(remove), true);
+  assert.equal(isExtensionResponse(removeResult), true);
+  assert.equal(isRemoveBookmarkResultMessage(removeResult), true);
+});
+
+test('creates transient recent history messages', () => {
+  const record = {
+    id: 'history-1',
+    url: 'https://external-content.duckduckgo.com/iu/?u=https%3A%2F%2Fexample.test%2Fa.jpg',
+    label: 'a.jpg',
+    timestamp: '2026-06-19T00:00:00.000Z',
+    source: 'history' as const,
+  };
+  const load = createLoadRecentHistoryMessage('https://external-content.duckduckgo.com/');
+  const loadResult = createLoadRecentHistoryResultMessage([record]);
+  const add = createAddRecentHistoryMessage('https://external-content.duckduckgo.com/', record);
+  const addResult = createAddRecentHistoryResultMessage([record]);
+  const remove = createRemoveRecentHistoryMessage('https://external-content.duckduckgo.com/', record.id);
+  const removeResult = createRemoveRecentHistoryResultMessage([]);
+
+  assert.equal(isExtensionRequest(load), true);
+  assert.equal(isExtensionResponse(loadResult), true);
+  assert.equal(isLoadRecentHistoryResultMessage(loadResult), true);
+  assert.equal(isExtensionRequest(add), true);
+  assert.equal(isExtensionResponse(addResult), true);
+  assert.equal(isAddRecentHistoryResultMessage(addResult), true);
+  assert.equal(isExtensionRequest(remove), true);
+  assert.equal(isExtensionResponse(removeResult), true);
+  assert.equal(isRemoveRecentHistoryResultMessage(removeResult), true);
 });
 
 test('recognizes capture result messages as extension responses', () => {

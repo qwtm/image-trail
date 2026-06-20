@@ -1,6 +1,6 @@
 import type { EncryptionAlgorithm, KeyReference } from './crypto/types.js';
 
-export type DataStoreName = 'metadata' | 'keys' | 'history' | 'bookmarks' | 'blobs';
+export type DataStoreName = 'metadata' | 'keys' | 'history' | 'bookmarks' | 'blobs' | 'downloads';
 export type DataStatusCode =
   | 'ok'
   | 'db-open-failed'
@@ -65,4 +65,16 @@ export interface DurableBookmarkPayloadV1 {
   readonly capturedAt?: string;
   readonly sourceCompatibility?: 'favorites';
   readonly storedOriginal?: StoredOriginalReference;
+}
+
+export interface DurableDownloadPayloadV1 {
+  readonly sourceUrl: string;
+  readonly filename: string;
+  readonly originalFilename?: string;
+  readonly mimeType?: string;
+  readonly byteLength?: number;
+  readonly fingerprint?: string;
+  readonly downloadedAt: string;
+  readonly sourceRecordUuid?: string;
+  readonly fileFormatVersion?: number;
 }

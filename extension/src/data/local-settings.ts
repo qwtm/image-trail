@@ -4,6 +4,7 @@ export interface PlaintextLocalSettings {
   readonly requestThrottleMs: number;
   readonly panelDock: 'right' | 'left';
   readonly visibleBookmarkSoftMax: number;
+  readonly bookmarkVisibilityScope: 'global' | 'site';
 }
 
 export const DEFAULT_LOCAL_SETTINGS: PlaintextLocalSettings = {
@@ -12,6 +13,7 @@ export const DEFAULT_LOCAL_SETTINGS: PlaintextLocalSettings = {
   requestThrottleMs: 250,
   panelDock: 'right',
   visibleBookmarkSoftMax: 30,
+  bookmarkVisibilityScope: 'global',
 };
 
 const LOCAL_SETTINGS_KEY = 'imageTrail.localSettings';
@@ -53,6 +55,7 @@ export function migrateLocalSettings(input: Partial<PlaintextLocalSettings>): Pl
     visibleBookmarkSoftMax: isSafeVisibleBookmarkSoftMax(input.visibleBookmarkSoftMax)
       ? input.visibleBookmarkSoftMax
       : DEFAULT_LOCAL_SETTINGS.visibleBookmarkSoftMax,
+    bookmarkVisibilityScope: input.bookmarkVisibilityScope === 'site' ? 'site' : 'global',
   };
 }
 
