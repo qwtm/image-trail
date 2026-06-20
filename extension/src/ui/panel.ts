@@ -3,7 +3,13 @@ import type { RecentHistoryStore } from '../content/recent-history-store.js';
 import { KeyboardRouter } from '../content/keyboard.js';
 import { RequestGovernor } from '../content/request-governor.js';
 import type { PageAdapter, TargetSelectionSnapshot } from '../content/page-adapter.js';
-import { createDisplayRecord, isDurableImageSourceUrl, sourceImageUrlFrom, validateImageRecordUrl } from '../core/display-records.js';
+import {
+  createDisplayRecord,
+  isDurableImageSourceUrl,
+  sourceImageUrlFrom,
+  validateImageRecordUrl,
+  type ImageRecordUrlValidation,
+} from '../core/display-records.js';
 import type { ImageDisplayRecord } from '../core/display-records.js';
 import { reducePanelAction } from '../core/actions.js';
 import { Retry404 } from '../core/automation/retry-404.js';
@@ -17,7 +23,12 @@ import { pushVisibleUrlWhenSameOrigin } from '../core/image/image-navigation.js'
 import { parseUrl } from '../core/url/parse-url.js';
 import { bumpUrlField, rebuildUrl, setUrlFieldValue } from '../core/url/rebuild-url.js';
 import { collectUrlFields, selectDefaultField } from '../core/url/tokenize-fields.js';
-import { createThumbnailDataUrlFromImage, createThumbnailDataUrlFromUrl, fetchThumbnailSource } from '../content/thumbnail-generator.js';
+import {
+  createThumbnailDataUrlFromDataUrl,
+  createThumbnailDataUrlFromImage,
+  createThumbnailDataUrlFromUrl,
+  fetchThumbnailSource,
+} from '../content/thumbnail-generator.js';
 import { importBookmarkletJson } from '../data/import-export/bookmarklet-import.js';
 import { exportEncryptedBookmarks, exportPlainBookmarks } from '../data/import-export/bookmarks-export.js';
 import { importBookmarks as importBookmarkRecords } from '../data/import-export/bookmarks-import.js';
@@ -28,6 +39,10 @@ import { renderPanel } from './render.js';
 
 const ROOT_ID = 'image-trail-panel-root';
 const STYLE_PATH = 'src/ui/styles/panel.css';
+
+interface ValidatedRecordUrl extends ImageRecordUrlValidation {
+  readonly preloadDataUrl?: string;
+}
 
 function sourceUrlForBookmark(url: string): string {
   try {
@@ -561,7 +576,10 @@ export class ImageTrailPanel {
       return false;
     }
     const sourceUrl = validation.sourceUrl;
-    const draft = createDisplayRecord({ id: sourceUrl, url: sourceUrl, thumbnail, source: 'bookmark' });
+    const resolvedThumbnail =
+      thumbnail ??
+      (validation.preloadDataUrl ? ((await createThumbnailDataUrlFromDataUrl(validation.preloadDataUrl)) ?? undefined) : undefined);
+    const draft = createDisplayRecord({ id: sourceUrl, url: sourceUrl, thumbnail: resolvedThumbnail, source: 'bookmark' });
     const bookmark = this.bookmarkStore ? await this.bookmarkStore.save(draft) : draft;
     this.state = { ...this.state, message: `Added to Image Trail: ${bookmark.url}`, lastUpdatedAt: Date.now() };
     await this.loadBookmarkPage(0);
@@ -600,7 +618,14 @@ export class ImageTrailPanel {
   private async addRecentHistory(url: string, thumbnail?: string): Promise<void> {
     const validation = await this.validateRecordUrlForAdd(url);
     if (!validation.ok || !validation.sourceUrl) return;
-    const next = reducePanelAction(this.state, { name: 'history/add-loaded', url: validation.sourceUrl, thumbnail }).history;
+    const resolvedThumbnail =
+      thumbnail ??
+      (validation.preloadDataUrl ? ((await createThumbnailDataUrlFromDataUrl(validation.preloadDataUrl)) ?? undefined) : undefined);
+    const next = reducePanelAction(this.state, {
+      name: 'history/add-loaded',
+      url: validation.sourceUrl,
+      thumbnail: resolvedThumbnail,
+    }).history;
     const item = next[0];
     if (!item) return;
     const history = this.recentHistoryStore ? await this.recentHistoryStore.add(item, window.location.href) : next;
@@ -608,12 +633,12 @@ export class ImageTrailPanel {
     this.render();
   }
 
-  private async validateRecordUrlForAdd(url: string): Promise<ReturnType<typeof validateImageRecordUrl>> {
+  private async validateRecordUrlForAdd(url: string): Promise<ValidatedRecordUrl> {
     const validation = this.validateRecordUrl(url);
     if (!validation.ok || !validation.sourceUrl) return validation;
     if (validation.sourceUrl.startsWith('data:image/')) return validation;
     const fetchResult = await fetchThumbnailSource(validation.sourceUrl);
-    if (fetchResult.ok) return validation;
+    if (fetchResult.ok) return { ...validation, preloadDataUrl: fetchResult.dataUrl };
 
     this.state = {
       ...this.state,

@@ -50,7 +50,7 @@ export async function fetchThumbnailSource(url: string): Promise<FetchThumbnailS
   return { ok: false, reason: 'unknown', message: 'Thumbnail source fetch failed.' };
 }
 
-async function createThumbnailDataUrlFromDataUrl(dataUrl: string, maxEdge: number): Promise<string | null> {
+export async function createThumbnailDataUrlFromDataUrl(dataUrl: string, maxEdge = THUMBNAIL_MAX_EDGE): Promise<string | null> {
   const image = await loadImage(dataUrl);
   if (!image) return null;
   return createThumbnailDataUrlFromDrawable(image, image.naturalWidth, image.naturalHeight, maxEdge);
