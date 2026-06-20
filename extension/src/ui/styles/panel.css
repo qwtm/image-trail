@@ -154,6 +154,12 @@
   overscroll-behavior: auto;
 }
 
+.image-trail-panel-root .image-trail-panel__history-section {
+  max-block-size: none;
+  overflow: visible;
+  overscroll-behavior: auto;
+}
+
 .image-trail-panel-root .image-trail-panel__target-summary {
   display: flex;
   align-items: center;
@@ -624,7 +630,7 @@
 }
 
 .image-trail-panel-root .image-trail-panel__history-section .image-trail-panel__record-list {
-  max-block-size: 150px;
+  max-block-size: 168px;
   overflow-x: hidden;
   overflow-y: auto;
   padding-inline-end: 3px;
