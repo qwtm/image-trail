@@ -1,4 +1,4 @@
-import { sourceImageUrlFrom, type ImageDisplayRecord } from '../../core/display-records.js';
+import { imageExtensionFromUrl, imageExtensionFromValue, type ImageDisplayRecord } from '../../core/display-records.js';
 
 type BookmarkAction =
   | { readonly name: 'bookmark/current' }
@@ -159,24 +159,7 @@ function createRecordVisual(item: ImageDisplayRecord): HTMLElement {
   return fallback;
 }
 
-function extensionLabelFor(item: ImageDisplayRecord): string {
-  const extension = extensionFrom(item.label) ?? extensionFromUrl(item.url);
+export function extensionLabelFor(item: ImageDisplayRecord): string {
+  const extension = imageExtensionFromValue(item.label) ?? imageExtensionFromUrl(item.url);
   return extension ? extension.toUpperCase() : 'IMAGE';
-}
-
-function extensionFrom(value: string | undefined): string | null {
-  if (!value) return null;
-  const cleanName = value.split(/[?#]/u)[0];
-  const extension = cleanName.match(/\.([a-z0-9]+)$/iu)?.[1]?.toUpperCase();
-  if (extension && ['PNG', 'JPG', 'JPEG', 'GIF', 'WEBP'].includes(extension)) return extension;
-  return /(?:^|[/.-])OIP[.-]/iu.test(cleanName) ? 'JPG' : null;
-}
-
-function extensionFromUrl(url: string): string | null {
-  try {
-    const sourceUrl = sourceImageUrlFrom(url);
-    return extensionFrom(sourceUrl.pathname);
-  } catch {
-    return extensionFrom(url);
-  }
 }

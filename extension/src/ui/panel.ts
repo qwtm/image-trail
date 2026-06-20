@@ -3,7 +3,7 @@ import type { RecentHistoryStore } from '../content/recent-history-store.js';
 import { KeyboardRouter } from '../content/keyboard.js';
 import { RequestGovernor } from '../content/request-governor.js';
 import type { PageAdapter, TargetSelectionSnapshot } from '../content/page-adapter.js';
-import { createDisplayRecord, isDurableImageSourceUrl, sourceImageUrlFrom } from '../core/display-records.js';
+import { createDisplayRecord, isDurableImageSourceUrl, sourceImageUrlFrom, validateImageRecordUrl } from '../core/display-records.js';
 import type { ImageDisplayRecord } from '../core/display-records.js';
 import { reducePanelAction } from '../core/actions.js';
 import { Retry404 } from '../core/automation/retry-404.js';
@@ -77,11 +77,13 @@ export class ImageTrailPanel {
       this.render();
     });
     this.unsubscribeFromLoads = this.pageAdapter.subscribeToSuccessfulLoads((target) => {
-      if (!isDurableImageSourceUrl(target.url)) return;
       void this.addRecentHistory(target.url, target.thumbnail);
     });
     this.unsubscribeFromBookmarkRequests = this.pageAdapter.subscribeToBookmarkRequests((target) => {
-      this.enqueueBookmarkMutation(() => this.bookmarkUrl(target.url, target.thumbnail));
+      this.enqueueBookmarkMutation(async () => {
+        const bookmarked = await this.bookmarkUrl(target.url, target.thumbnail);
+        if (bookmarked) await this.addRecentHistory(sourceUrlForBookmark(target.url), target.thumbnail);
+      });
     });
     void this.loadBookmarks();
     void this.loadRecentHistory();
@@ -514,32 +516,43 @@ export class ImageTrailPanel {
     void this.bookmarkMutationQueue;
   }
 
-  private async bookmarkUrl(url: string, thumbnail?: string): Promise<void> {
-    if (!isDurableImageSourceUrl(url)) {
-      this.state = {
-        ...this.state,
-        message: 'Only http(s) image URLs can be saved to Image Trail.',
-        status: 'error',
-        lastUpdatedAt: Date.now(),
-      };
-      this.render();
-      return;
+  private async bookmarkUrl(url: string, thumbnail?: string): Promise<boolean> {
+    const validation = this.validateRecordUrl(url);
+    if (!validation.ok || !validation.sourceUrl) {
+      return false;
     }
-    const sourceUrl = sourceUrlForBookmark(url);
+    const sourceUrl = validation.sourceUrl;
     const draft = createDisplayRecord({ id: sourceUrl, url: sourceUrl, thumbnail, source: 'bookmark' });
     const bookmark = this.bookmarkStore ? await this.bookmarkStore.save(draft) : draft;
     this.state = { ...this.state, message: `Added to Image Trail: ${bookmark.url}`, lastUpdatedAt: Date.now() };
     await this.loadBookmarkPage(0);
     this.render();
+    return true;
   }
 
   private async addRecentHistory(url: string, thumbnail?: string): Promise<void> {
-    const next = reducePanelAction(this.state, { name: 'history/add-loaded', url, thumbnail }).history;
+    const validation = this.validateRecordUrl(url);
+    if (!validation.ok || !validation.sourceUrl) return;
+    const next = reducePanelAction(this.state, { name: 'history/add-loaded', url: validation.sourceUrl, thumbnail }).history;
     const item = next[0];
     if (!item) return;
     const history = this.recentHistoryStore ? await this.recentHistoryStore.add(item, window.location.href) : next;
     this.state = { ...this.state, history, lastUpdatedAt: Date.now() };
     this.render();
+  }
+
+  private validateRecordUrl(url: string): ReturnType<typeof validateImageRecordUrl> {
+    const validation = validateImageRecordUrl(url);
+    if (!validation.ok) {
+      this.state = {
+        ...this.state,
+        message: validation.message ?? 'Image Trail could not save this URL.',
+        status: 'error',
+        lastUpdatedAt: Date.now(),
+      };
+      this.render();
+    }
+    return validation;
   }
 
   private async removeRecentHistory(id: string): Promise<void> {

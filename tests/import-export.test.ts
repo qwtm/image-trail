@@ -213,6 +213,37 @@ test('bookmarks-export: exports encrypted and imports with password', async () =
   assert.equal(importResult.entries[0].payload.label, 'Bookmark');
 });
 
+test('bookmarks-export: encrypted export does not pass undefined AES-GCM additionalData', async () => {
+  const originalEncrypt = crypto.subtle.encrypt.bind(crypto.subtle);
+  const calls: AesGcmParams[] = [];
+  crypto.subtle.encrypt = ((algorithm: AlgorithmIdentifier, key: CryptoKey, data: BufferSource) => {
+    const params = algorithm as AesGcmParams;
+    if (typeof params === 'object' && params.name === 'AES-GCM') calls.push(params);
+    return originalEncrypt(algorithm, key, data);
+  }) as SubtleCrypto['encrypt'];
+
+  try {
+    const exportResult = await exportEncryptedBookmarks({
+      entries: [
+        {
+          uuid: 'bookmark-1',
+          payload: {
+            url: 'https://example.test/bookmark.jpg',
+            bookmarkedAt: '2026-06-18T00:00:00.000Z',
+          },
+        },
+      ],
+      password: 'bookmark-pass',
+      now: '2026-06-18T12:00:00.000Z',
+    });
+
+    assert.ok(exportResult.status.ok, exportResult.status.message);
+    assert.ok(calls.some((params) => !Object.hasOwn(params, 'additionalData')));
+  } finally {
+    crypto.subtle.encrypt = originalEncrypt as SubtleCrypto['encrypt'];
+  }
+});
+
 test('bookmarks-export: shift/plain export imports without password', async () => {
   const entries = [
     {

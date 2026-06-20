@@ -1,6 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { isDurableImageSourceUrl, normalizeDisplayLabel, sourceImageUrlFrom } from '../extension/src/core/display-records.js';
+import {
+  imageExtensionFromUrl,
+  isDurableImageSourceUrl,
+  normalizeDisplayLabel,
+  sourceImageUrlFrom,
+  validateImageRecordUrl,
+} from '../extension/src/core/display-records.js';
 
 test('uses source image filename from DuckDuckGo image proxy URLs', () => {
   const source = 'https://cdn.example.test/images/korn-live-1999.jpg';
@@ -25,4 +31,29 @@ test('durable image source URLs reject blob preview URLs', () => {
   assert.equal(isDurableImageSourceUrl('http://example.test/photo.jpg'), true);
   assert.equal(isDurableImageSourceUrl('blob:https://example.test/preview-id'), false);
   assert.equal(isDurableImageSourceUrl('data:image/png;base64,abc'), false);
+});
+
+test('image extension detection supports image service format hints', () => {
+  assert.equal(imageExtensionFromUrl('https://example.test/photo.jpeg'), 'JPEG');
+  assert.equal(imageExtensionFromUrl('https://pbs.twimg.com/media/example?format=jpg&name=large'), 'JPG');
+  assert.equal(imageExtensionFromUrl('https://images.example.test/render?mime=image%2Fwebp'), 'WEBP');
+});
+
+test('image record URL validation rejects invalid and non-image URLs with messages', () => {
+  assert.deepEqual(validateImageRecordUrl('https://example.test/photo.png'), {
+    ok: true,
+    sourceUrl: 'https://example.test/photo.png',
+  });
+
+  const invalid = validateImageRecordUrl('not a url');
+  assert.equal(invalid.ok, false);
+  assert.match(invalid.message ?? '', /not a valid URL/i);
+
+  const nonHttp = validateImageRecordUrl('data:image/png;base64,abc');
+  assert.equal(nonHttp.ok, false);
+  assert.match(nonHttp.message ?? '', /http\(s\)/i);
+
+  const nonImage = validateImageRecordUrl('https://example.test/gallery/page');
+  assert.equal(nonImage.ok, false);
+  assert.match(nonImage.message ?? '', /does not look like/i);
 });
