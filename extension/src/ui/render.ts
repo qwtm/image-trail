@@ -16,7 +16,6 @@ import type { ParsedUrlModel, UrlField } from '../core/url/types.js';
 export interface PanelRenderTarget {
   readonly root: HTMLElement;
   readonly dispatch: (action: PanelAction) => void;
-  readonly preserveRootScroll?: boolean;
   readonly scrollAnchorId?: string | null;
 }
 
@@ -89,19 +88,10 @@ function restoreFocusedTextControl(root: HTMLElement, snapshot: FocusedTextContr
   });
 }
 
-function scrollSnapshots(
-  root: HTMLElement,
-  options: Pick<PanelRenderTarget, 'preserveRootScroll' | 'scrollAnchorId'>,
-): readonly ScrollSnapshot[] {
-  const snapshots: ScrollSnapshot[] = [];
-  if (options.preserveRootScroll !== false) {
-    snapshots.push({
-      selector: null,
-      scrollTop: root.scrollTop,
-      scrollLeft: root.scrollLeft,
-      anchor: scrollAnchor(root, options.scrollAnchorId),
-    });
-  }
+function scrollSnapshots(root: HTMLElement, scrollAnchorId?: string | null): readonly ScrollSnapshot[] {
+  const snapshots: ScrollSnapshot[] = [
+    { selector: null, scrollTop: root.scrollTop, scrollLeft: root.scrollLeft, anchor: scrollAnchor(root, scrollAnchorId) },
+  ];
   for (const selector of SCROLL_SNAPSHOT_SELECTORS) {
     const element = root.querySelector<HTMLElement>(selector);
     if (!element) continue;
@@ -154,7 +144,7 @@ function restoreScrollAnchor(container: HTMLElement, anchor: ScrollSnapshot['anc
 
 export function renderPanel(target: PanelRenderTarget, state: PanelState): void {
   const focusedTextControl = focusedTextControlSnapshot(target.root);
-  const scrollPositions = scrollSnapshots(target.root, target);
+  const scrollPositions = scrollSnapshots(target.root, target.scrollAnchorId);
   const statusView = target.root.querySelector<HTMLElement>('.image-trail-panel__status-section');
 
   target.root.replaceChildren();
