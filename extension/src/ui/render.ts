@@ -38,7 +38,6 @@ interface ScrollSnapshot {
 
 const SCROLL_SNAPSHOT_SELECTORS = [
   '.image-trail-panel__field-list',
-  '.image-trail-panel__history-section .image-trail-panel__record-list',
   '.image-trail-panel__bookmarks-section .image-trail-panel__record-list',
 ] as const;
 
