@@ -20,11 +20,54 @@ caught after the fact.
    and confirm each one is actually resolved in the diff.
 3. **Run the full check locally before pushing:**
    ```
-   npm test      # typecheck + unit tests
-   npm run build # production build
+   npm run lint
+   npm run format:check
+   npm test
+   npm run build
    ```
-   A PR whose description claims tests/build passed but that fails CI will be sent
-   back without review.
+   A PR whose description claims checks passed but that fails CI will be sent back
+   without review. If your local Node version cannot run the same reporter as CI,
+   use an equivalent ESLint reporter and note the exact command in the PR until
+   the repo has a single `npm run ci` wrapper.
+
+## PR scope control
+
+Large regression bundles are hard to review and easy to destabilize. Agents and
+engineers must keep PRs intentionally small:
+
+- **One behavioral objective per PR.** A PR may contain several files only when
+  they are required to complete the same user-visible behavior or regression fix.
+- **Separate follow-up work into issues.** If a review reveals a legitimate but
+  non-blocking adjacent concern, create or link a GitHub issue instead of expanding
+  the PR by default.
+- **Keep review-fix commits focused.** Review commits should address the reviewed
+  concern directly. Do not sneak in unrelated refactors while responding to review.
+- **Stop and split when scope changes.** If a PR starts collecting unrelated fixes,
+  pause, write down the remaining items, and open separate branches/PRs.
+- **Prefer incremental commits.** Once a change reaches roughly 50-100 meaningful
+  lines or completes one regression/feature fix, commit it with a specific message.
+- **No silent ignored feedback.** Every unresolved review thread must end in one of
+  three states before merge:
+  - fixed in code, with the commit/test named in a reply;
+  - explicitly deferred to a linked issue, with why it is outside this PR;
+  - intentionally rejected, with a short technical rationale.
+
+## Agent operating rules
+
+Automated coding agents working in this repository must follow the same hygiene as
+human contributors, plus these extra rules:
+
+- Start from a clean branch off the intended base branch unless the user explicitly
+  asks to continue an existing branch.
+- Do not merge unrelated user changes into the task. If the worktree is dirty,
+  inspect it and preserve user work.
+- Verify before claiming success. At minimum run the same gate CI runs: lint,
+  format check, tests, and build.
+- If GitHub CodeQL or required checks exist on the PR, wait for them after pushing.
+- Keep the user-facing summary short and factual: what changed, what was tested,
+  what remains.
+- Create tracking issues for legitimate follow-ups that are not fixed in the PR.
+  Do not leave "we should later" only in chat.
 
 ## Branching and PR hygiene
 
@@ -115,17 +158,22 @@ round-trip:
 
 ## Style
 
-- No required linter/formatter is wired up yet (see the tracking issue for adding
-  one). Until then, match the existing style in the file you're editing rather than
-  introducing a new convention, and prefer readable multi-line code over dense
-  single-line classes/functions — reviewers need to be able to diff individual
-  statements.
+- Required lint and formatting checks are wired into CI. Run them locally before
+  pushing and do not mix formatting-only churn into feature commits unless the
+  formatter is part of the requested change or required to make CI pass.
 - Comments should explain _why_, not _what_. Don't restate what a well-named
   function already says.
 
 ## Documentation
 
+- Keep repository docs limited to source-adjacent material that must version with
+  the code: architecture contracts, acceptance tests, milestone criteria, and
+  migration notes.
+- Longer-lived planning notes, retrospectives, operating procedures, and narrative
+  project documentation should live in the GitHub wiki once migrated there. Link
+  from repo docs to the wiki rather than duplicating content in both places.
 - If your change affects a milestone's deliverables or exit criteria, update
-  `docs/milestones.md` and the relevant file in `docs/user-stories/` in the same PR.
+  `docs/milestones.md` and the relevant file in `docs/user-stories/` in the same PR
+  until those docs are moved to the wiki.
 - If your change resolves or adds an open question from a user story, update that
   story's "Open Questions" / "Acceptance Criteria Coverage Review" sections.
