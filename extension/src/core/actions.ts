@@ -4,6 +4,7 @@ import type { CaptureResult } from './image/capture-result.js';
 import { isCapturedResult } from './image/capture-result.js';
 import { closePanel, EMPTY_AUTOMATION_STATE, showPanel } from './state.js';
 import type { PanelAction, PanelState } from './types.js';
+import type { UrlFieldSplitSpec } from './url/types.js';
 
 function updateRecordCapture(
   records: readonly ImageDisplayRecord[],
@@ -36,6 +37,57 @@ function clearRecordCapture(records: readonly ImageDisplayRecord[], id: string):
 
 function toggleItem(items: readonly string[], item: string): readonly string[] {
   return items.includes(item) ? items.filter((value) => value !== item) : [...items, item];
+}
+
+function removeItems(items: readonly string[], removals: readonly string[]): readonly string[] {
+  if (removals.length === 0) return items;
+  const removalSet = new Set(removals);
+  return items.filter((item) => !removalSet.has(item));
+}
+
+function splitFieldIds(spec: UrlFieldSplitSpec): readonly string[] {
+  const prefix = spec.location === 'path' ? `p:${spec.partIndex}` : `q:${spec.queryIndex}`;
+  return spec.lengths.map((_, index) => `${prefix}:${spec.tokenIndex + index}`);
+}
+
+function affectedSplitFieldIds(specs: readonly UrlFieldSplitSpec[]): readonly string[] {
+  return [...new Set(specs.flatMap((spec) => [spec.baseFieldId, ...splitFieldIds(spec)]))];
+}
+
+function clearFieldMarkers(state: PanelState, fieldIds: readonly string[]): PanelState {
+  if (fieldIds.length === 0) return state;
+  return {
+    ...state,
+    failedFieldId: state.failedFieldId && fieldIds.includes(state.failedFieldId) ? null : state.failedFieldId,
+    successfulFieldIds: removeItems(state.successfulFieldIds, fieldIds),
+    unchangedFieldIds: removeItems(state.unchangedFieldIds, fieldIds),
+    unlockedFieldIds: removeItems(state.unlockedFieldIds, fieldIds),
+    activeFieldId: state.activeFieldId && fieldIds.includes(state.activeFieldId) ? null : state.activeFieldId,
+  };
+}
+
+export function applyFieldSplitSpecToState(state: PanelState, spec: UrlFieldSplitSpec): PanelState {
+  const existing = state.fieldSplitSpecs.find((candidate) => candidate.baseFieldId === spec.baseFieldId);
+  const marked = clearFieldMarkers(state, affectedSplitFieldIds(existing ? [existing, spec] : [spec]));
+  return {
+    ...marked,
+    fieldSplitSpecs: [...state.fieldSplitSpecs.filter((candidate) => candidate.baseFieldId !== spec.baseFieldId), spec],
+    message: `Split pattern ${spec.pattern} applied.`,
+    status: 'ready',
+    lastUpdatedAt: Date.now(),
+  };
+}
+
+export function clearFieldSplitSpecFromState(state: PanelState, baseFieldId: string): PanelState {
+  const existing = state.fieldSplitSpecs.find((spec) => spec.baseFieldId === baseFieldId);
+  const marked = existing ? clearFieldMarkers(state, affectedSplitFieldIds([existing])) : state;
+  return {
+    ...marked,
+    fieldSplitSpecs: state.fieldSplitSpecs.filter((spec) => spec.baseFieldId !== baseFieldId),
+    message: existing ? 'Split pattern cleared.' : state.message,
+    status: existing ? 'ready' : state.status,
+    lastUpdatedAt: Date.now(),
+  };
 }
 
 export function reducePanelAction(state: PanelState, action: PanelAction): PanelState {
@@ -83,6 +135,10 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
           : state.unlockedFieldIds,
         lastUpdatedAt: Date.now(),
       };
+    case 'field-split/apply':
+      return state;
+    case 'field-split/clear':
+      return clearFieldSplitSpecFromState(state, action.baseFieldId);
     case 'bookmark/current':
       return state.target.selectedUrl
         ? {

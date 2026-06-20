@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { reducePanelAction } from '../extension/src/core/actions.js';
 import { createInitialPanelState, setTargetState } from '../extension/src/core/state.js';
+import type { UrlFieldSplitSpec } from '../extension/src/core/url/types.js';
 
 test('switching active fields clears a previous failed field marker', () => {
   const failed = { ...createInitialPanelState(), activeFieldId: 'query-src-0', failedFieldId: 'query-src-0' };
@@ -19,6 +20,16 @@ test('target changes clear failed field markers', () => {
     successfulFieldIds: ['query-src-0'],
     unchangedFieldIds: ['query-page-0'],
     unlockedFieldIds: ['query-src-0'],
+    fieldSplitSpecs: [
+      {
+        baseFieldId: 'q:0:0',
+        location: 'query' as const,
+        queryIndex: 0,
+        tokenIndex: 0,
+        lengths: [2, 2, 4],
+        pattern: '2-2-4',
+      },
+    ],
     currentImageFingerprint: 'a'.repeat(64),
   };
 
@@ -36,6 +47,7 @@ test('target changes clear failed field markers', () => {
   assert.deepEqual(next.successfulFieldIds, []);
   assert.deepEqual(next.unchangedFieldIds, []);
   assert.deepEqual(next.unlockedFieldIds, []);
+  assert.deepEqual(next.fieldSplitSpecs, []);
   assert.equal(next.currentImageFingerprint, null);
 });
 
@@ -84,4 +96,33 @@ test('unlock toggle only changes successful fields', () => {
 
   const ignored = reducePanelAction(state, { name: 'field-unlock/toggle', id: 'q:1:0' });
   assert.deepEqual(ignored.unlockedFieldIds, []);
+});
+
+test('clearing split specs collapses fields and clears related markers', () => {
+  const splitSpec: UrlFieldSplitSpec = {
+    baseFieldId: 'q:0:0',
+    location: 'query',
+    queryIndex: 0,
+    tokenIndex: 0,
+    lengths: [2, 2, 4],
+    pattern: '2-2-4',
+  };
+  const state = {
+    ...createInitialPanelState(),
+    activeFieldId: 'q:0:2',
+    failedFieldId: 'q:0:1',
+    successfulFieldIds: ['q:0:0', 'q:0:2', 'q:1:0'],
+    unchangedFieldIds: ['q:0:1'],
+    unlockedFieldIds: ['q:0:0', 'q:0:2'],
+    fieldSplitSpecs: [splitSpec],
+  };
+
+  const next = reducePanelAction(state, { name: 'field-split/clear', baseFieldId: 'q:0:0' });
+
+  assert.equal(next.activeFieldId, null);
+  assert.equal(next.failedFieldId, null);
+  assert.deepEqual(next.successfulFieldIds, ['q:1:0']);
+  assert.deepEqual(next.unchangedFieldIds, []);
+  assert.deepEqual(next.unlockedFieldIds, []);
+  assert.deepEqual(next.fieldSplitSpecs, []);
 });

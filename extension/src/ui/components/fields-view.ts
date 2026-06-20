@@ -10,6 +10,8 @@ export interface FieldsViewCallbacks {
   readonly onStep: (fieldId: string, delta: 1 | -1) => void;
   readonly onActivate: (fieldId: string) => void;
   readonly onToggleUnlock: (fieldId: string) => void;
+  readonly onApplySplit: (fieldId: string, pattern: string) => void;
+  readonly onClearSplit: (baseFieldId: string) => void;
 }
 
 export function fieldDisplayValue(field: EditableField): string {
@@ -51,8 +53,10 @@ export function createFieldsView(
     const isSuccessful = successfulFieldIds.includes(field.field.id);
     const isUnchanged = unchangedFieldIds.includes(field.field.id);
     const isUnlocked = unlockedFieldIds.includes(field.field.id);
+    const isSplitField = field.field.splitBaseId !== undefined;
     const canUnlock =
       isSuccessful && field.field.location === 'query' && (field.field.tokenKind === 'int' || field.field.tokenKind === 'hex');
+    const canSplit = !isSplitField && field.value.length > 1;
     container.className = `image-trail-panel__field-row${field.field.id === activeFieldId ? ' is-active' : ''}${isSuccessful ? ' is-success' : ''}${isUnchanged ? ' is-unchanged' : ''}${isFailed ? ' is-error' : ''}`;
 
     const value = document.createElement('input');
@@ -76,6 +80,9 @@ export function createFieldsView(
       field.field.id === activeFieldId ? 'active' : '',
       isSuccessful ? 'loads' : '',
       isUnlocked ? 'unlocked' : '',
+      isSplitField && field.field.splitPartIndex !== undefined && field.field.splitPartCount !== undefined
+        ? `split ${field.field.splitPartIndex + 1}/${field.field.splitPartCount}`
+        : '',
       isUnchanged ? 'unchanged' : '',
       isFailed ? 'failed load' : '',
     ].filter(Boolean);
@@ -85,6 +92,7 @@ export function createFieldsView(
     const controls = document.createElement('span');
     controls.className = `image-trail-panel__field-control${hasStepControls ? ' has-step-controls' : ''}${canUnlock ? ' has-unlock-control' : ''}`;
     controls.append(value);
+    let splitControls: HTMLSpanElement | null = null;
 
     if (hasStepControls) {
       const decrement = document.createElement('button');
@@ -117,6 +125,46 @@ export function createFieldsView(
       controls.append(unlock);
     }
 
+    if (canSplit || isSplitField) {
+      splitControls = document.createElement('span');
+      splitControls.className = 'image-trail-panel__field-split-control';
+
+      if (canSplit) {
+        const splitPattern = document.createElement('input');
+        splitPattern.type = 'text';
+        splitPattern.inputMode = 'numeric';
+        splitPattern.placeholder = '2-2-4';
+        splitPattern.className = 'image-trail-panel__field-split-input';
+        splitPattern.setAttribute('aria-label', `Split pattern for ${field.field.label}`);
+
+        const applySplit = document.createElement('button');
+        applySplit.type = 'button';
+        applySplit.className = 'image-trail-panel__field-split-button';
+        applySplit.textContent = 'Split';
+        applySplit.title = `Split ${field.field.label}`;
+        applySplit.setAttribute('aria-label', applySplit.title);
+        applySplit.addEventListener('click', () => callbacks.onApplySplit(field.field.id, splitPattern.value));
+        splitPattern.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            callbacks.onApplySplit(field.field.id, splitPattern.value);
+          }
+        });
+        splitControls.append(splitPattern, applySplit);
+      }
+
+      if (isSplitField && field.field.splitBaseId) {
+        const clearSplit = document.createElement('button');
+        clearSplit.type = 'button';
+        clearSplit.className = 'image-trail-panel__field-split-button';
+        clearSplit.textContent = 'Clear split';
+        clearSplit.title = `Collapse ${field.field.label} back into one field`;
+        clearSplit.setAttribute('aria-label', clearSplit.title);
+        clearSplit.addEventListener('click', () => callbacks.onClearSplit(field.field.splitBaseId ?? field.field.id));
+        splitControls.append(clearSplit);
+      }
+    }
+
     value.addEventListener('change', () => {
       callbacks.onValueChange(field.field.id, value.value);
     });
@@ -128,6 +176,7 @@ export function createFieldsView(
     });
 
     container.append(label, meta, controls);
+    if (splitControls) container.append(splitControls);
     item.append(container);
     list.append(item);
   }

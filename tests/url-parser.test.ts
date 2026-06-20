@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseUrl } from '../extension/src/core/url/parse-url.js';
+import { applyFieldSplitSpecs, createFieldSplitSpec, parseFieldSplitPattern } from '../extension/src/core/url/field-splits.js';
 import { bumpUrlField, rebuildUrl } from '../extension/src/core/url/rebuild-url.js';
 import { collectUrlFields, selectDefaultField } from '../extension/src/core/url/tokenize-fields.js';
 import type { UrlField } from '../extension/src/core/url/types.js';
@@ -45,6 +46,60 @@ test('decodes ampersand entities only for query-shaped separators', () => {
   );
   const pathSegment = model.pathParts.find((part) => part.type === 'segment');
   assert.equal(pathSegment?.raw, 'fish&ampchips');
+});
+
+test('splits a URL token by length pattern without changing rebuilt URL', () => {
+  const model = parseUrl('https://example.test/image?date=01012001');
+  const field = collectUrlFields(model).find((candidate) => candidate.label === 'query date');
+  assert.ok(field);
+  const spec = createFieldSplitSpec(field, '2-2-4');
+  assert.ok(!('ok' in spec));
+
+  const splitModel = applyFieldSplitSpecs(model, [spec]);
+  const fields = collectUrlFields(splitModel);
+
+  assert.deepEqual(
+    fields.filter((candidate) => candidate.location === 'query').map((candidate) => candidate.value),
+    ['01', '01', '2001'],
+  );
+  assert.equal(rebuildUrl(splitModel), 'https://example.test/image?date=01012001');
+});
+
+test('bumps split URL token parts while preserving contiguous URL format', () => {
+  const model = parseUrl('https://example.test/image?date=01012001');
+  const dateField = collectUrlFields(model).find((candidate) => candidate.label === 'query date');
+  assert.ok(dateField);
+  const spec = createFieldSplitSpec(dateField, '2-2-4');
+  assert.ok(!('ok' in spec));
+
+  const splitModel = applyFieldSplitSpecs(model, [spec]);
+  const fields = collectUrlFields(splitModel);
+  const month = fields.find((candidate) => candidate.id === 'q:0:0');
+  const year = fields.find((candidate) => candidate.id === 'q:0:2');
+  assert.ok(month);
+  assert.ok(year);
+
+  assert.equal(rebuildUrl(bumpUrlField(splitModel, month, 1)), 'https://example.test/image?date=02012001');
+  assert.equal(rebuildUrl(bumpUrlField(splitModel, year, 1)), 'https://example.test/image?date=01012002');
+
+  const reparsed = applyFieldSplitSpecs(parseUrl('https://example.test/image?date=02012001'), [spec]);
+  assert.deepEqual(
+    collectUrlFields(reparsed)
+      .filter((candidate) => candidate.location === 'query')
+      .map((candidate) => candidate.value),
+    ['02', '01', '2001'],
+  );
+});
+
+test('rejects invalid split patterns', () => {
+  assert.deepEqual(parseFieldSplitPattern('2-2', 8), {
+    ok: false,
+    message: 'Split pattern totals 4, but the field is 8 characters.',
+  });
+  assert.deepEqual(parseFieldSplitPattern('2-0-6', 8), {
+    ok: false,
+    message: 'Split pattern can only contain positive lengths.',
+  });
 });
 
 function selectField(fields: UrlField[], hint: string): UrlField {

@@ -497,7 +497,8 @@
 .image-trail-panel-root .image-trail-panel__target-url,
 .image-trail-panel-root .image-trail-panel__full-url-input,
 .image-trail-panel-root .image-trail-panel__password-input,
-.image-trail-panel-root .image-trail-panel__field-input {
+.image-trail-panel-root .image-trail-panel__field-input,
+.image-trail-panel-root .image-trail-panel__field-split-input {
   width: 100%;
   min-width: 0;
   display: block;
@@ -561,7 +562,8 @@
   border-color: #8fd;
 }
 
-.image-trail-panel-root .image-trail-panel__field-input:focus {
+.image-trail-panel-root .image-trail-panel__field-input:focus,
+.image-trail-panel-root .image-trail-panel__field-split-input:focus {
   outline: 1px solid #8fd;
   border-color: #8fd;
 }
@@ -663,6 +665,13 @@
   grid-template-columns: minmax(0, 1fr) 26px 26px minmax(58px, max-content);
 }
 
+.image-trail-panel-root .image-trail-panel__field-split-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(48px, max-content);
+  gap: 4px;
+  min-width: 0;
+}
+
 .image-trail-panel-root .image-trail-panel__field-step-button {
   display: inline-grid;
   place-items: center;
@@ -702,6 +711,27 @@
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
+}
+
+.image-trail-panel-root .image-trail-panel__field-split-button {
+  min-height: 26px;
+  padding: 0 7px;
+  border: 1px solid rgb(255 255 255 / 22%);
+  border-radius: 4px;
+  background: #242424;
+  color: #ddd;
+  cursor: pointer;
+  font:
+    700 10px system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+.image-trail-panel-root .image-trail-panel__field-split-button:hover {
+  border-color: #8fd;
+  background: #303030;
 }
 
 .image-trail-panel-root .image-trail-panel__field-lock-button.is-unlocked {

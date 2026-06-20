@@ -84,6 +84,11 @@ This milestone extracts and ports URL parsing, URL rebuilding, token field movem
   and falls back to the default numeric/hex field when nothing is unlocked.
 - Hex fields show their decimal value nearby so users can reason about both
   representations while editing.
+- A single URL token can be split with a target-scoped length pattern such as
+  `2-2-4`, edited as separate metafields, and rebuilt as the same contiguous URL
+  value.
+- Clearing a split pattern collapses all of its metafields back into the
+  original single parsed field.
 
 ## Planning Discipline To Apply Before Build
 
@@ -104,6 +109,9 @@ This milestone extracts and ports URL parsing, URL rebuilding, token field movem
   fetches successfully but has the same image bytes is not a useful green field.
 - Keep unlock state session-only and target-scoped. Changing the host target
   clears failed/successful/unchanged/unlocked field state.
+- Keep split patterns session-only and target-scoped. Persisted pattern
+  libraries, partial collapse, grouping syntax, and calendar-aware date stepping
+  remain out of scope until there is a separate design.
 - Create regression fixtures before broad UI wiring.
 
 ## Test Notes
@@ -115,6 +123,9 @@ This milestone extracts and ports URL parsing, URL rebuilding, token field movem
 - Test query field feedback for failed load, different-image success, same-image
   unchanged, auto-unlock, manual lock/unlock, and global Previous/Next over all
   unlocked fields.
+- Test split patterns for parse/rebuild round-trip, split part bumping,
+  reparse persistence, invalid pattern handling, target-change reset, and clear
+  split collapse.
 
 ## Acceptance Criteria Coverage Review
 
