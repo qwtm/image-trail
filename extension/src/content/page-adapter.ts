@@ -58,6 +58,7 @@ export class PageAdapter {
   private selectedOriginalSnapshot: ImageNavigationSnapshot | null = null;
   private selectedActiveUrl: string | null = null;
   private bookmarkShortcutActive = false;
+  private suppressNextBookmarkShortcutClick = false;
 
   subscribe(listener: TargetSelectionListener): () => void {
     this.listeners.add(listener);
@@ -78,12 +79,14 @@ export class PageAdapter {
   enableBookmarkShortcut(): void {
     if (this.bookmarkShortcutActive) return;
     this.bookmarkShortcutActive = true;
+    document.addEventListener('pointerdown', this.onBookmarkShortcutPointerDown, true);
     document.addEventListener('click', this.onBookmarkShortcutClick, true);
   }
 
   disableBookmarkShortcut(): void {
     if (!this.bookmarkShortcutActive) return;
     this.bookmarkShortcutActive = false;
+    document.removeEventListener('pointerdown', this.onBookmarkShortcutPointerDown, true);
     document.removeEventListener('click', this.onBookmarkShortcutClick, true);
   }
 
@@ -213,28 +216,48 @@ export class PageAdapter {
     this.emit(`Selected ${this.lastSnapshot.selected?.url ?? 'image target'}.`);
   };
 
+  private onBookmarkShortcutPointerDown = (event: PointerEvent): void => {
+    if (this.handleBookmarkShortcutEvent(event)) {
+      this.suppressNextBookmarkShortcutClick = true;
+      window.setTimeout(() => {
+        this.suppressNextBookmarkShortcutClick = false;
+      }, 700);
+    }
+  };
+
   private onBookmarkShortcutClick = (event: MouseEvent): void => {
-    if (!event.shiftKey || event.button !== 0) return;
+    if (this.suppressNextBookmarkShortcutClick) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      return;
+    }
+    this.handleBookmarkShortcutEvent(event);
+  };
+
+  private handleBookmarkShortcutEvent(event: MouseEvent): boolean {
+    if (!event.shiftKey || event.button !== 0) return false;
     const target = event.target;
-    if (!(target instanceof Element)) return;
+    if (!(target instanceof Element)) return false;
     const image = findImageFromShortcutTarget(target);
-    if (!(image instanceof HTMLImageElement)) return;
+    if (!(image instanceof HTMLImageElement)) return false;
 
     event.preventDefault();
     event.stopPropagation();
     event.stopImmediatePropagation();
     if (!isQualifyingImage(image)) {
       this.emit(`Could not bookmark image: ${getImageRejectionReason(image) ?? 'Image is not usable.'}`);
-      return;
+      return true;
     }
     const info = createLoadedTargetImageInfo(image) ?? createTargetImageInfo(image);
     if (!info) {
       this.emit('Could not bookmark image: Image source could not be resolved.');
-      return;
+      return true;
     }
 
     void this.emitBookmarkRequest(image, info);
-  };
+    return true;
+  }
 
   private async emitBookmarkRequest(image: HTMLImageElement, info: TargetImageInfo): Promise<void> {
     const thumbnail = (await createThumbnailDataUrlFromImage(image)) ?? undefined;
