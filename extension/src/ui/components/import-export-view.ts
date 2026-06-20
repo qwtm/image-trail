@@ -14,6 +14,8 @@ export interface ImportExportViewState {
   readonly lastMessageIsError?: boolean;
 }
 
+let filePickerId = 0;
+
 export function createImportExportView(state: ImportExportViewState, dispatch: (action: ImportExportAction) => void): HTMLElement {
   const section = document.createElement('section');
   section.className = 'image-trail-panel__section image-trail-panel__import-export';
@@ -105,10 +107,11 @@ function createImageGroup(state: ImportExportViewState, dispatch: (action: Impor
   imageInput.accept = 'image/*';
   imageInput.className = 'image-trail-panel__file-input';
   imageInput.disabled = state.busy;
+  const imagePicker = createFilePicker(imageInput, 'Choose image');
 
   const controls = document.createElement('div');
   controls.className = 'image-trail-panel__control-stack';
-  controls.append(imageInput);
+  controls.append(imagePicker);
 
   const importBtn = document.createElement('button');
   importBtn.type = 'button';
@@ -152,6 +155,7 @@ function createImportGroup(state: ImportExportViewState, dispatch: (action: Impo
   fileInput.type = 'file';
   fileInput.accept = '.json';
   fileInput.className = 'image-trail-panel__file-input';
+  const filePicker = createFilePicker(fileInput, 'Choose JSON');
 
   const historyBtn = document.createElement('button');
   historyBtn.type = 'button';
@@ -187,7 +191,7 @@ function createImportGroup(state: ImportExportViewState, dispatch: (action: Impo
 
   const controls = document.createElement('div');
   controls.className = 'image-trail-panel__control-stack';
-  controls.append(fileInput, passwordInput);
+  controls.append(filePicker, passwordInput);
 
   const actions = document.createElement('div');
   actions.className = 'image-trail-panel__actions';
@@ -206,6 +210,30 @@ function createToggle(text: string): { readonly label: HTMLLabelElement; readonl
   copy.textContent = text;
   label.append(input, copy);
   return { label, input };
+}
+
+function createFilePicker(input: HTMLInputElement, text: string): HTMLElement {
+  const id = `image-trail-file-${(filePickerId += 1)}`;
+  input.id = id;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'image-trail-panel__file-picker';
+
+  const label = document.createElement('label');
+  label.className = 'image-trail-panel__file-picker-button';
+  label.htmlFor = id;
+  label.textContent = text;
+
+  const name = document.createElement('span');
+  name.className = 'image-trail-panel__file-picker-name';
+  name.textContent = 'No file selected';
+
+  input.addEventListener('change', () => {
+    name.textContent = input.files?.[0]?.name ?? 'No file selected';
+  });
+
+  wrapper.append(input, label, name);
+  return wrapper;
 }
 
 function readFileInput(input: HTMLInputElement, onRead: (content: string) => void, mode: 'text' | 'data-url' = 'text'): void {
