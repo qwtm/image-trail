@@ -28,10 +28,21 @@ export interface FetchImageFailure {
 
 export type FetchImageResult = FetchImageSuccess | FetchImageFailure;
 
-export async function fetchImageBytes(url: string, maxBytes: number = DEFAULT_MAX_ORIGINAL_BYTES): Promise<FetchImageResult> {
+export interface FetchImageOptions {
+  readonly referrer?: string;
+}
+
+export async function fetchImageBytes(
+  url: string,
+  maxBytes: number = DEFAULT_MAX_ORIGINAL_BYTES,
+  options: FetchImageOptions = {},
+): Promise<FetchImageResult> {
   let response: Response;
   try {
-    response = await fetch(url);
+    response = await fetch(url, {
+      credentials: 'include',
+      referrer: options.referrer,
+    });
   } catch {
     return { ok: false, reason: 'network-error', message: 'Network request failed.' };
   }

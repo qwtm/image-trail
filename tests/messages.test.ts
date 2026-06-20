@@ -111,9 +111,10 @@ test('creates capture result response messages for success and failure', () => {
 });
 
 test('creates thumbnail source fetch messages', () => {
-  const request = createFetchThumbnailSourceMessage('https://example.test/thumb.jpg');
+  const request = createFetchThumbnailSourceMessage('https://example.test/thumb.jpg', 'https://example.test/page');
   assert.equal(request.type, MessageType.FetchThumbnailSource);
   assert.equal(request.payload.url, 'https://example.test/thumb.jpg');
+  assert.equal(request.payload.referrer, 'https://example.test/page');
   assert.equal(isExtensionRequest(request), true);
 
   const success = createFetchThumbnailSourceResultMessage({

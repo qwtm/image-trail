@@ -853,45 +853,32 @@ export class ImageTrailPanel {
       return;
     }
 
-    const result = await this.captureStore.requestBlobPreview(blobId);
-    if (!result.ok) {
-      this.state = { ...this.state, message: result.message, status: 'error', lastUpdatedAt: Date.now() };
-      this.render();
-      return;
-    }
     this.state = {
       ...this.state,
-      message: `Opened encrypted original preview (${(result.byteLength / 1024).toFixed(1)} KB).`,
+      message: 'Select a host image before previewing encrypted originals.',
+      status: 'error',
       lastUpdatedAt: Date.now(),
     };
     this.render();
   }
 
   private async previewUrl(url: string): Promise<void> {
+    if (!this.canProjectToSelectedImage()) {
+      this.state = { ...this.state, message: 'Select a host image before previewing an image.', status: 'error', lastUpdatedAt: Date.now() };
+      this.render();
+      return;
+    }
+
     if (await this.projectUrlToSelectedImage(url)) {
       this.state = { ...this.state, message: 'Projected image into selected host element.', lastUpdatedAt: Date.now() };
       this.render();
       return;
     }
+  }
 
-    if (url.startsWith('data:image/') && this.captureStore) {
-      const result = await this.captureStore.requestDataUrlPreview(url);
-      if (result.ok) {
-        this.state = {
-          ...this.state,
-          message: `Opened imported image preview (${(result.byteLength / 1024).toFixed(1)} KB).`,
-          lastUpdatedAt: Date.now(),
-        };
-      } else {
-        this.state = { ...this.state, message: result.message, status: 'error', lastUpdatedAt: Date.now() };
-      }
-      this.render();
-      return;
-    }
-
-    window.open(url, '_blank', 'noopener');
-    this.state = { ...this.state, message: 'Opened image preview in a new tab.', lastUpdatedAt: Date.now() };
-    this.render();
+  private canProjectToSelectedImage(): boolean {
+    const handleId = this.state.target.selectedHandleId;
+    return !!handleId && !!this.findSelectedImage(handleId);
   }
 
   private async projectUrlToSelectedImage(url: string): Promise<boolean> {

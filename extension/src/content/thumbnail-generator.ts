@@ -42,7 +42,7 @@ function createThumbnailDataUrlFromDrawable(
 
 export async function fetchThumbnailSource(url: string): Promise<FetchThumbnailSourceResultMessage['payload']> {
   try {
-    const response = await chrome.runtime.sendMessage(createFetchThumbnailSourceMessage(url));
+    const response = await chrome.runtime.sendMessage(createFetchThumbnailSourceMessage(url, document.location.href));
     if (isFetchThumbnailSourceResultMessage(response)) return response.payload;
   } catch {
     // Fall through to a null thumbnail.

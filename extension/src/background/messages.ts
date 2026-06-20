@@ -164,7 +164,7 @@ export interface CreateBlobPreviewResultMessage {
 export interface FetchThumbnailSourceMessage {
   readonly type: typeof MessageType.FetchThumbnailSource;
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
-  readonly payload: { readonly url: string };
+  readonly payload: { readonly url: string; readonly referrer?: string };
 }
 
 export interface FetchThumbnailSourceResultMessage {
@@ -400,8 +400,8 @@ export function createCreateDataUrlPreviewMessage(dataUrl: string): CreateDataUr
   return { type: MessageType.CreateDataUrlPreview, version: MESSAGE_PROTOCOL_VERSION, payload: { dataUrl } };
 }
 
-export function createFetchThumbnailSourceMessage(url: string): FetchThumbnailSourceMessage {
-  return { type: MessageType.FetchThumbnailSource, version: MESSAGE_PROTOCOL_VERSION, payload: { url } };
+export function createFetchThumbnailSourceMessage(url: string, referrer?: string): FetchThumbnailSourceMessage {
+  return { type: MessageType.FetchThumbnailSource, version: MESSAGE_PROTOCOL_VERSION, payload: { url, referrer } };
 }
 
 export function createRetrieveBlobResultMessage(payload: RetrieveBlobResultMessage['payload']): RetrieveBlobResultMessage {

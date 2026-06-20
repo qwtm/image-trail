@@ -325,7 +325,9 @@ async function handleCreateBlobPreview(message: CreateBlobPreviewMessage): Promi
 async function handleFetchThumbnailSource(
   message: FetchThumbnailSourceMessage,
 ): Promise<import('./messages.js').FetchThumbnailSourceResultMessage['payload']> {
-  const fetchResult = await fetchImageBytes(canonicalCaptureUrl(message.payload.url), MAX_THUMBNAIL_SOURCE_BYTES);
+  const fetchResult = await fetchImageBytes(canonicalCaptureUrl(message.payload.url), MAX_THUMBNAIL_SOURCE_BYTES, {
+    referrer: message.payload.referrer,
+  });
   if (!fetchResult.ok) {
     return { ok: false, reason: fetchResult.reason, message: fetchResult.message };
   }
