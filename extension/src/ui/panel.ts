@@ -93,6 +93,7 @@ export class ImageTrailPanel {
   private readonly localSettings = this.settingsRepository.load();
   private readonly bookmarkLimit = this.localSettings.visibleBookmarkSoftMax;
   private previewScrollAnchorId: string | null = null;
+  private projectionRevision = 0;
   private bookmarkMutationQueue: Promise<void> = Promise.resolve();
 
   constructor(
@@ -579,8 +580,11 @@ export class ImageTrailPanel {
   }
 
   private async applySelectedUrl(nextUrl: string, attemptedFieldIds: readonly string[] = []): Promise<boolean> {
+    const revision = ++this.projectionRevision;
     const baselineFingerprint = await this.currentImageFingerprint();
+    if (revision !== this.projectionRevision) return false;
     const preload = await this.preloadImageUrl(nextUrl);
+    if (revision !== this.projectionRevision) return false;
     if (!preload.ok) {
       this.state = applyFieldLoadFailureToState(this.state, { draftUrl: nextUrl, attemptedFieldIds, message: preload.message });
       this.render();
@@ -601,6 +605,7 @@ export class ImageTrailPanel {
     const snapshot = this.pageAdapter.getSnapshot();
     if (snapshot.selected) {
       const nextSnapshot = this.pageAdapter.applyUrlToSelected(nextUrl, preload.displayUrl);
+      if (revision !== this.projectionRevision) return false;
       this.state = setTargetState(this.state, toTargetState(nextSnapshot));
     }
     this.state = this.applyFieldLoadResult(this.state, attemptedFieldIds, preload.sha256, baselineFingerprint);
@@ -963,6 +968,7 @@ export class ImageTrailPanel {
   }
 
   private async previewRecord(url: string, blobId?: string, scrollAnchorId?: string): Promise<void> {
+    this.projectionRevision++;
     this.previewScrollAnchorId = scrollAnchorId ?? null;
     try {
       if (!blobId) {

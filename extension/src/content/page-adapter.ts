@@ -57,6 +57,7 @@ export class PageAdapter {
   private selectedOriginalUrl: string | null = null;
   private selectedOriginalSnapshot: ImageNavigationSnapshot | null = null;
   private selectedActiveUrl: string | null = null;
+  private selectedLockBox = false;
   private bookmarkShortcutActive = false;
   private suppressNextBookmarkShortcutClick = false;
 
@@ -143,6 +144,7 @@ export class PageAdapter {
     }
 
     applyImageUrl(this.selected, displayUrl);
+    markSelectedTarget(this.selected, { lockBox: this.selectedLockBox });
     this.selectedActiveUrl = url;
     this.watchSelectedLoad(this.selected);
     return this.emit(`Applied ${url}`);
@@ -286,10 +288,11 @@ export class PageAdapter {
     this.selectedOriginalUrl = originalUrl;
     this.selectedOriginalSnapshot = originalSnapshot;
     this.selectedActiveUrl = originalUrl;
+    this.selectedLockBox = this.detectedCandidateCount === 1;
     this.mode = mode;
     const handleId = createTargetImageInfo(image)?.handleId;
     if (handleId) image.setAttribute('data-image-trail-handle', handleId);
-    markSelectedTarget(image, { lockBox: this.detectedCandidateCount === 1 });
+    markSelectedTarget(image, { lockBox: this.selectedLockBox });
     this.watchSelectedLoad(image);
   }
 
@@ -308,6 +311,7 @@ export class PageAdapter {
     this.selectedOriginalUrl = null;
     this.selectedOriginalSnapshot = null;
     this.selectedActiveUrl = null;
+    this.selectedLockBox = false;
   }
 
   private watchSelectedLoad(image: HTMLImageElement): void {
@@ -342,6 +346,7 @@ export class PageAdapter {
   };
 
   private async emitSuccessfulLoad(image: HTMLImageElement): Promise<void> {
+    if (image === this.selected) markSelectedTarget(image, { lockBox: this.selectedLockBox });
     const target = createTargetImageInfo(image);
     if (!target) return;
     const reportedTarget = image === this.selected && this.selectedActiveUrl ? { ...target, url: this.selectedActiveUrl } : target;
