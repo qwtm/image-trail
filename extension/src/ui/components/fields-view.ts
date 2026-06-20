@@ -124,7 +124,14 @@ export function createFieldsView(
       trail.addEventListener('mousedown', (event) => {
         event.preventDefault();
       });
-      trail.addEventListener('click', () => callbacks.onToggleUnlock(field.field.id));
+      trail.addEventListener('click', () => {
+        const nextIncluded = !trail.classList.contains('is-included');
+        trail.classList.toggle('is-included', nextIncluded);
+        trail.textContent = nextIncluded ? 'Exclude' : 'Include';
+        trail.title = nextIncluded ? `Exclude ${field.field.label} from Previous/Next` : `Include ${field.field.label} in Previous/Next`;
+        trail.setAttribute('aria-label', trail.title);
+        callbacks.onToggleUnlock(field.field.id);
+      });
       controls.append(trail);
     }
 

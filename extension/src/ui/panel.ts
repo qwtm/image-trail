@@ -306,7 +306,6 @@ export class ImageTrailPanel {
 
     if (action.name === 'field-unlock/toggle') {
       this.state = reducePanelAction(this.state, action);
-      this.render();
       return;
     }
 
