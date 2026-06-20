@@ -79,16 +79,17 @@ function applyQuerySplitSpecs(field: QueryField, specs: readonly UrlFieldSplitSp
 function applyTokenSplitSpecs(tokens: readonly UrlToken[], specs: readonly UrlFieldSplitSpec[]): UrlToken[] {
   const specsByTokenIndex = new Map(specs.map((spec) => [spec.tokenIndex, spec]));
   return tokens.flatMap((token, tokenIndex) => {
-    const spec = specsByTokenIndex.get(tokenIndex);
-    if (!spec) return [token];
-    return splitToken(token, spec);
+    const originalTokenIndex = token.originalTokenIndex ?? tokenIndex;
+    const spec = specsByTokenIndex.get(originalTokenIndex);
+    if (!spec) return [{ ...token, originalTokenIndex }];
+    return splitToken(token, spec, originalTokenIndex);
   });
 }
 
-function splitToken(token: UrlToken, spec: UrlFieldSplitSpec): UrlToken[] {
+function splitToken(token: UrlToken, spec: UrlFieldSplitSpec, originalTokenIndex: number): UrlToken[] {
   const raw = tokenValue(token);
   const expectedLength = spec.lengths.reduce((sum, length) => sum + length, 0);
-  if (raw.length !== expectedLength) return [token];
+  if (raw.length !== expectedLength) return [{ ...token, originalTokenIndex }];
 
   let cursor = 0;
   return spec.lengths.map((length, splitPartIndex) => {
@@ -96,6 +97,7 @@ function splitToken(token: UrlToken, spec: UrlFieldSplitSpec): UrlToken[] {
     cursor += length;
     return {
       ...createSplitToken(value),
+      originalTokenIndex,
       splitBaseId: spec.baseFieldId,
       splitPartIndex,
       splitPartCount: spec.lengths.length,
@@ -104,6 +106,7 @@ function splitToken(token: UrlToken, spec: UrlFieldSplitSpec): UrlToken[] {
 }
 
 function baseTokenIndexForField(field: UrlField): number {
+  if (field.originalTokenIndex !== undefined) return field.originalTokenIndex;
   if (field.splitBaseId === undefined || field.splitPartIndex === undefined) return field.tokenIndex;
   return field.tokenIndex - field.splitPartIndex;
 }

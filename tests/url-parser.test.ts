@@ -91,6 +91,31 @@ test('bumps split URL token parts while preserving contiguous URL format', () =>
   );
 });
 
+test('applies later split specs against original token indexes after earlier splits', () => {
+  const model = parseUrl('https://example.test/image?v=1111x2222');
+  const firstField = collectUrlFields(model).find((candidate) => candidate.value === '1111');
+  assert.ok(firstField);
+  const firstSpec = createFieldSplitSpec(firstField, '2-2');
+  assert.ok(!('ok' in firstSpec));
+
+  const firstSplitModel = applyFieldSplitSpecs(model, [firstSpec]);
+  const shiftedSecondField = collectUrlFields(firstSplitModel).find((candidate) => candidate.value === '2222');
+  assert.ok(shiftedSecondField);
+  assert.equal(shiftedSecondField.id, 'q:0:3');
+  const secondSpec = createFieldSplitSpec(shiftedSecondField, '2-2');
+  assert.ok(!('ok' in secondSpec));
+  assert.equal(secondSpec.tokenIndex, 2);
+
+  const bothSplitModel = applyFieldSplitSpecs(model, [firstSpec, secondSpec]);
+  const fields = collectUrlFields(bothSplitModel);
+
+  assert.deepEqual(
+    fields.filter((candidate) => candidate.location === 'query').map((candidate) => candidate.value),
+    ['11', '11', 'x', '22', '22'],
+  );
+  assert.equal(rebuildUrl(bothSplitModel), 'https://example.test/image?v=1111x2222');
+});
+
 test('rejects invalid split patterns', () => {
   assert.deepEqual(parseFieldSplitPattern('2-2', 8), {
     ok: false,
