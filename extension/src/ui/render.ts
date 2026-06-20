@@ -16,6 +16,7 @@ import type { ParsedUrlModel, UrlField } from '../core/url/types.js';
 export interface PanelRenderTarget {
   readonly root: HTMLElement;
   readonly dispatch: (action: PanelAction) => void;
+  readonly scrollAnchorId?: string | null;
 }
 
 interface FocusedTextControlSnapshot {
@@ -88,8 +89,10 @@ function restoreFocusedTextControl(root: HTMLElement, snapshot: FocusedTextContr
   });
 }
 
-function scrollSnapshots(root: HTMLElement): readonly ScrollSnapshot[] {
-  const snapshots: ScrollSnapshot[] = [{ selector: null, scrollTop: root.scrollTop, scrollLeft: root.scrollLeft }];
+function scrollSnapshots(root: HTMLElement, scrollAnchorId?: string | null): readonly ScrollSnapshot[] {
+  const snapshots: ScrollSnapshot[] = [
+    { selector: null, scrollTop: root.scrollTop, scrollLeft: root.scrollLeft, anchor: scrollAnchor(root, scrollAnchorId) },
+  ];
   for (const selector of SCROLL_SNAPSHOT_SELECTORS) {
     const element = root.querySelector<HTMLElement>(selector);
     if (!element) continue;
@@ -126,6 +129,13 @@ function visibleScrollAnchor(container: HTMLElement): ScrollSnapshot['anchor'] {
   return undefined;
 }
 
+function scrollAnchor(container: HTMLElement, id?: string | null): ScrollSnapshot['anchor'] {
+  if (!id) return undefined;
+  const anchor = container.querySelector<HTMLElement>(`[data-image-trail-scroll-anchor="${CSS.escape(id)}"]`);
+  if (!anchor) return undefined;
+  return { id, top: anchor.getBoundingClientRect().top };
+}
+
 function restoreScrollAnchor(container: HTMLElement, anchor: ScrollSnapshot['anchor']): void {
   if (!anchor) return;
   const next = container.querySelector<HTMLElement>(`[data-image-trail-scroll-anchor="${CSS.escape(anchor.id)}"]`);
@@ -135,7 +145,7 @@ function restoreScrollAnchor(container: HTMLElement, anchor: ScrollSnapshot['anc
 
 export function renderPanel(target: PanelRenderTarget, state: PanelState): void {
   const focusedTextControl = focusedTextControlSnapshot(target.root);
-  const scrollPositions = scrollSnapshots(target.root);
+  const scrollPositions = scrollSnapshots(target.root, target.scrollAnchorId);
 
   target.root.replaceChildren();
 

@@ -92,6 +92,7 @@ export class ImageTrailPanel {
   private readonly settingsRepository = new LocalSettingsRepository();
   private readonly localSettings = this.settingsRepository.load();
   private readonly bookmarkLimit = this.localSettings.visibleBookmarkSoftMax;
+  private previewScrollAnchorId: string | null = null;
   private bookmarkMutationQueue: Promise<void> = Promise.resolve();
 
   constructor(
@@ -341,7 +342,7 @@ export class ImageTrailPanel {
     }
 
     if (action.name === 'capture/preview') {
-      void this.previewRecord(action.url, action.blobId);
+      void this.previewRecord(action.url, action.blobId, action.scrollAnchorId);
       return;
     }
 
@@ -961,40 +962,45 @@ export class ImageTrailPanel {
     this.render();
   }
 
-  private async previewRecord(url: string, blobId?: string): Promise<void> {
-    if (!blobId) {
-      await this.previewUrl(url);
-      return;
-    }
+  private async previewRecord(url: string, blobId?: string, scrollAnchorId?: string): Promise<void> {
+    this.previewScrollAnchorId = scrollAnchorId ?? null;
+    try {
+      if (!blobId) {
+        await this.previewUrl(url);
+        return;
+      }
 
-    if (!this.captureStore) {
-      await this.previewUrl(url);
-      return;
-    }
-    const retrieved = await this.captureStore.requestRetrieveBlob(blobId);
-    if (!retrieved.ok) {
-      this.state = { ...this.state, message: retrieved.message, status: 'error', lastUpdatedAt: Date.now() };
-      this.render();
-      return;
-    }
+      if (!this.captureStore) {
+        await this.previewUrl(url);
+        return;
+      }
+      const retrieved = await this.captureStore.requestRetrieveBlob(blobId);
+      if (!retrieved.ok) {
+        this.state = { ...this.state, message: retrieved.message, status: 'error', lastUpdatedAt: Date.now() };
+        this.render();
+        return;
+      }
 
-    if (await this.projectUrlToSelectedImage(retrieved.dataUrl)) {
+      if (await this.projectUrlToSelectedImage(retrieved.dataUrl)) {
+        this.state = {
+          ...this.state,
+          message: `Projected encrypted original (${(retrieved.byteLength / 1024).toFixed(1)} KB).`,
+          lastUpdatedAt: Date.now(),
+        };
+        this.render();
+        return;
+      }
+
       this.state = {
         ...this.state,
-        message: `Projected encrypted original (${(retrieved.byteLength / 1024).toFixed(1)} KB).`,
+        message: 'Select a host image before previewing encrypted originals.',
+        status: 'error',
         lastUpdatedAt: Date.now(),
       };
       this.render();
-      return;
+    } finally {
+      this.previewScrollAnchorId = null;
     }
-
-    this.state = {
-      ...this.state,
-      message: 'Select a host image before previewing encrypted originals.',
-      status: 'error',
-      lastUpdatedAt: Date.now(),
-    };
-    this.render();
   }
 
   private async previewUrl(url: string): Promise<void> {
@@ -1282,7 +1288,7 @@ export class ImageTrailPanel {
 
   private render(): void {
     if (this.root) {
-      renderPanel({ root: this.root, dispatch: this.dispatch }, this.state);
+      renderPanel({ root: this.root, dispatch: this.dispatch, scrollAnchorId: this.previewScrollAnchorId }, this.state);
     }
   }
 }

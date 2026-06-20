@@ -17,7 +17,7 @@ type BookmarkAction =
   | { readonly name: 'bookmarks/reload' }
   | { readonly name: 'bookmarks/refresh-thumbnails' }
   | { readonly name: 'capture/request'; readonly url: string; readonly sourceType: 'bookmark'; readonly sourceRecordId: string }
-  | { readonly name: 'capture/preview'; readonly url: string; readonly blobId?: string }
+  | { readonly name: 'capture/preview'; readonly url: string; readonly blobId?: string; readonly scrollAnchorId?: string }
   | { readonly name: 'capture/delete'; readonly id: string; readonly blobId: string };
 
 export function createBookmarksView(
@@ -116,13 +116,13 @@ export function createBookmarksView(
       entry.addEventListener('click', (event) => {
         if (isMultiSelectClick(event)) return;
         if (selectedIds.length > 0) dispatch({ name: 'bookmark-selection/clear' });
-        dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId });
+        dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId, scrollAnchorId: `bookmark:${item.id}` });
       });
       entry.addEventListener('keydown', (event) => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
         event.preventDefault();
         if (selectedIds.length > 0) dispatch({ name: 'bookmark-selection/clear' });
-        dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId });
+        dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId, scrollAnchorId: `bookmark:${item.id}` });
       });
     }
     const visual = createRecordVisual(item);

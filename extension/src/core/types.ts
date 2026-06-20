@@ -208,7 +208,7 @@ export type PanelAction =
   | { readonly name: 'capture/clear' }
   | { readonly name: 'capture/delete'; readonly id: string; readonly blobId: string }
   | { readonly name: 'capture/cleanup-orphans' }
-  | { readonly name: 'capture/preview'; readonly url: string; readonly blobId?: string }
+  | { readonly name: 'capture/preview'; readonly url: string; readonly blobId?: string; readonly scrollAnchorId?: string }
   | { readonly name: 'blob-key/setup' | 'blob-key/unlock'; readonly password: string }
   | { readonly name: 'blob-key/status'; readonly unlocked: boolean; readonly keyReference?: string | null; readonly hasKey?: boolean }
   | { readonly name: 'import-export/complete'; readonly message: string }
