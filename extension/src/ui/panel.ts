@@ -585,9 +585,7 @@ export class ImageTrailPanel {
       return false;
     }
     const sourceUrl = validation.sourceUrl;
-    const resolvedThumbnail =
-      thumbnail ??
-      (validation.preloadDataUrl ? ((await createThumbnailDataUrlFromDataUrl(validation.preloadDataUrl)) ?? undefined) : undefined);
+    const resolvedThumbnail = await this.resolveRecordThumbnail(sourceUrl, thumbnail, validation, options);
     const draft = createDisplayRecord({ id: sourceUrl, url: sourceUrl, thumbnail: resolvedThumbnail, source: 'bookmark' });
     const bookmark = this.bookmarkStore ? await this.bookmarkStore.save(draft) : draft;
     this.state = { ...this.state, message: `Added to Image Trail: ${bookmark.url}`, lastUpdatedAt: Date.now() };
@@ -627,9 +625,7 @@ export class ImageTrailPanel {
   private async addRecentHistory(url: string, thumbnail?: string, options: RecordAddOptions = {}): Promise<void> {
     const validation = await this.validateRecordUrlForAdd(url, options);
     if (!validation.ok || !validation.sourceUrl) return;
-    const resolvedThumbnail =
-      thumbnail ??
-      (validation.preloadDataUrl ? ((await createThumbnailDataUrlFromDataUrl(validation.preloadDataUrl)) ?? undefined) : undefined);
+    const resolvedThumbnail = await this.resolveRecordThumbnail(validation.sourceUrl, thumbnail, validation, options);
     const next = reducePanelAction(this.state, {
       name: 'history/add-loaded',
       url: validation.sourceUrl,
@@ -640,6 +636,18 @@ export class ImageTrailPanel {
     const history = this.recentHistoryStore ? await this.recentHistoryStore.add(item, window.location.href) : next;
     this.state = { ...this.state, history, lastUpdatedAt: Date.now() };
     this.render();
+  }
+
+  private async resolveRecordThumbnail(
+    sourceUrl: string,
+    thumbnail: string | undefined,
+    validation: ValidatedRecordUrl,
+    options: RecordAddOptions,
+  ): Promise<string | undefined> {
+    if (thumbnail) return thumbnail;
+    if (validation.preloadDataUrl) return (await createThumbnailDataUrlFromDataUrl(validation.preloadDataUrl)) ?? undefined;
+    if (!options.trustLoadedImage) return undefined;
+    return (await createThumbnailDataUrlFromUrl(sourceUrl)) ?? sourceUrl;
   }
 
   private async validateRecordUrlForAdd(url: string, options: RecordAddOptions = {}): Promise<ValidatedRecordUrl> {
