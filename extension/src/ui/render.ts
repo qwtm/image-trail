@@ -145,6 +145,7 @@ function restoreScrollAnchor(container: HTMLElement, anchor: ScrollSnapshot['anc
 export function renderPanel(target: PanelRenderTarget, state: PanelState): void {
   const focusedTextControl = focusedTextControlSnapshot(target.root);
   const scrollPositions = scrollSnapshots(target.root, target.scrollAnchorId);
+  const statusView = target.root.querySelector<HTMLElement>('.image-trail-panel__status-section');
 
   target.root.replaceChildren();
 
@@ -263,7 +264,7 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
 
   target.root.append(
     heading,
-    createStatusView(state, target.dispatch),
+    createStatusView(state, target.dispatch, statusView),
     createUrlEditorView(
       { url: activeUrl },
       {
