@@ -207,6 +207,7 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
     createImportExportView(
       {
         busy: state.importExportBusy,
+        currentImageUrl: state.target.selectedUrl,
         lastMessage: state.importExportMessage,
         lastMessageIsError: state.importExportMessageIsError,
       },

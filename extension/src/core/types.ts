@@ -93,9 +93,11 @@ export type PanelActionName =
   | 'import-export/error'
   | 'export/history'
   | 'export/bookmarks'
+  | 'export/image'
   | 'import/history'
   | 'import/bookmarks'
   | 'import/bookmarklet'
+  | 'import/image'
   | 'storage/update'
   | 'undo-last'
   | 'slideshow-start'
@@ -135,9 +137,11 @@ export type PanelAction =
         | 'import-export/error'
         | 'export/history'
         | 'export/bookmarks'
+        | 'export/image'
         | 'import/history'
         | 'import/bookmarks'
         | 'import/bookmarklet'
+        | 'import/image'
         | 'storage/update'
       >;
     }
@@ -168,8 +172,10 @@ export type PanelAction =
   | { readonly name: 'import-export/complete'; readonly message: string }
   | { readonly name: 'import-export/error'; readonly message: string }
   | { readonly name: 'export/history' | 'export/bookmarks'; readonly password: string; readonly plaintext: boolean }
+  | { readonly name: 'export/image'; readonly url: string }
   | { readonly name: 'import/history' | 'import/bookmarks'; readonly fileContent: string; readonly password: string }
   | { readonly name: 'import/bookmarklet'; readonly fileContent: string }
+  | { readonly name: 'import/image'; readonly fileContent: string }
   | { readonly name: 'storage/update'; readonly usage: StorageUsageSummary };
 
 export interface BookmarkStore {

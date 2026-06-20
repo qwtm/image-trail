@@ -1,12 +1,15 @@
 export type ImportExportAction =
   | { readonly name: 'export/history'; readonly password: string; readonly plaintext: boolean }
   | { readonly name: 'export/bookmarks'; readonly password: string; readonly plaintext: boolean }
+  | { readonly name: 'export/image'; readonly url: string }
   | { readonly name: 'import/history'; readonly fileContent: string; readonly password: string }
   | { readonly name: 'import/bookmarks'; readonly fileContent: string; readonly password: string }
-  | { readonly name: 'import/bookmarklet'; readonly fileContent: string };
+  | { readonly name: 'import/bookmarklet'; readonly fileContent: string }
+  | { readonly name: 'import/image'; readonly fileContent: string };
 
 export interface ImportExportViewState {
   readonly busy: boolean;
+  readonly currentImageUrl: string | null;
   readonly lastMessage?: string;
   readonly lastMessageIsError?: boolean;
 }
@@ -26,7 +29,7 @@ export function createImportExportView(state: ImportExportViewState, dispatch: (
     section.append(msg);
   }
 
-  section.append(createExportGroup(state, dispatch), createImportGroup(state, dispatch));
+  section.append(createExportGroup(state, dispatch), createImageGroup(state, dispatch), createImportGroup(state, dispatch));
 
   return section;
 }
@@ -89,6 +92,48 @@ function createExportGroup(state: ImportExportViewState, dispatch: (action: Impo
   return group;
 }
 
+function createImageGroup(state: ImportExportViewState, dispatch: (action: ImportExportAction) => void): HTMLElement {
+  const group = document.createElement('div');
+  group.className = 'image-trail-panel__subsection';
+
+  const label = document.createElement('h4');
+  label.textContent = 'Image';
+  group.append(label);
+
+  const imageInput = document.createElement('input');
+  imageInput.type = 'file';
+  imageInput.accept = 'image/*';
+  imageInput.className = 'image-trail-panel__file-input';
+  imageInput.disabled = state.busy;
+
+  const controls = document.createElement('div');
+  controls.className = 'image-trail-panel__control-stack';
+  controls.append(imageInput);
+
+  const importBtn = document.createElement('button');
+  importBtn.type = 'button';
+  importBtn.textContent = 'Import image';
+  importBtn.disabled = state.busy;
+  importBtn.addEventListener('click', () => {
+    readFileInput(imageInput, (content) => dispatch({ name: 'import/image', fileContent: content }), 'data-url');
+  });
+
+  const exportBtn = document.createElement('button');
+  exportBtn.type = 'button';
+  exportBtn.textContent = 'Export image';
+  exportBtn.disabled = state.busy || !state.currentImageUrl || state.currentImageUrl.startsWith('data:');
+  exportBtn.addEventListener('click', () => {
+    if (state.currentImageUrl) dispatch({ name: 'export/image', url: state.currentImageUrl });
+  });
+
+  const actions = document.createElement('div');
+  actions.className = 'image-trail-panel__actions';
+  actions.append(importBtn, exportBtn);
+
+  group.append(controls, actions);
+  return group;
+}
+
 function createImportGroup(state: ImportExportViewState, dispatch: (action: ImportExportAction) => void): HTMLElement {
   const group = document.createElement('div');
   group.className = 'image-trail-panel__subsection';
@@ -132,7 +177,7 @@ function createImportGroup(state: ImportExportViewState, dispatch: (action: Impo
 
   const bookmarkletBtn = document.createElement('button');
   bookmarkletBtn.type = 'button';
-  bookmarkletBtn.textContent = 'Import bookmarklet JSON';
+  bookmarkletBtn.textContent = 'Import old bookmarklet data';
   bookmarkletBtn.disabled = state.busy;
   bookmarkletBtn.addEventListener('click', () => {
     readFileInput(fileInput, (content) => {
@@ -163,12 +208,16 @@ function createToggle(text: string): { readonly label: HTMLLabelElement; readonl
   return { label, input };
 }
 
-function readFileInput(input: HTMLInputElement, onRead: (content: string) => void): void {
+function readFileInput(input: HTMLInputElement, onRead: (content: string) => void, mode: 'text' | 'data-url' = 'text'): void {
   const file = input.files?.[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = () => {
     if (typeof reader.result === 'string') onRead(reader.result);
   };
-  reader.readAsText(file);
+  if (mode === 'data-url') {
+    reader.readAsDataURL(file);
+  } else {
+    reader.readAsText(file);
+  }
 }

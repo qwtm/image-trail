@@ -11,6 +11,7 @@ import { Slideshow } from '../core/automation/slideshow.js';
 import { createInitialPanelState, setAutomationState, setTargetState } from '../core/state.js';
 import type { BookmarkStore, PanelAction, PanelState, TargetState } from '../core/types.js';
 import { isCapturedResult } from '../core/image/capture-result.js';
+import { filenameFromUrl } from '../core/image/downloads.js';
 import { DEFAULT_LOCAL_SETTINGS, LocalSettingsRepository } from '../data/local-settings.js';
 import { applyImageUrl, pushVisibleUrlWhenSameOrigin } from '../core/image/image-navigation.js';
 import { parseUrl } from '../core/url/parse-url.js';
@@ -320,6 +321,11 @@ export class ImageTrailPanel {
       return;
     }
 
+    if (action.name === 'export/image') {
+      this.exportImage(action.url);
+      return;
+    }
+
     if (action.name === 'import/history') {
       void this.importHistory(action.fileContent, action.password);
       return;
@@ -332,6 +338,11 @@ export class ImageTrailPanel {
 
     if (action.name === 'import/bookmarklet') {
       void this.importBookmarklet(action.fileContent);
+      return;
+    }
+
+    if (action.name === 'import/image') {
+      void this.importImage(action.fileContent);
       return;
     }
 
@@ -872,6 +883,27 @@ export class ImageTrailPanel {
     this.render();
   }
 
+  private exportImage(url: string): void {
+    downloadUrl(url, filenameFromUrl(url));
+    this.state = reducePanelAction(this.state, { name: 'import-export/complete', message: 'Image export started.' });
+    this.render();
+  }
+
+  private async importImage(fileContent: string): Promise<void> {
+    if (!fileContent.startsWith('data:image/')) {
+      this.state = reducePanelAction(this.state, { name: 'import-export/error', message: 'Choose an image file to import.' });
+      this.render();
+      return;
+    }
+    if (await this.projectUrlToSelectedImage(fileContent)) {
+      this.state = reducePanelAction(this.state, { name: 'import-export/complete', message: 'Imported image into the selected host image.' });
+      this.render();
+      return;
+    }
+    this.state = reducePanelAction(this.state, { name: 'import-export/error', message: 'Select a host image before importing an image file.' });
+    this.render();
+  }
+
   private async importHistory(fileContent: string, password: string): Promise<void> {
     this.state = reducePanelAction(this.state, { name: 'import-export/start' });
     this.render();
@@ -1039,6 +1071,11 @@ function bookmarkPayloadToDisplayRecord(uuid: string, payload: DurableBookmarkPa
 
 function downloadTextFile(fileContent: string, fileName: string): void {
   const url = URL.createObjectURL(new Blob([fileContent], { type: 'application/json' }));
+  downloadUrl(url, fileName);
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function downloadUrl(url: string, fileName: string): void {
   const anchor = document.createElement('a');
   anchor.href = url;
   anchor.download = fileName;
@@ -1046,5 +1083,4 @@ function downloadTextFile(fileContent: string, fileName: string): void {
   document.body.append(anchor);
   anchor.click();
   anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 }
