@@ -92,7 +92,6 @@ export function createEncryptionView(
 
   actions.append(unlock);
   if (!state.hasKey) actions.append(setup);
-  actions.append(cleanup);
   body.append(password, actions);
   section.append(summary, body);
   return section;

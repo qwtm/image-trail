@@ -191,6 +191,8 @@ async function handleDeleteBlob(message: DeleteBlobMessage): Promise<{ deleted: 
 }
 
 async function handleCleanupOrphanedBlobs(): Promise<import('./messages.js').CleanupOrphanedBlobsResultMessage['payload']> {
+  if (!getActiveBlobKey()) return { deletedCount: 0, usage: await handleStorageUsage() };
+
   const db = await getDb();
   if (!db) return { deletedCount: 0, usage: { totalBytes: 0, blobCount: 0 } };
 
