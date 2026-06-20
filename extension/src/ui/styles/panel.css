@@ -95,11 +95,18 @@
 }
 
 .image-trail-panel-root .image-trail-panel__status {
+  display: -webkit-box;
   min-width: 0;
   max-width: 100%;
+  max-inline-size: 100%;
+  max-block-size: calc(1.4em * 4);
+  overflow: hidden;
   overflow-wrap: anywhere;
+  text-overflow: ellipsis;
   word-break: break-word;
   white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
 }
 
 .image-trail-panel-root .image-trail-panel__full-url-input,
