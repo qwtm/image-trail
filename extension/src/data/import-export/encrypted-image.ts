@@ -5,6 +5,7 @@ import type { ExportFileEnvelope } from './encrypted-file-format.js';
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
+const unsafeFileNameCharacter = /[<>:"/\\|?*]/u;
 
 export interface EncryptedImageExportInput {
   readonly bytes: ArrayBuffer;
@@ -120,7 +121,7 @@ export function parseEncryptedImageFileHeader(fileContent: string): EncryptedIma
 
 function encryptedImageFileName(fileName: string, now: string): string {
   const clean = Array.from(fileName.replace(/\.image-trail-encrypted\.json$/u, ''), (character) =>
-    (character.codePointAt(0) ?? 0) < 32 || /[<>:"/\\|?*]/u.test(character) ? '_' : character,
+    (character.codePointAt(0) ?? 0) < 32 || unsafeFileNameCharacter.test(character) ? '_' : character,
   )
     .join('')
     .trim();

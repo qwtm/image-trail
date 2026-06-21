@@ -316,22 +316,22 @@ function readEncryptedImageFiles(input: HTMLInputElement, onRead: (files: readon
   const files = Array.from(input.files ?? []);
   if (files.length === 0) return;
   let remaining = files.length;
-  const results: ImportedEncryptedImageFile[] = [];
-  for (const file of files) {
+  const results: Array<ImportedEncryptedImageFile | undefined> = new Array(files.length);
+  files.forEach((file, index) => {
     const reader = new FileReader();
     reader.onload = () => {
       if (typeof reader.result === 'string') {
-        results.push({ name: file.name, fileContent: reader.result });
+        results[index] = { name: file.name, fileContent: reader.result };
       }
       remaining -= 1;
-      if (remaining === 0) onRead(results);
+      if (remaining === 0) onRead(results.filter((result): result is ImportedEncryptedImageFile => result !== undefined));
     };
     reader.onerror = () => {
       remaining -= 1;
-      if (remaining === 0) onRead(results);
+      if (remaining === 0) onRead(results.filter((result): result is ImportedEncryptedImageFile => result !== undefined));
     };
     reader.readAsText(file);
-  }
+  });
 }
 
 function readFileInput(input: HTMLInputElement, onRead: (content: string) => void, mode: 'text' | 'data-url' = 'text'): void {
