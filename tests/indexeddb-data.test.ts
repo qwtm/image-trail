@@ -511,7 +511,6 @@ test('UrlTemplateRepository saves templates per hostname', async (t) => {
         tokenIndex: 0,
       },
     ],
-    fieldSplitSpecs: [],
     hideExcludedFields: false,
     createdAt: '2026-06-21T00:00:00.000Z',
     updatedAt: '2026-06-21T00:00:00.000Z',

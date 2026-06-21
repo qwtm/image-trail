@@ -5,6 +5,7 @@
 - URL templates are learned from the field parser when included fields drive successful image URL changes.
 - Included fields become readable template placeholders such as `{query-page}`.
 - Templates are stored as extension-owned metadata keyed by hostname.
+- Field split patterns are target/session scoped in this slice and must not be stored inside durable URL template records.
 - Template matching uses explicit match modes, not an opaque confidence score:
   - Exact page shape is the conservative default.
   - Same path/query shape can apply to URLs with the same structural field layout.

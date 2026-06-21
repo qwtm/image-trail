@@ -16,7 +16,6 @@ test('url templates replace included fields with readable placeholders', () => {
     model,
     fields,
     includedFieldIds: [chapter.id, file.id],
-    fieldSplitSpecs: [],
     now: '2026-06-21T00:00:00.000Z',
   });
 
@@ -41,7 +40,6 @@ test('url template match modes are explicit instead of opaque confidence scores'
     model: source,
     fields,
     includedFieldIds: [chapter.id],
-    fieldSplitSpecs: [],
     now: '2026-06-21T00:00:00.000Z',
   });
   assert.ok(template);

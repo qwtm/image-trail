@@ -1,6 +1,6 @@
 import { rebuildUrl, setUrlFieldValue } from './rebuild-url.js';
 import { tokenValue } from './tokenize-fields.js';
-import type { ParsedUrlModel, UrlField, UrlFieldSplitSpec } from './types.js';
+import type { ParsedUrlModel, UrlField } from './types.js';
 
 export type UrlTemplateMatchMode = 'exact-page-shape' | 'same-path-query-shape' | 'broad-site';
 
@@ -31,7 +31,6 @@ export interface UrlTemplateRecord {
   readonly templateUrl: string;
   readonly matchRules: UrlTemplateMatchRules;
   readonly fields: readonly UrlTemplateField[];
-  readonly fieldSplitSpecs: readonly UrlFieldSplitSpec[];
   readonly hideExcludedFields: boolean;
   readonly createdAt: string;
   readonly updatedAt: string;
@@ -42,7 +41,6 @@ export function createUrlTemplateRecord(input: {
   readonly model: ParsedUrlModel;
   readonly fields: readonly UrlField[];
   readonly includedFieldIds: readonly string[];
-  readonly fieldSplitSpecs: readonly UrlFieldSplitSpec[];
   readonly existing?: UrlTemplateRecord;
   readonly now?: string;
 }): UrlTemplateRecord | null {
@@ -60,7 +58,6 @@ export function createUrlTemplateRecord(input: {
     templateUrl,
     matchRules: input.existing?.matchRules ? { ...matchRules, mode: input.existing.matchRules.mode } : matchRules,
     fields: included.map((field) => templateField(input.model, field)),
-    fieldSplitSpecs: input.fieldSplitSpecs,
     hideExcludedFields: input.existing?.hideExcludedFields ?? false,
     createdAt: input.existing?.createdAt ?? now,
     updatedAt: now,

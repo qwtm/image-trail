@@ -146,6 +146,7 @@ export class ImageTrailPanel {
     this.unsubscribeFromTarget = this.pageAdapter.subscribe((snapshot) => {
       this.state = setTargetState(this.state, toTargetState(snapshot));
       this.render();
+      void this.loadUrlTemplates();
     });
     this.unsubscribeFromLoads = this.pageAdapter.subscribeToSuccessfulLoads((target) => {
       void this.addRecentHistory(target.url, target.thumbnail, {
@@ -260,7 +261,7 @@ export class ImageTrailPanel {
 
   private async loadUrlTemplates(options: { readonly render?: boolean } = {}): Promise<void> {
     if (!this.urlTemplateStore) return;
-    const hostname = hostnameFromLocation();
+    const hostname = this.currentUrlTemplateHostname();
     if (!hostname) return;
     const templates = await this.urlTemplateStore.load(hostname);
     this.state = reducePanelAction(this.state, {
@@ -293,7 +294,6 @@ export class ImageTrailPanel {
       model,
       fields,
       includedFieldIds: this.state.unlockedFieldIds,
-      fieldSplitSpecs: this.state.fieldSplitSpecs,
       existing,
     });
     if (!template) return;
@@ -304,7 +304,7 @@ export class ImageTrailPanel {
 
   private async removeUrlTemplate(id: string): Promise<void> {
     if (!this.urlTemplateStore) return;
-    const hostname = hostnameFromLocation();
+    const hostname = this.state.urlTemplates.find((candidate) => candidate.id === id)?.hostname ?? this.currentUrlTemplateHostname();
     if (!hostname) return;
     await this.urlTemplateStore.remove(hostname, id);
     this.state = reducePanelAction(this.state, { name: 'url-template/remove', id });
@@ -328,6 +328,14 @@ export class ImageTrailPanel {
       return findBestMatchingTemplate(templates, this.currentUrlModel())?.id ?? null;
     } catch {
       return null;
+    }
+  }
+
+  private currentUrlTemplateHostname(): string | null {
+    try {
+      return new URL(rebuildUrl(this.currentUrlModel())).hostname.toLowerCase();
+    } catch {
+      return hostnameFromLocation();
     }
   }
 
@@ -995,6 +1003,7 @@ export class ImageTrailPanel {
     this.state = this.applyFieldLoadResult(this.state, attemptedFieldIds, preload.sha256, baselineFingerprint);
     pushVisibleUrlWhenSameOrigin(nextUrl);
     this.render();
+    void this.loadUrlTemplates();
     return true;
   }
 
@@ -1496,6 +1505,7 @@ export class ImageTrailPanel {
       const snapshot = this.pageAdapter.applyUrlToSelected(url, preload.displayUrl);
       this.state = setTargetState(this.state, toTargetState(snapshot));
       this.render();
+      void this.loadUrlTemplates();
       if (image.complete && isProjectedUrlLoaded()) {
         queueMicrotask(() => finish(true));
       }
