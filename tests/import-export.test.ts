@@ -474,6 +474,23 @@ test('key-backup: rejects wrong backup password without returning a key record',
   assert.equal(importResult.record, undefined);
 });
 
+test('key-backup: rejects unsafe import iteration counts before decrypting', async () => {
+  const wrapped = await createAndActivateWrappedBlobKey({
+    password: 'capture-password',
+    uuid: '00000000-0000-4000-8000-000000000004',
+  });
+  const exportResult = await exportStoredKeyBackupWithPassword(wrapped.metadata, 'backup-password');
+  const tampered = JSON.parse(exportResult.fileContent!) as { header: { iterations: number } };
+  tampered.header.iterations = 1;
+
+  const importResult = await importStoredKeyBackupWithPassword(JSON.stringify(tampered), 'backup-password');
+
+  assert.equal(importResult.status.ok, false);
+  assert.equal(importResult.status.code, 'decryption-failed');
+  assert.equal(importResult.status.message, 'Key backup has unsafe encryption parameters.');
+  assert.equal(importResult.record, undefined);
+});
+
 test('key-backup: imported blob key decrypts payloads created before export', async () => {
   const wrapped = await createAndActivateWrappedBlobKey({
     password: 'capture-password',

@@ -5,6 +5,8 @@ import type { RecoverableDataStatus } from '../types.js';
 import { buildExportFileHeader, fromBase64, parseExportFile, serializeExportFile, toBase64 } from './encrypted-file-format.js';
 
 type RecoverableKeyKind = Extract<KeyKind, 'blob' | 'download'>;
+const KEY_BACKUP_ITERATIONS = 600_000;
+const MIN_KEY_BACKUP_ITERATIONS = 100_000;
 
 export interface KeyBackupExportResult {
   readonly status: RecoverableDataStatus;
@@ -30,7 +32,7 @@ export async function exportStoredKeyBackupWithPassword(
   try {
     const portableRecord = stripRuntimeKey(record);
     const salt = createPasswordSalt();
-    const iterations = 600_000;
+    const iterations = KEY_BACKUP_ITERATIONS;
     const encryptionKey = await deriveEncryptionKey(password, { salt, iterations });
     const iv = createAesGcmIv();
     const plaintext = new TextEncoder().encode(JSON.stringify({ schemaVersion: 1, record: portableRecord } satisfies KeyBackupPayload));
@@ -69,6 +71,9 @@ export async function importStoredKeyBackupWithPassword(fileContent: string, pas
   }
   if (envelope.header.payloadType !== 'keys') {
     return { status: { ok: false, code: 'decryption-failed', message: `Unexpected payload type: ${envelope.header.payloadType}.` } };
+  }
+  if (envelope.header.iterations < MIN_KEY_BACKUP_ITERATIONS) {
+    return { status: { ok: false, code: 'decryption-failed', message: 'Key backup has unsafe encryption parameters.' } };
   }
 
   try {

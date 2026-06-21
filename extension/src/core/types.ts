@@ -109,7 +109,7 @@ export type PanelActionName =
   | 'capture/preview'
   | 'blob-key/setup'
   | 'blob-key/unlock'
-  | 'blob-key/lock'
+  | 'blob-key/clear'
   | 'blob-key/export'
   | 'blob-key/import'
   | 'blob-key/status'
@@ -165,7 +165,7 @@ export type PanelAction =
         | 'capture/preview'
         | 'blob-key/setup'
         | 'blob-key/unlock'
-        | 'blob-key/lock'
+        | 'blob-key/clear'
         | 'blob-key/export'
         | 'blob-key/import'
         | 'blob-key/status'
@@ -216,7 +216,7 @@ export type PanelAction =
   | { readonly name: 'capture/cleanup-orphans' }
   | { readonly name: 'capture/preview'; readonly url: string; readonly blobId?: string; readonly scrollAnchorId?: string }
   | { readonly name: 'blob-key/setup' | 'blob-key/unlock'; readonly password: string }
-  | { readonly name: 'blob-key/lock' }
+  | { readonly name: 'blob-key/clear' }
   | { readonly name: 'blob-key/export'; readonly password: string }
   | { readonly name: 'blob-key/import'; readonly fileContent: string; readonly password: string }
   | { readonly name: 'blob-key/status'; readonly unlocked: boolean; readonly keyReference?: string | null; readonly hasKey?: boolean }

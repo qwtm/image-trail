@@ -366,8 +366,8 @@ export class ImageTrailPanel {
       return;
     }
 
-    if (action.name === 'blob-key/lock') {
-      void this.lockBlobKey();
+    if (action.name === 'blob-key/clear') {
+      void this.clearBlobKey();
       return;
     }
 
@@ -1145,9 +1145,9 @@ export class ImageTrailPanel {
     this.render();
   }
 
-  private async lockBlobKey(): Promise<void> {
+  private async clearBlobKey(): Promise<void> {
     if (!this.captureStore) return;
-    const result = await this.captureStore.lockBlobKey();
+    const result = await this.captureStore.clearBlobKey();
     this.state = reducePanelAction(
       { ...this.state, message: result.message, status: result.ok ? 'ready' : 'error', lastUpdatedAt: Date.now() },
       { name: 'blob-key/status', unlocked: false, keyReference: null, hasKey: false },

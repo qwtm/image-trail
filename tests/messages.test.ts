@@ -5,6 +5,7 @@ import {
   MessageType,
   createCaptureImageMessage,
   createCaptureResultMessage,
+  createClearBlobKeyMessage,
   createDeleteBlobMessage,
   createDeleteBlobResultMessage,
   createDownloadImageMessage,
@@ -15,7 +16,6 @@ import {
   createFetchThumbnailSourceResultMessage,
   createImportBlobKeyBackupMessage,
   createImportBlobKeyBackupResultMessage,
-  createLockBlobKeyMessage,
   createLoadBookmarksMessage,
   createLoadBookmarksResultMessage,
   createAddRecentHistoryMessage,
@@ -96,9 +96,9 @@ test('recognizes capture-related messages as extension requests', () => {
 });
 
 test('creates blob key backup import and export messages', () => {
-  const lockRequest = createLockBlobKeyMessage();
-  assert.equal(lockRequest.type, MessageType.LockBlobKey);
-  assert.equal(isExtensionRequest(lockRequest), true);
+  const clearRequest = createClearBlobKeyMessage();
+  assert.equal(clearRequest.type, MessageType.ClearBlobKey);
+  assert.equal(isExtensionRequest(clearRequest), true);
 
   const exportRequest = createExportBlobKeyBackupMessage('backup-password', 'blob:key-1');
   assert.equal(exportRequest.type, MessageType.ExportBlobKeyBackup);

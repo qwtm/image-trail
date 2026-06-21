@@ -27,7 +27,7 @@ export const MessageType = {
   BlobKeyStatusResult: 'imageTrail.blobKeyStatusResult',
   SetupBlobKey: 'imageTrail.setupBlobKey',
   UnlockBlobKey: 'imageTrail.unlockBlobKey',
-  LockBlobKey: 'imageTrail.lockBlobKey',
+  ClearBlobKey: 'imageTrail.clearBlobKey',
   ExportBlobKeyBackup: 'imageTrail.exportBlobKeyBackup',
   ExportBlobKeyBackupResult: 'imageTrail.exportBlobKeyBackupResult',
   ImportBlobKeyBackup: 'imageTrail.importBlobKeyBackup',
@@ -234,8 +234,8 @@ export interface UnlockBlobKeyMessage {
   readonly payload: { readonly password: string; readonly keyReference?: string };
 }
 
-export interface LockBlobKeyMessage {
-  readonly type: typeof MessageType.LockBlobKey;
+export interface ClearBlobKeyMessage {
+  readonly type: typeof MessageType.ClearBlobKey;
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
   readonly payload: Record<string, never>;
 }
@@ -384,7 +384,7 @@ export type ExtensionRequest =
   | BlobKeyStatusMessage
   | SetupBlobKeyMessage
   | UnlockBlobKeyMessage
-  | LockBlobKeyMessage
+  | ClearBlobKeyMessage
   | ExportBlobKeyBackupMessage
   | ImportBlobKeyBackupMessage
   | LoadBookmarksMessage
@@ -533,8 +533,8 @@ export function createUnlockBlobKeyMessage(password: string, keyReference?: stri
   return { type: MessageType.UnlockBlobKey, version: MESSAGE_PROTOCOL_VERSION, payload: { password, keyReference } };
 }
 
-export function createLockBlobKeyMessage(): LockBlobKeyMessage {
-  return { type: MessageType.LockBlobKey, version: MESSAGE_PROTOCOL_VERSION, payload: {} };
+export function createClearBlobKeyMessage(): ClearBlobKeyMessage {
+  return { type: MessageType.ClearBlobKey, version: MESSAGE_PROTOCOL_VERSION, payload: {} };
 }
 
 export function createExportBlobKeyBackupMessage(password: string, keyReference?: string): ExportBlobKeyBackupMessage {
@@ -642,7 +642,7 @@ export function isExtensionRequest(value: unknown): value is ExtensionRequest {
     value.type === MessageType.BlobKeyStatus ||
     value.type === MessageType.SetupBlobKey ||
     value.type === MessageType.UnlockBlobKey ||
-    value.type === MessageType.LockBlobKey ||
+    value.type === MessageType.ClearBlobKey ||
     value.type === MessageType.ExportBlobKeyBackup ||
     value.type === MessageType.ImportBlobKeyBackup ||
     value.type === MessageType.LoadBookmarks ||

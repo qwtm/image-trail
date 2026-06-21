@@ -442,7 +442,7 @@ async function handleExportBlobKeyBackup(
   const keys = new KeysRepository(db);
   const blobKey = message.payload.keyReference
     ? await keys.get(message.payload.keyReference)
-    : [...(await keys.listByKind('blob'))].sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0];
+    : latestKeyByCreatedAt(await keys.listByKind('blob'));
   if (!isStoredBlobKey(blobKey)) {
     return { ok: false, reason: 'missing-key', message: 'No encrypted blob key exists to back up.' };
   }
@@ -491,7 +491,7 @@ async function handleImportBlobKeyBackup(
   };
 }
 
-async function handleLockBlobKey(): Promise<BlobKeyResultMessage['payload']> {
+async function handleClearBlobKey(): Promise<BlobKeyResultMessage['payload']> {
   lockBlobKey();
   const db = await getDb();
   if (!db) return { ok: false, reason: 'db-unavailable', message: 'Database unavailable.' };
@@ -501,6 +501,10 @@ async function handleLockBlobKey(): Promise<BlobKeyResultMessage['payload']> {
     await keys.remove(key.reference);
   }
   return { ok: true, keyReference: '', message: 'Encrypted blob key cleared. Import a key backup to recover encrypted originals.' };
+}
+
+function latestKeyByCreatedAt(keys: readonly StoredKeyRecord[]): StoredKeyRecord | undefined {
+  return keys.reduce<StoredKeyRecord | undefined>((latest, key) => (!latest || key.createdAt > latest.createdAt ? key : latest), undefined);
 }
 
 async function handleGrantPermissionAndCapture(
@@ -664,10 +668,10 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
         .catch(() => sendResponse(createBlobKeyResultMessage({ ok: false, reason: 'unknown', message: 'Blob key unlock failed.' })));
       return true;
 
-    case MessageType.LockBlobKey:
-      handleLockBlobKey()
+    case MessageType.ClearBlobKey:
+      handleClearBlobKey()
         .then((result) => sendResponse(createBlobKeyResultMessage(result)))
-        .catch(() => sendResponse(createBlobKeyResultMessage({ ok: false, reason: 'unknown', message: 'Blob key lock failed.' })));
+        .catch(() => sendResponse(createBlobKeyResultMessage({ ok: false, reason: 'unknown', message: 'Blob key clear failed.' })));
       return true;
 
     case MessageType.ExportBlobKeyBackup:

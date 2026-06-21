@@ -8,7 +8,7 @@ type EncryptionAction = Extract<
     readonly name:
       | 'blob-key/setup'
       | 'blob-key/unlock'
-      | 'blob-key/lock'
+      | 'blob-key/clear'
       | 'blob-key/export'
       | 'blob-key/import'
       | 'capture/cleanup-orphans';
@@ -221,15 +221,26 @@ function createKeyBackupFilePicker(input: HTMLInputElement): HTMLElement {
 function createLockControls(state: { readonly busy: boolean }, dispatch: (action: EncryptionAction) => void): HTMLElement {
   const actions = document.createElement('div');
   actions.className = 'image-trail-panel__actions';
+  let confirming = false;
 
-  const lock = document.createElement('button');
-  lock.type = 'button';
-  lock.textContent = 'Lock data';
-  lock.className = 'image-trail-panel__secondary-action';
-  lock.disabled = state.busy;
-  lock.addEventListener('click', () => dispatch({ name: 'blob-key/lock' }));
+  const clear = document.createElement('button');
+  clear.type = 'button';
+  clear.textContent = 'Clear key';
+  clear.title = 'Removes the stored encrypted originals key. Export a key backup first.';
+  clear.className = 'image-trail-panel__secondary-action';
+  clear.disabled = state.busy;
+  clear.addEventListener('click', () => {
+    if (!confirming) {
+      confirming = true;
+      clear.textContent = 'Confirm clear key';
+      clear.classList.add('is-danger');
+      clear.title = 'Click again to remove the stored key. Encrypted originals need an imported backup key to recover.';
+      return;
+    }
+    dispatch({ name: 'blob-key/clear' });
+  });
 
-  actions.append(lock);
+  actions.append(clear);
   return actions;
 }
 
