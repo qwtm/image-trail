@@ -1,3 +1,5 @@
+import { VISIBLE_BOOKMARK_SOFT_MAX_LIMITS } from '../core/settings.js';
+
 export interface PlaintextLocalSettings {
   readonly schemaVersion: 1;
   readonly showHistoryThumbnails: boolean;
@@ -16,15 +18,18 @@ export const DEFAULT_LOCAL_SETTINGS: PlaintextLocalSettings = {
   bookmarkVisibilityScope: 'global',
 };
 
-const LOCAL_SETTINGS_KEY = 'imageTrail.localSettings';
+export const LOCAL_SETTINGS_KEY = 'imageTrail.localSettings';
 const MIN_REQUEST_THROTTLE_MS = 0;
 const MAX_REQUEST_THROTTLE_MS = 60_000;
-const MIN_VISIBLE_BOOKMARK_SOFT_MAX = 1;
-const MAX_VISIBLE_BOOKMARK_SOFT_MAX = 200;
 
 export interface StringStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
+}
+
+export interface LocalSettingsStore {
+  load(): Promise<PlaintextLocalSettings>;
+  save(settings: PlaintextLocalSettings): Promise<void>;
 }
 
 export class LocalSettingsRepository {
@@ -65,6 +70,9 @@ function isSafeThrottle(value: unknown): value is number {
 
 function isSafeVisibleBookmarkSoftMax(value: unknown): value is number {
   return (
-    typeof value === 'number' && Number.isInteger(value) && value >= MIN_VISIBLE_BOOKMARK_SOFT_MAX && value <= MAX_VISIBLE_BOOKMARK_SOFT_MAX
+    typeof value === 'number' &&
+    Number.isInteger(value) &&
+    value >= VISIBLE_BOOKMARK_SOFT_MAX_LIMITS.min &&
+    value <= VISIBLE_BOOKMARK_SOFT_MAX_LIMITS.max
   );
 }

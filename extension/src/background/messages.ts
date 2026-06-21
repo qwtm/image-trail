@@ -57,6 +57,10 @@ export const MessageType = {
   LoadPanelPositionResult: 'imageTrail.loadPanelPositionResult',
   SavePanelPosition: 'imageTrail.savePanelPosition',
   SavePanelPositionResult: 'imageTrail.savePanelPositionResult',
+  LoadLocalSettings: 'imageTrail.loadLocalSettings',
+  LoadLocalSettingsResult: 'imageTrail.loadLocalSettingsResult',
+  SaveLocalSettings: 'imageTrail.saveLocalSettings',
+  SaveLocalSettingsResult: 'imageTrail.saveLocalSettingsResult',
 } as const;
 
 export type MessageType = (typeof MessageType)[keyof typeof MessageType];
@@ -495,6 +499,32 @@ export interface SavePanelPositionResultMessage {
   readonly payload: { readonly ok: boolean };
 }
 
+export interface LoadLocalSettingsMessage {
+  readonly type: typeof MessageType.LoadLocalSettings;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload: { readonly requestedAt: number };
+}
+
+export interface LoadLocalSettingsResultMessage {
+  readonly type: typeof MessageType.LoadLocalSettingsResult;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload:
+    | { readonly ok: true; readonly settings: import('../data/local-settings.js').PlaintextLocalSettings }
+    | { readonly ok: false; readonly message: string };
+}
+
+export interface SaveLocalSettingsMessage {
+  readonly type: typeof MessageType.SaveLocalSettings;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload: { readonly settings: import('../data/local-settings.js').PlaintextLocalSettings };
+}
+
+export interface SaveLocalSettingsResultMessage {
+  readonly type: typeof MessageType.SaveLocalSettingsResult;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload: { readonly ok: boolean };
+}
+
 export type ExtensionRequest =
   | TogglePanelMessage
   | PingMessage
@@ -525,7 +555,9 @@ export type ExtensionRequest =
   | LoadRecallCandidatesMessage
   | RecallRecordsMessage
   | LoadPanelPositionMessage
-  | SavePanelPositionMessage;
+  | SavePanelPositionMessage
+  | LoadLocalSettingsMessage
+  | SaveLocalSettingsMessage;
 export type ExtensionResponse =
   | StatusMessage
   | UnknownMessageResponse
@@ -552,7 +584,9 @@ export type ExtensionResponse =
   | LoadRecallCandidatesResultMessage
   | RecallRecordsResultMessage
   | LoadPanelPositionResultMessage
-  | SavePanelPositionResultMessage;
+  | SavePanelPositionResultMessage
+  | LoadLocalSettingsResultMessage
+  | SaveLocalSettingsResultMessage;
 export type ExtensionMessage = ExtensionRequest | ExtensionResponse;
 
 export function createTogglePanelMessage(): TogglePanelMessage {
@@ -819,6 +853,24 @@ export function createSavePanelPositionResultMessage(payload: SavePanelPositionR
   return { type: MessageType.SavePanelPositionResult, version: MESSAGE_PROTOCOL_VERSION, payload };
 }
 
+export function createLoadLocalSettingsMessage(): LoadLocalSettingsMessage {
+  return { type: MessageType.LoadLocalSettings, version: MESSAGE_PROTOCOL_VERSION, payload: { requestedAt: Date.now() } };
+}
+
+export function createLoadLocalSettingsResultMessage(payload: LoadLocalSettingsResultMessage['payload']): LoadLocalSettingsResultMessage {
+  return { type: MessageType.LoadLocalSettingsResult, version: MESSAGE_PROTOCOL_VERSION, payload };
+}
+
+export function createSaveLocalSettingsMessage(
+  settings: import('../data/local-settings.js').PlaintextLocalSettings,
+): SaveLocalSettingsMessage {
+  return { type: MessageType.SaveLocalSettings, version: MESSAGE_PROTOCOL_VERSION, payload: { settings } };
+}
+
+export function createSaveLocalSettingsResultMessage(payload: SaveLocalSettingsResultMessage['payload']): SaveLocalSettingsResultMessage {
+  return { type: MessageType.SaveLocalSettingsResult, version: MESSAGE_PROTOCOL_VERSION, payload };
+}
+
 function hasVersionedObjectShape(value: unknown): value is { type?: unknown; version?: unknown; payload?: unknown } {
   if (!value || typeof value !== 'object') return false;
   const candidate = value as { version?: unknown; payload?: unknown };
@@ -857,7 +909,9 @@ export function isExtensionRequest(value: unknown): value is ExtensionRequest {
     value.type === MessageType.LoadRecallCandidates ||
     value.type === MessageType.RecallRecords ||
     value.type === MessageType.LoadPanelPosition ||
-    value.type === MessageType.SavePanelPosition
+    value.type === MessageType.SavePanelPosition ||
+    value.type === MessageType.LoadLocalSettings ||
+    value.type === MessageType.SaveLocalSettings
   );
 }
 
@@ -889,7 +943,9 @@ export function isExtensionResponse(value: unknown): value is ExtensionResponse 
     value.type === MessageType.LoadRecallCandidatesResult ||
     value.type === MessageType.RecallRecordsResult ||
     value.type === MessageType.LoadPanelPositionResult ||
-    value.type === MessageType.SavePanelPositionResult
+    value.type === MessageType.SavePanelPositionResult ||
+    value.type === MessageType.LoadLocalSettingsResult ||
+    value.type === MessageType.SaveLocalSettingsResult
   );
 }
 
@@ -1001,6 +1057,16 @@ export function isLoadPanelPositionResultMessage(value: unknown): value is LoadP
 export function isSavePanelPositionResultMessage(value: unknown): value is SavePanelPositionResultMessage {
   if (!hasVersionedObjectShape(value)) return false;
   return value.type === MessageType.SavePanelPositionResult;
+}
+
+export function isLoadLocalSettingsResultMessage(value: unknown): value is LoadLocalSettingsResultMessage {
+  if (!hasVersionedObjectShape(value)) return false;
+  return value.type === MessageType.LoadLocalSettingsResult;
+}
+
+export function isSaveLocalSettingsResultMessage(value: unknown): value is SaveLocalSettingsResultMessage {
+  if (!hasVersionedObjectShape(value)) return false;
+  return value.type === MessageType.SaveLocalSettingsResult;
 }
 
 export function isStatusMessage(value: unknown): value is StatusMessage {

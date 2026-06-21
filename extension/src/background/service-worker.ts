@@ -3,6 +3,7 @@ import { computeSha256 } from '../core/image/fingerprints.js';
 import type { ImageDisplayRecord } from '../core/display-records.js';
 import { IndexedDbBookmarkStore } from '../data/bookmarks-controller.js';
 import { IndexedDbPanelPositionStore } from '../data/panel-position-controller.js';
+import { DEFAULT_LOCAL_SETTINGS, LOCAL_SETTINGS_KEY, migrateLocalSettings } from '../data/local-settings.js';
 import { getActiveBlobKey, lockBlobKey } from '../data/crypto/blob-keyring.js';
 import { activateWrappedBlobKey, createAndActivateWrappedBlobKey } from '../data/crypto/blob-keyring.js';
 import { openBlobPayload, sealBlobPayload } from '../data/crypto/binary-envelope.js';
@@ -32,11 +33,13 @@ import {
   createLoadRecentHistoryResultMessage,
   createLoadRecallCandidatesResultMessage,
   createLoadPanelPositionResultMessage,
+  createLoadLocalSettingsResultMessage,
   createRemoveBookmarkResultMessage,
   createRemoveRecentHistoryResultMessage,
   createRecallRecordsResultMessage,
   createSaveBookmarkResultMessage,
   createSavePanelPositionResultMessage,
+  createSaveLocalSettingsResultMessage,
   createBlobKeyStatusResultMessage,
   createExportBlobKeyBackupResultMessage,
   createImportBlobKeyBackupResultMessage,
@@ -59,6 +62,7 @@ import type { LoadBookmarksMessage, RemoveBookmarkMessage, SaveBookmarkMessage }
 import type { AddRecentHistoryMessage, LoadRecentHistoryMessage, RemoveRecentHistoryMessage } from './messages.js';
 import type { LoadRecallCandidatesMessage, RecallRecordsMessage } from './messages.js';
 import type { LoadPanelPositionMessage, SavePanelPositionMessage } from './messages.js';
+import type { SaveLocalSettingsMessage } from './messages.js';
 import type { FetchThumbnailSourceMessage } from './messages.js';
 import type { CreateBlobPreviewMessage } from './messages.js';
 import type { SetupBlobKeyMessage, UnlockBlobKeyMessage, BlobKeyResultMessage } from './messages.js';
@@ -412,6 +416,26 @@ async function handleSavePanelPosition(
   const hostname = normalizeHostname(message.payload.hostname);
   if (!hostname) return { ok: false };
   await panelPositionStore.save(hostname, message.payload.position);
+  return { ok: true };
+}
+
+async function handleLoadLocalSettings(): Promise<import('./messages.js').LoadLocalSettingsResultMessage['payload']> {
+  const stored = await chrome.storage.local.get(LOCAL_SETTINGS_KEY);
+  const raw = stored[LOCAL_SETTINGS_KEY];
+  if (typeof raw === 'string') {
+    try {
+      return { ok: true, settings: migrateLocalSettings(JSON.parse(raw) as Partial<typeof DEFAULT_LOCAL_SETTINGS>) };
+    } catch {
+      return { ok: true, settings: DEFAULT_LOCAL_SETTINGS };
+    }
+  }
+  return { ok: true, settings: migrateLocalSettings(typeof raw === 'object' && raw !== null ? raw : DEFAULT_LOCAL_SETTINGS) };
+}
+
+async function handleSaveLocalSettings(
+  message: SaveLocalSettingsMessage,
+): Promise<import('./messages.js').SaveLocalSettingsResultMessage['payload']> {
+  await chrome.storage.local.set({ [LOCAL_SETTINGS_KEY]: migrateLocalSettings(message.payload.settings) });
   return { ok: true };
 }
 
@@ -856,6 +880,18 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
       handleSavePanelPosition(message)
         .then((result) => sendResponse(createSavePanelPositionResultMessage(result)))
         .catch(() => sendResponse(createSavePanelPositionResultMessage({ ok: false })));
+      return true;
+
+    case MessageType.LoadLocalSettings:
+      handleLoadLocalSettings()
+        .then((result) => sendResponse(createLoadLocalSettingsResultMessage(result)))
+        .catch(() => sendResponse(createLoadLocalSettingsResultMessage({ ok: false, message: 'Local settings could not be loaded.' })));
+      return true;
+
+    case MessageType.SaveLocalSettings:
+      handleSaveLocalSettings(message)
+        .then((result) => sendResponse(createSaveLocalSettingsResultMessage(result)))
+        .catch(() => sendResponse(createSaveLocalSettingsResultMessage({ ok: false })));
       return true;
 
     case MessageType.DeleteBlob:

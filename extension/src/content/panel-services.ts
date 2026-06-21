@@ -1,4 +1,9 @@
-export { DEFAULT_LOCAL_SETTINGS, LocalSettingsRepository } from '../data/local-settings.js';
+export {
+  DEFAULT_LOCAL_SETTINGS,
+  LocalSettingsRepository,
+  type LocalSettingsStore,
+  type PlaintextLocalSettings,
+} from '../data/local-settings.js';
 export { importBookmarkletJson } from '../data/import-export/bookmarklet-import.js';
 export { exportEncryptedBookmarks, exportPlainBookmarks } from '../data/import-export/bookmarks-export.js';
 export { importBookmarks } from '../data/import-export/bookmarks-import.js';

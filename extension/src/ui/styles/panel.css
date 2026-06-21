@@ -119,14 +119,49 @@
     sans-serif;
 }
 
+.image-trail-panel-root .image-trail-panel__header {
+  position: sticky;
+  top: -10px;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 8px;
+  justify-self: start;
+  inline-size: calc(100% + 20px);
+  max-inline-size: none;
+  min-width: 0;
+  margin: -10px -10px 0;
+  padding: 11px 10px 9px;
+  border-bottom: 1px solid rgb(255 255 255 / 16%);
+  border-radius: 7px 7px 0 0;
+  background: rgb(9 9 9 / 98%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 8%),
+    0 6px 12px rgb(0 0 0 / 20%);
+}
+
 .image-trail-panel-root .image-trail-panel__title {
+  min-block-size: 26px;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
   cursor: grab;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   touch-action: none;
   user-select: none;
 }
 
 .image-trail-panel-root .image-trail-panel__title:active {
   cursor: grabbing;
+}
+
+.image-trail-panel-root .image-trail-panel__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
 .image-trail-panel-root h3 {
@@ -483,6 +518,25 @@
   cursor: not-allowed;
 }
 
+.image-trail-panel-root .image-trail-panel__icon-button {
+  inline-size: 26px;
+  block-size: 26px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  font:
+    700 13px/1 system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+.image-trail-panel-root .image-trail-panel__icon-button[aria-pressed='true'] {
+  border-color: rgb(255 255 255 / 45%);
+  background: rgb(255 255 255 / 14%);
+}
+
 .image-trail-panel-root .image-trail-panel__image-transfer,
 .image-trail-panel-root .image-trail-panel__import-export {
   display: grid;
@@ -510,6 +564,27 @@
   display: grid;
   gap: 6px;
   min-width: 0;
+}
+
+.image-trail-panel-root .image-trail-panel__settings-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  min-width: 0;
+}
+
+.image-trail-panel-root .image-trail-panel__settings-field {
+  display: grid;
+  gap: 3px;
+  min-width: 96px;
+  color: #ddd;
+  font:
+    11px system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
 }
 
 .image-trail-panel-root .image-trail-panel__toggle {
@@ -591,7 +666,8 @@
 .image-trail-panel-root .image-trail-panel__full-url-input,
 .image-trail-panel-root .image-trail-panel__password-input,
 .image-trail-panel-root .image-trail-panel__field-input,
-.image-trail-panel-root .image-trail-panel__field-split-input {
+.image-trail-panel-root .image-trail-panel__field-split-input,
+.image-trail-panel-root .image-trail-panel__settings-number-input {
   width: 100%;
   min-width: 0;
   display: block;

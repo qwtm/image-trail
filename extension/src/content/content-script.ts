@@ -5,6 +5,7 @@ import { CaptureController } from './capture-controller.js';
 import { RecentHistoryStore } from './recent-history-store.js';
 import { RecallStore } from './recall-store.js';
 import { ExtensionPanelPositionStore } from './panel-position-store.js';
+import { ExtensionLocalSettingsStore } from './local-settings-store.js';
 import { ImageTrailPanel } from '../ui/panel.js';
 
 interface ImageTrailContentController {
@@ -31,6 +32,7 @@ function createController(): ImageTrailContentController {
     new RecentHistoryStore(),
     new RecallStore(),
     new ExtensionPanelPositionStore(),
+    new ExtensionLocalSettingsStore(),
   );
 
   const handleMessage = (message: unknown, _sender: chrome.runtime.MessageSender, sendResponse: (response: unknown) => void): boolean => {

@@ -4,7 +4,7 @@
 
 Local/plain extension storage is for non-sensitive settings that should remain lightweight and easy to load before IndexedDB unlock. Sensitive settings can be moved into encrypted IndexedDB through the lock flow.
 
-This is an early draft. The exact storage backend can be `chrome.storage.local`, extension `localStorage`, or a small wrapper over both, but all access should go through one module.
+This is an early draft. Content scripts must not use host-page `localStorage` for extension settings because that makes settings vary by site origin. Plain local settings should be extension-owned, currently loaded and saved through service-worker messages backed by `chrome.storage.local`.
 
 ## Storage Rule
 
@@ -15,9 +15,10 @@ Use:
 ```text
 src/data/local-settings.ts
 src/data/local-settings-migrations.ts
+src/content/local-settings-store.ts
 ```
 
-This keeps schema changes, defaults, validation, and migration behavior centralized.
+This keeps schema changes, defaults, validation, migration behavior, and extension-owned storage boundaries centralized.
 
 ## Local Settings Key
 
@@ -131,6 +132,7 @@ Plaintext local settings are acceptable for:
 - Sort direction and visible history preferences.
 - Navigation step/direction.
 - Request throttle values.
+- Visible bookmark/pin queue soft max. This controls how many durable queue records appear in the main panel; Recall starts after that visible window and pages remaining durable pins/bookmarks.
 - Preview styling values.
 - Non-sensitive automation defaults.
 - Storage size caps and usage indicator preference.
@@ -185,6 +187,7 @@ Migration examples:
 - Clamp panel widths to a safe range.
 - Clamp `runtimeWindowMinutes` to a reasonable value.
 - Clamp `activeViewMaxItems` to a safe visible cap.
+- Clamp `visibleBookmarkSoftMax` to the supported visible queue range.
 - Enforce bounded local capture. `defaultMaxOriginalBytes` should default to 25 MB and never exceed `hardMaxOriginalBytes`.
 - Enforce `hardMaxOriginalBytes` at 100 MB unless a later migration intentionally changes the hard policy.
 - Enforce small bounded thumbnail dimensions and byte size.

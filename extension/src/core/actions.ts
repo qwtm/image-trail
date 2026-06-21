@@ -338,6 +338,10 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
         bookmarkOffset: 0,
         lastUpdatedAt: Date.now(),
       };
+    case 'settings/toggle':
+      return { ...state, settingsOpen: !state.settingsOpen, lastUpdatedAt: Date.now() };
+    case 'settings/update-visible-bookmark-soft-max':
+      return { ...state, bookmarkLimit: action.value, bookmarkOffset: 0, lastUpdatedAt: Date.now() };
     case 'capture/request':
       return state;
     case 'capture/start':
