@@ -1,3 +1,4 @@
+import type { StorageUsageSummary } from '../../core/image/capture-result.js';
 import { openJsonEnvelope, sealJsonEnvelope } from '../crypto/envelope.js';
 import type { EncryptedEnvelope, KeyReference } from '../crypto/types.js';
 import { requestToPromise, transactionDone } from '../idb-helpers.js';
@@ -68,6 +69,31 @@ export class EncryptedPinsRepository {
 
     await transactionDone(transaction);
     return result;
+  }
+
+  async getStorageUsage(): Promise<StorageUsageSummary> {
+    const transaction = this.db.transaction(DataStore.EncryptedPins, 'readonly');
+    const request = transaction.objectStore(DataStore.EncryptedPins).openCursor();
+    let totalBytes = 0;
+    let blobCount = 0;
+
+    await new Promise<void>((resolve, reject) => {
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) {
+          resolve();
+          return;
+        }
+        const record = cursor.value as EncryptedPinRecord;
+        totalBytes += new TextEncoder().encode(JSON.stringify(record.envelope)).byteLength;
+        blobCount += 1;
+        cursor.continue();
+      };
+      request.onerror = () => reject(request.error);
+    });
+
+    await transactionDone(transaction);
+    return { totalBytes, blobCount };
   }
 
   async updateQueueUpdatedAt(updates: readonly { readonly id: string; readonly queueUpdatedAt: string }[]): Promise<void> {

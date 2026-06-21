@@ -12,6 +12,7 @@ import { createEncryptedImageFile, openEncryptedImageFile, parseEncryptedImageFi
 import { exportStoredKeyBackupWithPassword, importStoredKeyBackupWithPassword } from '../data/import-export/key-backup.js';
 import { openImageTrailDb } from '../data/db.js';
 import { BlobsRepository } from '../data/repositories/blobs-repository.js';
+import { EncryptedPinsRepository } from '../data/repositories/encrypted-pins-repository.js';
 import { EncryptedPinThumbnailsRepository } from '../data/repositories/encrypted-pin-thumbnails-repository.js';
 import { KeysRepository } from '../data/repositories/keys-repository.js';
 import type { StoredBlobRecord } from '../data/types.js';
@@ -388,16 +389,18 @@ async function handleStorageUsage(): Promise<StorageUsageSummary> {
   const db = await getDb();
   if (!db) return { totalBytes: 0, blobCount: 0 };
   const blobs = new BlobsRepository(db);
+  const pins = new EncryptedPinsRepository(db);
   const thumbnails = new EncryptedPinThumbnailsRepository(db);
-  const [usage, thumbnailUsage, referenced] = await Promise.all([
+  const [usage, pinUsage, thumbnailUsage, referenced] = await Promise.all([
     blobs.getStorageUsage(),
+    pins.getStorageUsage(),
     thumbnails.getStorageUsage(),
     referencedBlobIds(),
   ]);
   const all = await blobs.list();
   return {
-    totalBytes: usage.totalBytes + thumbnailUsage.totalBytes,
-    blobCount: usage.blobCount + thumbnailUsage.blobCount,
+    totalBytes: usage.totalBytes + pinUsage.totalBytes + thumbnailUsage.totalBytes,
+    blobCount: usage.blobCount + pinUsage.blobCount + thumbnailUsage.blobCount,
     orphanedBlobCount: all.filter((blob) => !referenced.has(blob.id)).length,
   };
 }

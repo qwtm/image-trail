@@ -5,6 +5,7 @@ import { openImageTrailDb } from '../extension/src/data/db.js';
 import { DataStore, IMAGE_TRAIL_DB_NAME, SchemaIndex } from '../extension/src/data/schema.js';
 import { HistoryRepository, type EncryptedHistoryRecord } from '../extension/src/data/repositories/history-repository.js';
 import { BookmarksRepository, type EncryptedBookmarkRecord } from '../extension/src/data/repositories/bookmarks-repository.js';
+import { BlobsRepository } from '../extension/src/data/repositories/blobs-repository.js';
 import { PanelPositionRepository } from '../extension/src/data/repositories/panel-position-repository.js';
 import { UrlTemplateRepository } from '../extension/src/data/repositories/url-template-repository.js';
 import { DownloadsRepository } from '../extension/src/data/repositories/downloads-repository.js';
@@ -340,6 +341,10 @@ test('EncryptedPinsRepository seals private pin metadata with the active blob ke
   assert.equal(JSON.stringify(record).includes('private title'), false);
   assert.deepEqual(await repository.getByPlainPinId('plain-pin-1'), record);
   assert.deepEqual(await repository.getByUrlHash('a'.repeat(64)), record);
+  assert.deepEqual(await repository.getStorageUsage(), {
+    totalBytes: new TextEncoder().encode(JSON.stringify(record.envelope)).byteLength,
+    blobCount: 1,
+  });
   assert.deepEqual(await repository.openRecord(record, wrapped.active.key), {
     url: 'https://secret.example.test/private.jpg',
     title: 'private title',
@@ -522,6 +527,110 @@ test('IndexedDbBookmarkStore recalls saved bookmarks after a new store instance 
     assert.equal(page.hasNewer, false);
   } finally {
     await reloadedStore.close();
+  }
+});
+
+test('IndexedDbBookmarkStore keeps protected queue order after moving older pins to front', async () => {
+  await deleteImageTrailDb();
+  let active: ActiveBlobKey | null = (
+    await createAndActivateWrappedBlobKey({
+      password: 'pin-order-password',
+      uuid: 'pin-order-key',
+      now: '2026-06-21T00:00:00.000Z',
+    })
+  ).active;
+  const store = new IndexedDbBookmarkStore({ getActiveBlobKey: () => active });
+  try {
+    const older = await store.save(
+      createDisplayRecord({
+        id: 'https://secret.example.test/older.jpg',
+        url: 'https://secret.example.test/older.jpg',
+        label: 'older.jpg',
+        timestamp: '2026-06-21T00:00:01.000Z',
+        source: 'bookmark',
+      }),
+    );
+    const newer = await store.save(
+      createDisplayRecord({
+        id: 'https://secret.example.test/newer.jpg',
+        url: 'https://secret.example.test/newer.jpg',
+        label: 'newer.jpg',
+        timestamp: '2026-06-21T00:00:02.000Z',
+        source: 'bookmark',
+      }),
+    );
+
+    await store.moveToFront([older.id]);
+    const page = await store.loadPage({ offset: 0, limit: 2 });
+
+    assert.deepEqual(
+      page.items.map((item) => item.id),
+      [older.id, newer.id],
+    );
+  } finally {
+    await store.close();
+    active = null;
+    lockBlobKey();
+  }
+});
+
+test('IndexedDbBookmarkStore removes protected original blobs through relationship rows', async () => {
+  await deleteImageTrailDb();
+  let active: ActiveBlobKey | null = (
+    await createAndActivateWrappedBlobKey({
+      password: 'pin-delete-password',
+      uuid: 'pin-delete-key',
+      now: '2026-06-21T00:00:00.000Z',
+    })
+  ).active;
+  const dbResult = await openImageTrailDb();
+  assert.ok(dbResult.db);
+  const blobRepo = new BlobsRepository(dbResult.db);
+  await blobRepo.put({
+    id: 'blob-protected-original',
+    kind: 'original',
+    schemaVersion: 1,
+    algorithm: 'AES-GCM',
+    iv: 'iv',
+    ciphertext: new ArrayBuffer(4),
+    encryptedByteLength: 4,
+    createdAt: '2026-06-21T00:00:00.000Z',
+    key: active.reference,
+    referenceCount: 1,
+  });
+  dbResult.db.close();
+
+  const store = new IndexedDbBookmarkStore({ getActiveBlobKey: () => active });
+  try {
+    const saved = await store.save(
+      createDisplayRecord({
+        id: 'https://secret.example.test/delete-me.jpg',
+        url: 'https://secret.example.test/delete-me.jpg',
+        label: 'delete-me.jpg',
+        timestamp: '2026-06-21T00:00:01.000Z',
+        source: 'bookmark',
+        storedOriginal: {
+          blobId: 'blob-protected-original',
+          mimeType: 'image/jpeg',
+          byteLength: 4,
+          capturedAt: '2026-06-21T00:00:00.000Z',
+        },
+      }),
+    );
+
+    await store.remove(saved);
+  } finally {
+    await store.close();
+    active = null;
+    lockBlobKey();
+  }
+
+  const verifyResult = await openImageTrailDb();
+  assert.ok(verifyResult.db);
+  try {
+    assert.equal(await new BlobsRepository(verifyResult.db).get('blob-protected-original'), undefined);
+  } finally {
+    verifyResult.db.close();
   }
 });
 

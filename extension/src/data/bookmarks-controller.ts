@@ -161,7 +161,7 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
       for (const record of records) {
         try {
           const payload = await context.repository.openRecord(record, context.bookmarkKey.key);
-          if (payload) items.push(toDisplayRecord(record.uuid, payload));
+          if (payload) items.push(toDisplayRecord(record.uuid, payload, record.queueUpdatedAt));
         } catch {
           failedCount += 1;
         }
@@ -204,7 +204,7 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
     for (const record of updated) {
       try {
         const payload = await context.repository.openRecord(record, context.bookmarkKey.key);
-        records.push(toDisplayRecord(record.uuid, payload));
+        records.push(toDisplayRecord(record.uuid, payload, record.queueUpdatedAt));
       } catch {
         // If a record cannot be decrypted, it was not successfully recalled.
       }
@@ -222,9 +222,7 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
         const payload = await context.repository.openRecord(existing, context.bookmarkKey.key);
         if (payload.protectedPin?.encryptedPinId) await context.encryptedPins.remove(payload.protectedPin.encryptedPinId);
         if (payload.protectedPin?.encryptedThumbnailId) await context.encryptedThumbnails.remove(payload.protectedPin.encryptedThumbnailId);
-        if (record.privacyStatus === 'locked' && payload.protectedPin?.storedOriginalBlobId) {
-          await context.blobs.remove(payload.protectedPin.storedOriginalBlobId);
-        }
+        if (payload.protectedPin?.storedOriginalBlobId) await context.blobs.remove(payload.protectedPin.storedOriginalBlobId);
       } catch {
         // Still remove the relationship row if its protected side cannot be opened.
       }
@@ -263,7 +261,7 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
     for (const record of records) {
       try {
         const payload = await context.repository.openRecord(record, context.bookmarkKey.key);
-        if (payload) loaded.push(toDisplayRecord(record.uuid, payload));
+        if (payload) loaded.push(toDisplayRecord(record.uuid, payload, record.queueUpdatedAt));
       } catch {
         // Bookmarks encrypted with unavailable legacy keys stay durable but hidden.
       }
@@ -288,13 +286,30 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
         // Keep the relationship row placeholder if protected metadata cannot be decrypted.
       }
     }
-    return [...byId.values()].sort((left, right) => right.timestamp.localeCompare(left.timestamp));
+    return [...byId.values()].sort((left, right) => recordQueueTime(right).localeCompare(recordQueueTime(left)));
   }
 
   private async loadRecordsByIds(context: BookmarkContext, ids: readonly string[]): Promise<readonly ImageDisplayRecord[]> {
-    const loaded = await this.loadMergedRecords(context);
-    const byId = new Map(loaded.map((record) => [record.id, record]));
-    return ids.map((id) => byId.get(id)).filter((record): record is ImageDisplayRecord => !!record);
+    const activeBlobKey = this.options.getActiveBlobKey?.() ?? null;
+    const records: ImageDisplayRecord[] = [];
+    for (const id of ids) {
+      const relationship = await context.repository.getEncrypted(id);
+      if (!relationship) continue;
+      try {
+        const payload = await context.repository.openRecord(relationship, context.bookmarkKey.key);
+        if (payload.protectedPin?.encryptedPinId && activeBlobKey) {
+          const encrypted = await context.encryptedPins.get(payload.protectedPin.encryptedPinId);
+          if (encrypted) {
+            records.push(await this.openProtectedDisplayRecord(context, encrypted, activeBlobKey));
+            continue;
+          }
+        }
+        records.push(toDisplayRecord(relationship.uuid, payload, relationship.queueUpdatedAt));
+      } catch {
+        // If a targeted row cannot be opened, it was not successfully recalled.
+      }
+    }
+    return records;
   }
 
   private async saveProtected(
@@ -382,7 +397,8 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
       thumbnail,
       width: payload.width,
       height: payload.height,
-      timestamp: record.queueUpdatedAt,
+      timestamp: payload.bookmarkedAt,
+      queueUpdatedAt: record.queueUpdatedAt,
       downloadedAt: payload.downloadedAt,
       capturedAt: payload.capturedAt ?? storedOriginal?.capturedAt,
       captureStatus: storedOriginal ? 'captured' : undefined,
@@ -437,7 +453,7 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
       for (const record of records) {
         try {
           const payload = await context.repository.openRecord(record, context.bookmarkKey.key);
-          const displayRecord = payload ? toDisplayRecord(record.uuid, payload) : null;
+          const displayRecord = payload ? toDisplayRecord(record.uuid, payload, record.queueUpdatedAt) : null;
           if (!displayRecord || !isVisibleInScope(displayRecord, input.scope ?? 'global', input.currentPageUrl)) continue;
           if (matchingSkipped < offset) {
             matchingSkipped += 1;
@@ -544,13 +560,14 @@ function toPayload(record: ImageDisplayRecord): DurableBookmarkPayloadV1 {
   };
 }
 
-function toDisplayRecord(id: string, payload: DurableBookmarkPayloadV1): ImageDisplayRecord {
+function toDisplayRecord(id: string, payload: DurableBookmarkPayloadV1, queueUpdatedAt?: string): ImageDisplayRecord {
   if (payload.protectedPin) {
     return createDisplayRecord({
       id,
       url: payload.url || privatePinUrl(payload.protectedPin.plainPinId),
       label: 'Private pin',
       timestamp: payload.protectedPin.queueUpdatedAt,
+      queueUpdatedAt: queueUpdatedAt ?? payload.protectedPin.queueUpdatedAt,
       source: payload.sourceCompatibility ?? 'bookmark',
       privacyStatus: 'locked',
       protectedPin: {
@@ -574,6 +591,7 @@ function toDisplayRecord(id: string, payload: DurableBookmarkPayloadV1): ImageDi
     width: payload.width,
     height: payload.height,
     timestamp: payload.bookmarkedAt,
+    queueUpdatedAt,
     downloadedAt: payload.downloadedAt,
     capturedAt: payload.capturedAt ?? storedOriginal?.capturedAt,
     captureStatus: storedOriginal ? 'captured' : undefined,
@@ -633,6 +651,10 @@ function privatePinUrl(plainPinId: string): string {
   return `image-trail-private:${plainPinId}`;
 }
 
+function recordQueueTime(record: ImageDisplayRecord): string {
+  return record.queueUpdatedAt ?? record.timestamp;
+}
+
 async function hashUrl(url: string): Promise<string> {
   return computeSha256(new TextEncoder().encode(url).buffer);
 }
@@ -642,8 +664,7 @@ function dataUrlToBytes(dataUrl: string): { readonly mimeType: string; readonly 
   if (!match) return null;
   try {
     const binary = atob(match[2]!.replace(/\s/gu, ''));
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
     return { mimeType: match[1]!.toLowerCase(), bytes: bytes.buffer };
   } catch {
     return null;
