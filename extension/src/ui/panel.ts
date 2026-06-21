@@ -30,6 +30,7 @@ import type {
 import { isCapturedResult } from '../core/image/capture-result.js';
 import { filenameFromUrl, selectImageDownloadUrls } from '../core/image/downloads.js';
 import { pushVisibleUrlWhenSameOrigin } from '../core/image/image-navigation.js';
+import { VISIBLE_BOOKMARK_SOFT_MAX_LIMITS } from '../core/settings.js';
 import { applyFieldSplitSpecs, createFieldSplitSpec } from '../core/url/field-splits.js';
 import { parseUrl } from '../core/url/parse-url.js';
 import { bumpUrlField, rebuildUrl, setUrlFieldValue } from '../core/url/rebuild-url.js';
@@ -44,7 +45,6 @@ import {
 } from '../content/thumbnail-generator.js';
 import {
   DEFAULT_LOCAL_SETTINGS,
-  LocalSettingsRepository,
   exportEncryptedBookmarks,
   exportEncryptedHistory,
   exportPlainBookmarks,
@@ -52,6 +52,8 @@ import {
   importBookmarkletJson,
   importBookmarks as importBookmarkRecords,
   importEncryptedHistory,
+  type LocalSettingsStore,
+  type PlaintextLocalSettings,
   type DurableBookmarkPayloadV1,
   type DurableHistoryPayloadV1,
 } from '../content/panel-services.js';
@@ -107,9 +109,7 @@ export class ImageTrailPanel {
   private readonly keyboard: KeyboardRouter;
   private readonly slideshow: Slideshow;
   private readonly retry: Retry404;
-  private readonly settingsRepository = new LocalSettingsRepository();
-  private readonly localSettings = this.settingsRepository.load();
-  private readonly bookmarkLimit = this.localSettings.visibleBookmarkSoftMax;
+  private localSettings: PlaintextLocalSettings = DEFAULT_LOCAL_SETTINGS;
   private previewScrollAnchorId: string | null = null;
   private projectionRevision = 0;
   private bookmarkMutationQueue: Promise<void> = Promise.resolve();
@@ -128,8 +128,8 @@ export class ImageTrailPanel {
     private readonly recentHistoryStore: RecentHistoryStore | null = null,
     private readonly recallStore: RecallStore | null = null,
     private readonly panelPositionStore: PanelPositionStore | null = null,
+    private readonly localSettingsStore: LocalSettingsStore | null = null,
   ) {
-    this.state = { ...this.state, bookmarkVisibilityScope: this.localSettings.bookmarkVisibilityScope };
     this.unsubscribeFromTarget = this.pageAdapter.subscribe((snapshot) => {
       this.state = setTargetState(this.state, toTargetState(snapshot));
       this.render();
@@ -150,7 +150,7 @@ export class ImageTrailPanel {
         }
       });
     });
-    void this.loadBookmarks();
+    void this.loadSettingsAndBookmarks();
     void this.loadRecentHistory();
     void this.refreshStorageUsage();
     void this.refreshBlobKeyStatus();
@@ -219,6 +219,42 @@ export class ImageTrailPanel {
     await this.loadBookmarkPage(0);
   };
 
+  private loadSettingsAndBookmarks = async (): Promise<void> => {
+    await this.loadLocalSettings();
+    await this.loadBookmarks();
+  };
+
+  private async loadLocalSettings(): Promise<void> {
+    this.localSettings = this.localSettingsStore ? await this.localSettingsStore.load() : DEFAULT_LOCAL_SETTINGS;
+    this.state = {
+      ...this.state,
+      bookmarkVisibilityScope: this.localSettings.bookmarkVisibilityScope,
+      bookmarkLimit: this.localSettings.visibleBookmarkSoftMax,
+      lastUpdatedAt: Date.now(),
+    };
+    this.render();
+  }
+
+  private saveLocalSettings(settings: PlaintextLocalSettings): void {
+    this.localSettings = settings;
+    void this.localSettingsStore?.save(settings);
+  }
+
+  private async updateVisibleBookmarkSoftMax(value: number): Promise<void> {
+    if (
+      !Number.isInteger(value) ||
+      value < VISIBLE_BOOKMARK_SOFT_MAX_LIMITS.min ||
+      value > VISIBLE_BOOKMARK_SOFT_MAX_LIMITS.max ||
+      value === this.state.bookmarkLimit
+    ) {
+      return;
+    }
+    this.state = reducePanelAction(this.state, { name: 'settings/update-visible-bookmark-soft-max', value });
+    this.saveLocalSettings({ ...this.localSettings, visibleBookmarkSoftMax: value });
+    await this.loadBookmarkPage(0, { render: false });
+    this.renderPanelAndRefreshRecall();
+  }
+
   private loadRecentHistory = async (): Promise<void> => {
     if (!this.recentHistoryStore) return;
     const history = await this.recentHistoryStore.load(window.location.href);
@@ -230,7 +266,7 @@ export class ImageTrailPanel {
     if (!this.bookmarkStore) return;
     const page = await this.bookmarkStore.loadPage({
       offset,
-      limit: this.bookmarkLimit || DEFAULT_LOCAL_SETTINGS.visibleBookmarkSoftMax,
+      limit: this.state.bookmarkLimit || DEFAULT_LOCAL_SETTINGS.visibleBookmarkSoftMax,
       scope: this.state.bookmarkVisibilityScope,
       currentPageUrl: window.location.href,
     });
@@ -250,7 +286,7 @@ export class ImageTrailPanel {
     this.state = reducePanelAction(this.state, { name: 'recall/open', side: this.recallDrawerSide() });
     this.recallOpeningUntil = Date.now() + RECALL_DRAWER_OPEN_ANIMATION_MS;
     this.render();
-    void this.loadRecallCandidates({ offset: this.state.bookmarkLimit || this.bookmarkLimit, append: false });
+    void this.loadRecallCandidates({ offset: this.state.bookmarkLimit || DEFAULT_LOCAL_SETTINGS.visibleBookmarkSoftMax, append: false });
   }
 
   private recallDrawerSide(): 'left' | 'right' {
@@ -320,7 +356,11 @@ export class ImageTrailPanel {
 
   private refreshRecallIfOpen(): void {
     if (!this.state.recall.open) return;
-    void this.loadRecallCandidates({ offset: this.state.bookmarkLimit || this.bookmarkLimit, append: false, showBusy: false });
+    void this.loadRecallCandidates({
+      offset: this.state.bookmarkLimit || DEFAULT_LOCAL_SETTINGS.visibleBookmarkSoftMax,
+      append: false,
+      showBusy: false,
+    });
   }
 
   private renderPanelAndRefreshRecall(): void {
@@ -401,8 +441,19 @@ export class ImageTrailPanel {
 
     if (action.name === 'bookmarks/toggle-scope') {
       this.state = reducePanelAction(this.state, action);
-      this.settingsRepository.save({ ...this.localSettings, bookmarkVisibilityScope: this.state.bookmarkVisibilityScope });
+      this.saveLocalSettings({ ...this.localSettings, bookmarkVisibilityScope: this.state.bookmarkVisibilityScope });
       void this.loadBookmarkPage(0, { render: false }).then(() => this.renderPanelAndRefreshRecall());
+      return;
+    }
+
+    if (action.name === 'settings/update-visible-bookmark-soft-max') {
+      void this.updateVisibleBookmarkSoftMax(action.value);
+      return;
+    }
+
+    if (action.name === 'settings/toggle') {
+      this.state = reducePanelAction(this.state, action);
+      this.render();
       return;
     }
 

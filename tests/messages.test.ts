@@ -22,6 +22,8 @@ import {
   createImportEncryptedImageResultMessage,
   createLoadBookmarksMessage,
   createLoadBookmarksResultMessage,
+  createLoadLocalSettingsMessage,
+  createLoadLocalSettingsResultMessage,
   createLoadPanelPositionMessage,
   createLoadPanelPositionResultMessage,
   createLoadRecallCandidatesMessage,
@@ -41,6 +43,8 @@ import {
   createRetrieveBlobResultMessage,
   createSaveBookmarkMessage,
   createSaveBookmarkResultMessage,
+  createSaveLocalSettingsMessage,
+  createSaveLocalSettingsResultMessage,
   createSavePanelPositionMessage,
   createSavePanelPositionResultMessage,
   createStatusMessage,
@@ -58,6 +62,7 @@ import {
   isImportBlobKeyBackupResultMessage,
   isImportEncryptedImageResultMessage,
   isLoadBookmarksResultMessage,
+  isLoadLocalSettingsResultMessage,
   isLoadPanelPositionResultMessage,
   isLoadRecallCandidatesResultMessage,
   isAddRecentHistoryResultMessage,
@@ -67,9 +72,11 @@ import {
   isRemoveRecentHistoryResultMessage,
   isRetrieveBlobResultMessage,
   isSaveBookmarkResultMessage,
+  isSaveLocalSettingsResultMessage,
   isSavePanelPositionResultMessage,
   isStatusMessage,
 } from '../extension/src/background/messages.js';
+import { DEFAULT_LOCAL_SETTINGS } from '../extension/src/data/local-settings.js';
 
 test('recognizes only versioned extension requests as requests', () => {
   assert.equal(isExtensionRequest(createTogglePanelMessage()), true);
@@ -120,6 +127,25 @@ test('creates panel position messages', () => {
   assert.equal(isExtensionRequest(save), true);
   assert.equal(isExtensionResponse(saveResult), true);
   assert.equal(isSavePanelPositionResultMessage(saveResult), true);
+});
+
+test('creates extension-owned local settings messages', () => {
+  const settings = { ...DEFAULT_LOCAL_SETTINGS, visibleBookmarkSoftMax: 12 };
+  const load = createLoadLocalSettingsMessage();
+  const loadResult = createLoadLocalSettingsResultMessage({ ok: true, settings });
+  const save = createSaveLocalSettingsMessage(settings);
+  const saveResult = createSaveLocalSettingsResultMessage({ ok: true });
+
+  assert.equal(load.type, MessageType.LoadLocalSettings);
+  assert.equal(isExtensionRequest(load), true);
+  assert.equal(isExtensionResponse(loadResult), true);
+  assert.equal(isLoadLocalSettingsResultMessage(loadResult), true);
+  assert.equal(loadResult.payload.ok && loadResult.payload.settings.visibleBookmarkSoftMax, 12);
+  assert.equal(save.type, MessageType.SaveLocalSettings);
+  assert.deepEqual(save.payload.settings, settings);
+  assert.equal(isExtensionRequest(save), true);
+  assert.equal(isExtensionResponse(saveResult), true);
+  assert.equal(isSaveLocalSettingsResultMessage(saveResult), true);
 });
 
 test('recognizes capture-related messages as extension requests', () => {

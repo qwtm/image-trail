@@ -179,6 +179,27 @@ test('single bookmark selection clears history selection and selects only clicke
   assert.deepEqual(selected.selectedBookmarkIds, ['bookmark-3']);
 });
 
+test('updating visible bookmark soft max resets the queue window', () => {
+  const state = {
+    ...createInitialPanelState(),
+    bookmarkOffset: 30,
+    bookmarkLimit: 30,
+  };
+
+  const updated = reducePanelAction(state, { name: 'settings/update-visible-bookmark-soft-max', value: 10 });
+
+  assert.equal(updated.bookmarkLimit, 10);
+  assert.equal(updated.bookmarkOffset, 0);
+});
+
+test('settings toggle opens and closes the panel settings section', () => {
+  const opened = reducePanelAction(createInitialPanelState(), { name: 'settings/toggle' });
+  assert.equal(opened.settingsOpen, true);
+
+  const closed = reducePanelAction(opened, { name: 'settings/toggle' });
+  assert.equal(closed.settingsOpen, false);
+});
+
 test('record selection prunes removed and unloaded rows', () => {
   const state = {
     ...createInitialPanelState(),

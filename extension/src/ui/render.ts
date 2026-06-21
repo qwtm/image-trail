@@ -7,6 +7,7 @@ import { createUrlEditorView } from './components/url-editor-view.js';
 import { createHistoryView } from './components/history-view.js';
 import { createImageTransferView, createImportExportView } from './components/import-export-view.js';
 import { createRecallDrawerView, type RecallDrawerGeometry } from './components/recall-drawer-view.js';
+import { createSettingsView } from './components/settings-view.js';
 import { createStatusView } from './components/status-view.js';
 import { createTargetPickerView } from './components/target-picker-view.js';
 import { parseUrl } from '../core/url/parse-url.js';
@@ -66,6 +67,36 @@ function makeButton(label: string, action: PanelAction, dispatch: (action: Panel
   button.disabled = disabled;
   button.addEventListener('click', () => dispatch(action));
   return button;
+}
+
+function createPanelHeader(state: PanelState, target: PanelRenderTarget): HTMLElement {
+  const header = document.createElement('header');
+  header.className = 'image-trail-panel__header';
+
+  const heading = document.createElement('h2');
+  heading.className = 'image-trail-panel__title';
+  heading.textContent = 'Image Trail';
+  if (target.onPanelDragStart) {
+    heading.addEventListener('pointerdown', target.onPanelDragStart);
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'image-trail-panel__header-actions';
+
+  const settings = makeButton('⚙', { name: 'settings/toggle' }, target.dispatch);
+  settings.className = 'image-trail-panel__icon-button';
+  settings.setAttribute('aria-label', state.settingsOpen ? 'Hide settings' : 'Show settings');
+  settings.title = state.settingsOpen ? 'Hide settings' : 'Show settings';
+  settings.setAttribute('aria-pressed', state.settingsOpen ? 'true' : 'false');
+
+  const close = makeButton('X', { name: 'close-panel' }, target.dispatch);
+  close.className = 'image-trail-panel__icon-button';
+  close.setAttribute('aria-label', 'Close panel');
+  close.title = 'Close panel';
+
+  actions.append(settings, close);
+  header.append(heading, actions);
+  return header;
 }
 
 function focusedTextControlSnapshot(root: HTMLElement): FocusedTextControlSnapshot | null {
@@ -223,13 +254,6 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState, option
 
   const isNoTarget = !state.target.selectedUrl;
 
-  const heading = document.createElement('h2');
-  heading.className = 'image-trail-panel__title';
-  heading.textContent = 'Image Trail';
-  if (target.onPanelDragStart) {
-    heading.addEventListener('pointerdown', target.onPanelDragStart);
-  }
-
   const captureSection = document.createElement('div');
   captureSection.className = 'image-trail-panel__capture-actions';
   if (!isNoTarget) {
@@ -280,13 +304,10 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState, option
     autoSection.append(makeButton('Stop all', { name: 'stop-all' }, target.dispatch));
   }
 
-  const actions = document.createElement('div');
-  actions.className = 'image-trail-panel__actions';
-  actions.append(makeButton('Close', { name: 'close-panel' }, target.dispatch));
-
   target.root.append(
-    heading,
+    createPanelHeader(state, target),
     createStatusView(state, target.dispatch, statusView),
+    ...(state.settingsOpen ? [createSettingsView(state.bookmarkLimit, target.dispatch)] : []),
     createUrlEditorView(
       { url: activeUrl },
       {
@@ -417,7 +438,6 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState, option
       { recallOpen: state.recall.open },
       target.dispatch,
     ),
-    actions,
   );
   restoreScrollSnapshots(target.root, scrollPositions);
   restoreFocusedTextControl(target.root, focusedTextControl);

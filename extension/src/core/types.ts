@@ -90,6 +90,7 @@ export interface PanelState {
   readonly importExportBusy: boolean;
   readonly importExportMessage?: string;
   readonly importExportMessageIsError?: boolean;
+  readonly settingsOpen: boolean;
   readonly automation: AutomationState;
   readonly recall: RecallState;
   readonly selectedHistoryIds: readonly string[];
@@ -138,6 +139,8 @@ export type PanelActionName =
   | 'bookmarks/toggle-scope'
   | 'bookmarks/reload'
   | 'bookmarks/refresh-thumbnails'
+  | 'settings/toggle'
+  | 'settings/update-visible-bookmark-soft-max'
   | 'capture/request'
   | 'capture/start'
   | 'capture/complete'
@@ -207,6 +210,7 @@ export type PanelAction =
         | 'bookmark-selection/single'
         | 'bookmark-selection/clear'
         | 'bookmarks/page-loaded'
+        | 'settings/update-visible-bookmark-soft-max'
         | 'capture/request'
         | 'capture/start'
         | 'capture/complete'
@@ -261,6 +265,7 @@ export type PanelAction =
       readonly hasNewer: boolean;
     }
   | { readonly name: 'history/load' | 'history/download' }
+  | { readonly name: 'settings/update-visible-bookmark-soft-max'; readonly value: number }
   | { readonly name: 'active-field/set'; readonly id: string | null }
   | { readonly name: 'field-unlock/toggle'; readonly id: string }
   | { readonly name: 'field-split/apply'; readonly id: string; readonly pattern: string }
