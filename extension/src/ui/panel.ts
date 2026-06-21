@@ -269,9 +269,16 @@ export class ImageTrailPanel {
   }): Promise<void> {
     if (!this.recallStore) return;
     const renderUpdatedRecall = input.renderScope === 'panel' ? () => this.render() : () => this.renderRecallOnly();
+    let pending = true;
     if (input.showBusy !== false) {
       this.state = reducePanelAction(this.state, { name: 'recall/load-start' });
-      if (!this.isRecallOpening()) renderUpdatedRecall();
+      if (this.isRecallOpening()) {
+        void this.waitForRecallOpening().then(() => {
+          if (pending && this.state.recall.busy) renderUpdatedRecall();
+        });
+      } else {
+        renderUpdatedRecall();
+      }
     }
     const result = await this.recallStore.loadCandidates({
       offset: input.offset,
@@ -279,6 +286,7 @@ export class ImageTrailPanel {
       scope: this.state.bookmarkVisibilityScope,
       currentPageUrl: window.location.href,
     });
+    pending = false;
     await this.waitForRecallOpening();
     if (!result.ok) {
       if (result.reason === 'encryption-locked') await this.refreshBlobKeyStatus();
