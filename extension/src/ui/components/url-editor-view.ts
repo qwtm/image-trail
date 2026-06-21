@@ -23,6 +23,7 @@ export function createUrlEditorView(state: UrlEditorViewState, callbacks: UrlEdi
   value.spellcheck = false;
   value.disabled = state.url === null || state.isDataUrl === true;
   value.value = state.isDataUrl ? 'data URL' : (state.url ?? '');
+  value.title = state.url ?? EMPTY_URL_MESSAGE;
   value.placeholder = EMPTY_URL_MESSAGE;
 
   const applyUrl = (): void => {

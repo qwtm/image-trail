@@ -1,26 +1,31 @@
 import {
+  displayTitleForRecord,
   encryptedBlobIdForRecord,
   imageExtensionFromUrl,
   imageExtensionFromValue,
   type ImageDisplayRecord,
 } from '../../core/display-records.js';
+import { thumbnailSourceForDom } from './thumbnail-source.js';
 
 type BookmarkAction =
   | { readonly name: 'bookmark/current' }
   | { readonly name: 'bookmark/load'; readonly id: string }
   | { readonly name: 'bookmark/remove'; readonly id: string }
+  | { readonly name: 'bookmark-selection/toggle'; readonly id: string }
+  | { readonly name: 'bookmark-selection/clear' }
   | { readonly name: 'bookmarks/older' }
   | { readonly name: 'bookmarks/newer' }
   | { readonly name: 'bookmarks/toggle-scope' }
   | { readonly name: 'bookmarks/reload' }
   | { readonly name: 'bookmarks/refresh-thumbnails' }
   | { readonly name: 'capture/request'; readonly url: string; readonly sourceType: 'bookmark'; readonly sourceRecordId: string }
-  | { readonly name: 'capture/preview'; readonly url: string; readonly blobId?: string }
+  | { readonly name: 'capture/preview'; readonly url: string; readonly blobId?: string; readonly scrollAnchorId?: string }
   | { readonly name: 'capture/delete'; readonly id: string; readonly blobId: string };
 
 export function createBookmarksView(
   currentUrl: string | null,
   items: readonly ImageDisplayRecord[],
+  selectedIds: readonly string[],
   captureInProgress: boolean,
   blobKeyUnlocked: boolean,
   visibilityScope: 'global' | 'site',
@@ -34,7 +39,7 @@ export function createBookmarksView(
   dispatch: (action: BookmarkAction) => void,
 ): HTMLElement {
   const section = document.createElement('section');
-  section.className = 'image-trail-panel__section';
+  section.className = 'image-trail-panel__section image-trail-panel__bookmarks-section';
 
   const heading = document.createElement('h3');
   heading.textContent = 'Bookmarks';
@@ -89,21 +94,37 @@ export function createBookmarksView(
     const capturedBlobId = encryptedBlobIdForRecord(item);
     const lockedEncrypted = isLockedEncryptedRecord(item, blobKeyUnlocked);
     const previewableEncrypted = isPreviewableEncryptedRecord(item, blobKeyUnlocked);
+    const selected = selectedIds.includes(item.id);
     const entry = document.createElement('li');
+    entry.dataset.imageTrailScrollAnchor = `bookmark:${item.id}`;
     if (previewableEncrypted) entry.classList.add('is-captured');
+    if (selected) entry.classList.add('is-selected');
+    entry.setAttribute('aria-selected', String(selected));
+    entry.addEventListener('click', (event) => {
+      if (!isMultiSelectClick(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      dispatch({ name: 'bookmark-selection/toggle', id: item.id });
+    });
     if (lockedEncrypted) {
       entry.classList.add('is-locked-encrypted');
       entry.setAttribute('aria-disabled', 'true');
-      entry.title = 'Unlock encrypted originals before previewing this row.';
+      entry.title = 'Unlock encrypted originals before previewing this row. Cmd/Ctrl-click to select for export.';
     } else {
       entry.tabIndex = 0;
       entry.setAttribute('role', 'button');
-      entry.title = 'Preview this image in the selected host image.';
-      entry.addEventListener('click', () => dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId }));
+      entry.title = 'Preview this image in the selected host image. Cmd/Ctrl-click to select for export.';
+      entry.addEventListener('click', (event) => {
+        if (isMultiSelectClick(event)) return;
+        if (selectedIds.length > 0) dispatch({ name: 'bookmark-selection/clear' });
+        dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId, scrollAnchorId: `bookmark:${item.id}` });
+      });
       entry.addEventListener('keydown', (event) => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
         event.preventDefault();
-        dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId });
+        if (selectedIds.length > 0) dispatch({ name: 'bookmark-selection/clear' });
+        dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId, scrollAnchorId: `bookmark:${item.id}` });
       });
     }
     const visual = createRecordVisual(item);
@@ -112,9 +133,11 @@ export function createBookmarksView(
     const source = document.createElement('span');
     source.className = 'image-trail-panel__bookmark-source';
     source.textContent = extensionLabelFor(item);
+    source.title = source.textContent;
     const label = document.createElement('span');
     label.className = 'image-trail-panel__bookmark-name';
     label.textContent = item.label ?? item.url;
+    label.title = displayTitleForRecord(item);
     bookmarkLabel.append(source, label);
 
     const actions = document.createElement('span');
@@ -154,7 +177,14 @@ export function createBookmarksView(
     visibilityScope === 'global'
       ? 'No saved bookmarks loaded from encrypted storage.'
       : 'No saved bookmarks match this site. Switch to All sites to show every saved bookmark.';
-  section.append(heading, add, refreshThumbnails, scope, reload, pageMeta, pager, items.length ? list : empty);
+  const selectionMeta = document.createElement('p');
+  selectionMeta.className = 'image-trail-panel__meta';
+  selectionMeta.textContent =
+    selectedIds.length > 0
+      ? `${selectedIds.length} bookmark(s) selected for export.`
+      : 'Cmd/Ctrl-click rows to select bookmarks for export.';
+  section.append(heading, add, refreshThumbnails, scope, reload, pageMeta, pager, items.length ? selectionMeta : empty);
+  if (items.length) section.append(list);
   return section;
 }
 
@@ -162,7 +192,7 @@ function createRecordVisual(item: ImageDisplayRecord): HTMLElement {
   if (item.thumbnail) {
     const image = document.createElement('img');
     image.className = 'image-trail-panel__record-thumbnail';
-    image.src = item.thumbnail;
+    image.src = thumbnailSourceForDom(item.thumbnail);
     image.alt = '';
     image.loading = 'lazy';
     return image;
@@ -185,4 +215,8 @@ function isLockedEncryptedRecord(item: ImageDisplayRecord, blobKeyUnlocked: bool
 
 function isPreviewableEncryptedRecord(item: ImageDisplayRecord, blobKeyUnlocked: boolean): boolean {
   return !!encryptedBlobIdForRecord(item) && blobKeyUnlocked;
+}
+
+function isMultiSelectClick(event: MouseEvent): boolean {
+  return event.metaKey || event.ctrlKey;
 }
