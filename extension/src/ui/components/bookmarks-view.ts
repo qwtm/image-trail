@@ -44,27 +44,9 @@ export function createBookmarksView(
 
   const add = document.createElement('button');
   add.type = 'button';
-  add.textContent = 'Bookmark current image';
+  add.textContent = 'Bookmark current';
   add.disabled = currentUrl === null;
   add.addEventListener('click', () => dispatch({ name: 'bookmark/current' }));
-
-  const refreshThumbnails = document.createElement('button');
-  refreshThumbnails.type = 'button';
-  refreshThumbnails.textContent = 'Refresh thumbnails';
-  refreshThumbnails.disabled = items.length === 0;
-  refreshThumbnails.addEventListener('click', () => dispatch({ name: 'bookmarks/refresh-thumbnails' }));
-
-  const scope = document.createElement('button');
-  scope.type = 'button';
-  scope.textContent = visibilityScope === 'global' ? 'Scope: All sites' : 'Scope: This site';
-  scope.title = visibilityScope === 'global' ? 'Showing saved bookmarks from every site.' : 'Showing saved bookmarks for this site only.';
-  scope.addEventListener('click', () => dispatch({ name: 'bookmarks/toggle-scope' }));
-
-  const reload = document.createElement('button');
-  reload.type = 'button';
-  reload.textContent = 'Reload bookmarks';
-  reload.title = 'Reload saved bookmarks from encrypted storage.';
-  reload.addEventListener('click', () => dispatch({ name: 'bookmarks/reload' }));
 
   const recallButton = document.createElement('button');
   recallButton.type = 'button';
@@ -74,14 +56,62 @@ export function createBookmarksView(
   recallButton.title = 'Browse offloaded bookmark queue records and recall selected rows into the visible queue.';
   recallButton.addEventListener('click', () => dispatch({ name: 'recall/open', side: 'right' }));
 
+  const queueMenu = document.createElement('details');
+  queueMenu.className = 'image-trail-panel__queue-menu';
+
+  const queueMenuSummary = document.createElement('summary');
+  queueMenuSummary.textContent = 'Queue';
+  queueMenuSummary.title = 'Queue scope and maintenance actions.';
+  queueMenu.append(queueMenuSummary);
+
+  const queueMenuActions = document.createElement('div');
+  queueMenuActions.className = 'image-trail-panel__queue-menu-actions';
+
+  const refreshThumbnails = document.createElement('button');
+  refreshThumbnails.type = 'button';
+  refreshThumbnails.textContent = 'Refresh thumbnails';
+  refreshThumbnails.disabled = items.length === 0;
+  refreshThumbnails.addEventListener('click', () => {
+    queueMenu.open = false;
+    dispatch({ name: 'bookmarks/refresh-thumbnails' });
+  });
+
+  const scope = document.createElement('button');
+  scope.type = 'button';
+  scope.textContent = visibilityScope === 'global' ? 'Showing all sites' : 'Showing this site';
+  scope.title = visibilityScope === 'global' ? 'Showing saved bookmarks from every site.' : 'Showing saved bookmarks for this site only.';
+  scope.addEventListener('click', () => {
+    queueMenu.open = false;
+    dispatch({ name: 'bookmarks/toggle-scope' });
+  });
+
+  const reload = document.createElement('button');
+  reload.type = 'button';
+  reload.textContent = 'Reload bookmarks';
+  reload.title = 'Reload saved bookmarks from encrypted storage.';
+  reload.addEventListener('click', () => {
+    queueMenu.open = false;
+    dispatch({ name: 'bookmarks/reload' });
+  });
+
+  queueMenuActions.append(scope, reload, refreshThumbnails);
+  queueMenu.append(queueMenuActions);
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'image-trail-panel__bookmark-toolbar';
+  toolbar.append(add, recallButton, queueMenu);
+
   const pageMeta = document.createElement('p');
   pageMeta.className = 'image-trail-panel__meta';
   const pageStart = page.total === 0 ? 0 : page.offset + 1;
   const pageEnd = Math.min(page.offset + page.limit, page.total);
   pageMeta.textContent = `Bookmarks ${pageStart}-${pageEnd} of ${page.total} (${visibilityScope === 'global' ? 'all sites' : 'this site'})`;
 
+  const statusRow = document.createElement('div');
+  statusRow.className = 'image-trail-panel__bookmark-status-row';
+
   const pager = document.createElement('div');
-  pager.className = 'image-trail-panel__actions';
+  pager.className = 'image-trail-panel__bookmark-pager';
   const newer = document.createElement('button');
   newer.type = 'button';
   newer.textContent = 'Newer';
@@ -93,6 +123,7 @@ export function createBookmarksView(
   older.disabled = !page.hasOlder;
   older.addEventListener('click', () => dispatch({ name: 'bookmarks/older' }));
   pager.append(newer, older);
+  statusRow.append(pageMeta, pager);
 
   const list = document.createElement('ol');
   list.className = 'image-trail-panel__record-list';
@@ -202,7 +233,7 @@ export function createBookmarksView(
     selectedIds.length > 0
       ? `${selectedIds.length} bookmark(s) selected for export.`
       : 'Cmd/Ctrl-click rows to select bookmarks for export.';
-  section.append(heading, add, refreshThumbnails, scope, reload, recallButton, pageMeta, pager, items.length ? selectionMeta : empty);
+  section.append(heading, toolbar, statusRow, items.length ? selectionMeta : empty);
   if (items.length) section.append(list);
   return section;
 }
