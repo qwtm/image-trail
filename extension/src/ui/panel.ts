@@ -42,7 +42,8 @@ import {
   type DurableBookmarkPayloadV1,
   type DurableHistoryPayloadV1,
 } from '../content/panel-services.js';
-import { renderPanel } from './render.js';
+import { revokeThumbnailObjectUrls } from './components/thumbnail-source.js';
+import { renderPanel, type PanelLayoutState } from './render.js';
 
 const ROOT_ID = 'image-trail-panel-root';
 const STYLE_PATH = 'src/ui/styles/panel.css';
@@ -92,7 +93,14 @@ export class ImageTrailPanel {
   private readonly settingsRepository = new LocalSettingsRepository();
   private readonly localSettings = this.settingsRepository.load();
   private readonly bookmarkLimit = this.localSettings.visibleBookmarkSoftMax;
+  private previewScrollAnchorId: string | null = null;
+  private projectionRevision = 0;
   private bookmarkMutationQueue: Promise<void> = Promise.resolve();
+  private readonly layoutState: PanelLayoutState = {
+    fieldsPanelOpen: false,
+    fieldsPanelBlockSize: null,
+    historyListBlockSize: null,
+  };
 
   constructor(
     private readonly pageAdapter: PageAdapter,
@@ -165,6 +173,7 @@ export class ImageTrailPanel {
 
   private cleanupMountedElements(): void {
     this.pageAdapter.cleanup();
+    revokeThumbnailObjectUrls();
     document.getElementById(ROOT_ID)?.remove();
     this.root = null;
   }
@@ -278,6 +287,17 @@ export class ImageTrailPanel {
       return;
     }
 
+    if (
+      action.name === 'history-selection/toggle' ||
+      action.name === 'history-selection/clear' ||
+      action.name === 'bookmark-selection/toggle' ||
+      action.name === 'bookmark-selection/clear'
+    ) {
+      this.state = reducePanelAction(this.state, action);
+      this.render();
+      return;
+    }
+
     if (action.name === 'field-value-change') {
       void this.updateFieldValue(action.id, action.value);
       return;
@@ -330,7 +350,7 @@ export class ImageTrailPanel {
     }
 
     if (action.name === 'capture/preview') {
-      void this.previewRecord(action.url, action.blobId);
+      void this.previewRecord(action.url, action.blobId, action.scrollAnchorId);
       return;
     }
 
@@ -567,8 +587,11 @@ export class ImageTrailPanel {
   }
 
   private async applySelectedUrl(nextUrl: string, attemptedFieldIds: readonly string[] = []): Promise<boolean> {
+    const revision = ++this.projectionRevision;
     const baselineFingerprint = await this.currentImageFingerprint();
+    if (revision !== this.projectionRevision) return false;
     const preload = await this.preloadImageUrl(nextUrl);
+    if (revision !== this.projectionRevision) return false;
     if (!preload.ok) {
       this.state = applyFieldLoadFailureToState(this.state, { draftUrl: nextUrl, attemptedFieldIds, message: preload.message });
       this.render();
@@ -589,6 +612,7 @@ export class ImageTrailPanel {
     const snapshot = this.pageAdapter.getSnapshot();
     if (snapshot.selected) {
       const nextSnapshot = this.pageAdapter.applyUrlToSelected(nextUrl, preload.displayUrl);
+      if (revision !== this.projectionRevision) return false;
       this.state = setTargetState(this.state, toTargetState(nextSnapshot));
     }
     this.state = this.applyFieldLoadResult(this.state, attemptedFieldIds, preload.sha256, baselineFingerprint);
@@ -950,40 +974,46 @@ export class ImageTrailPanel {
     this.render();
   }
 
-  private async previewRecord(url: string, blobId?: string): Promise<void> {
-    if (!blobId) {
-      await this.previewUrl(url);
-      return;
-    }
+  private async previewRecord(url: string, blobId?: string, scrollAnchorId?: string): Promise<void> {
+    this.projectionRevision++;
+    this.previewScrollAnchorId = scrollAnchorId ?? null;
+    try {
+      if (!blobId) {
+        await this.previewUrl(url);
+        return;
+      }
 
-    if (!this.captureStore) {
-      await this.previewUrl(url);
-      return;
-    }
-    const retrieved = await this.captureStore.requestRetrieveBlob(blobId);
-    if (!retrieved.ok) {
-      this.state = { ...this.state, message: retrieved.message, status: 'error', lastUpdatedAt: Date.now() };
-      this.render();
-      return;
-    }
+      if (!this.captureStore) {
+        await this.previewUrl(url);
+        return;
+      }
+      const retrieved = await this.captureStore.requestRetrieveBlob(blobId);
+      if (!retrieved.ok) {
+        this.state = { ...this.state, message: retrieved.message, status: 'error', lastUpdatedAt: Date.now() };
+        this.render();
+        return;
+      }
 
-    if (await this.projectUrlToSelectedImage(retrieved.dataUrl)) {
+      if (await this.projectUrlToSelectedImage(retrieved.dataUrl)) {
+        this.state = {
+          ...this.state,
+          message: `Projected encrypted original (${(retrieved.byteLength / 1024).toFixed(1)} KB).`,
+          lastUpdatedAt: Date.now(),
+        };
+        this.render();
+        return;
+      }
+
       this.state = {
         ...this.state,
-        message: `Projected encrypted original (${(retrieved.byteLength / 1024).toFixed(1)} KB).`,
+        message: 'Select a host image before previewing encrypted originals.',
+        status: 'error',
         lastUpdatedAt: Date.now(),
       };
       this.render();
-      return;
+    } finally {
+      this.previewScrollAnchorId = null;
     }
-
-    this.state = {
-      ...this.state,
-      message: 'Select a host image before previewing encrypted originals.',
-      status: 'error',
-      lastUpdatedAt: Date.now(),
-    };
-    this.render();
   }
 
   private async previewUrl(url: string): Promise<void> {
@@ -1102,7 +1132,8 @@ export class ImageTrailPanel {
   private async exportHistory(password: string, plaintext: boolean): Promise<void> {
     this.state = reducePanelAction(this.state, { name: 'import-export/start' });
     this.render();
-    const entries = this.state.history.map(historyRecordToExportEntry);
+    const history = selectedRecords(this.state.history, this.state.selectedHistoryIds);
+    const entries = history.map(historyRecordToExportEntry);
     const result = plaintext ? exportPlainHistory({ entries }) : await exportEncryptedHistory({ entries, password });
     this.finishExport(result.fileContent, result.fileName, result.status.message, result.status.ok);
   }
@@ -1110,7 +1141,10 @@ export class ImageTrailPanel {
   private async exportBookmarks(password: string, plaintext: boolean): Promise<void> {
     this.state = reducePanelAction(this.state, { name: 'import-export/start' });
     this.render();
-    const bookmarks = await this.loadAllBookmarksForExport();
+    const bookmarks =
+      this.state.selectedBookmarkIds.length > 0
+        ? selectedRecords(this.state.bookmarks, this.state.selectedBookmarkIds)
+        : await this.loadAllBookmarksForExport();
     const entries = bookmarks.map(bookmarkRecordToExportEntry);
     const result = plaintext ? exportPlainBookmarks({ entries }) : await exportEncryptedBookmarks({ entries, password });
     this.finishExport(result.fileContent, result.fileName, result.status.message, result.status.ok);
@@ -1267,7 +1301,15 @@ export class ImageTrailPanel {
 
   private render(): void {
     if (this.root) {
-      renderPanel({ root: this.root, dispatch: this.dispatch }, this.state);
+      renderPanel(
+        {
+          root: this.root,
+          dispatch: this.dispatch,
+          layoutState: this.layoutState,
+          scrollAnchorId: this.previewScrollAnchorId,
+        },
+        this.state,
+      );
     }
   }
 }
@@ -1302,6 +1344,12 @@ function bookmarkRecordToExportEntry(record: ImageDisplayRecord): { readonly uui
       storedOriginal: record.storedOriginal,
     },
   };
+}
+
+function selectedRecords(records: readonly ImageDisplayRecord[], selectedIds: readonly string[]): readonly ImageDisplayRecord[] {
+  if (selectedIds.length === 0) return records;
+  const selected = new Set(selectedIds);
+  return records.filter((record) => selected.has(record.id));
 }
 
 function historyPayloadToDisplayRecord(uuid: string, payload: DurableHistoryPayloadV1): ImageDisplayRecord {

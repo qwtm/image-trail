@@ -16,6 +16,14 @@ import type { ParsedUrlModel, UrlField } from '../core/url/types.js';
 export interface PanelRenderTarget {
   readonly root: HTMLElement;
   readonly dispatch: (action: PanelAction) => void;
+  readonly layoutState: PanelLayoutState;
+  readonly scrollAnchorId?: string | null;
+}
+
+export interface PanelLayoutState {
+  fieldsPanelOpen: boolean;
+  fieldsPanelBlockSize: number | null;
+  historyListBlockSize: number | null;
 }
 
 interface FocusedTextControlSnapshot {
@@ -24,6 +32,22 @@ interface FocusedTextControlSnapshot {
   readonly selectionStart: number | null;
   readonly selectionEnd: number | null;
 }
+
+interface ScrollSnapshot {
+  readonly selector: string | null;
+  readonly scrollTop: number;
+  readonly scrollLeft: number;
+  readonly anchor?: {
+    readonly id: string;
+    readonly top: number;
+  };
+}
+
+const SCROLL_SNAPSHOT_SELECTORS = [
+  '.image-trail-panel__field-list',
+  '.image-trail-panel__bookmarks-section .image-trail-panel__record-list',
+] as const;
+const MIN_FIELDS_PANEL_BLOCK_SIZE = 160;
 
 function makeButton(label: string, action: PanelAction, dispatch: (action: PanelAction) => void, disabled = false): HTMLButtonElement {
   const button = document.createElement('button');
@@ -65,15 +89,71 @@ function restoreFocusedTextControl(root: HTMLElement, snapshot: FocusedTextContr
   if (!next) return;
   next.value = snapshot.value;
   queueMicrotask(() => {
-    next.focus();
+    next.focus({ preventScroll: true });
     if (snapshot.selectionStart !== null && snapshot.selectionEnd !== null) {
       next.setSelectionRange(snapshot.selectionStart, snapshot.selectionEnd);
     }
   });
 }
 
+function scrollSnapshots(root: HTMLElement, scrollAnchorId?: string | null): readonly ScrollSnapshot[] {
+  const snapshots: ScrollSnapshot[] = [
+    { selector: null, scrollTop: root.scrollTop, scrollLeft: root.scrollLeft, anchor: scrollAnchor(root, scrollAnchorId) },
+  ];
+  for (const selector of SCROLL_SNAPSHOT_SELECTORS) {
+    const element = root.querySelector<HTMLElement>(selector);
+    if (!element) continue;
+    snapshots.push({ selector, scrollTop: element.scrollTop, scrollLeft: element.scrollLeft, anchor: visibleScrollAnchor(element) });
+  }
+  return snapshots;
+}
+
+function restoreScrollSnapshots(root: HTMLElement, snapshots: readonly ScrollSnapshot[]): void {
+  const restore = (): void => {
+    for (const snapshot of snapshots) {
+      const element = snapshot.selector ? root.querySelector<HTMLElement>(snapshot.selector) : root;
+      if (!element) continue;
+      element.scrollTop = snapshot.scrollTop;
+      element.scrollLeft = snapshot.scrollLeft;
+      restoreScrollAnchor(element, snapshot.anchor);
+    }
+  };
+
+  restore();
+  queueMicrotask(restore);
+}
+
+function visibleScrollAnchor(container: HTMLElement): ScrollSnapshot['anchor'] {
+  const containerRect = container.getBoundingClientRect();
+  const anchors = Array.from(container.querySelectorAll<HTMLElement>('[data-image-trail-scroll-anchor]'));
+  for (const anchor of anchors) {
+    const rect = anchor.getBoundingClientRect();
+    if (rect.bottom <= containerRect.top || rect.top >= containerRect.bottom) continue;
+    const id = anchor.dataset.imageTrailScrollAnchor;
+    if (!id) continue;
+    return { id, top: rect.top };
+  }
+  return undefined;
+}
+
+function scrollAnchor(container: HTMLElement, id?: string | null): ScrollSnapshot['anchor'] {
+  if (!id) return undefined;
+  const anchor = container.querySelector<HTMLElement>(`[data-image-trail-scroll-anchor="${CSS.escape(id)}"]`);
+  if (!anchor) return undefined;
+  return { id, top: anchor.getBoundingClientRect().top };
+}
+
+function restoreScrollAnchor(container: HTMLElement, anchor: ScrollSnapshot['anchor']): void {
+  if (!anchor) return;
+  const next = container.querySelector<HTMLElement>(`[data-image-trail-scroll-anchor="${CSS.escape(anchor.id)}"]`);
+  if (!next) return;
+  container.scrollTop += next.getBoundingClientRect().top - anchor.top;
+}
+
 export function renderPanel(target: PanelRenderTarget, state: PanelState): void {
   const focusedTextControl = focusedTextControlSnapshot(target.root);
+  const scrollPositions = scrollSnapshots(target.root, target.scrollAnchorId);
+  const statusView = target.root.querySelector<HTMLElement>('.image-trail-panel__status-section');
 
   target.root.replaceChildren();
 
@@ -188,14 +268,11 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
 
   const actions = document.createElement('div');
   actions.className = 'image-trail-panel__actions';
-  actions.append(
-    makeButton('Ping status', { name: 'ping-status' }, target.dispatch),
-    makeButton('Close', { name: 'close-panel' }, target.dispatch),
-  );
+  actions.append(makeButton('Close', { name: 'close-panel' }, target.dispatch));
 
   target.root.append(
     heading,
-    createStatusView(state, target.dispatch),
+    createStatusView(state, target.dispatch, statusView),
     createUrlEditorView(
       { url: activeUrl },
       {
@@ -218,6 +295,8 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
       {
         busy: state.importExportBusy,
         currentImageUrl: state.target.selectedUrl,
+        selectedHistoryCount: state.selectedHistoryIds.length,
+        selectedBookmarkCount: state.selectedBookmarkIds.length,
         lastMessage: state.importExportMessage,
         lastMessageIsError: state.importExportMessageIsError,
       },
@@ -227,6 +306,8 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
       {
         busy: state.importExportBusy,
         currentImageUrl: state.target.selectedUrl,
+        selectedHistoryCount: state.selectedHistoryIds.length,
+        selectedBookmarkCount: state.selectedBookmarkIds.length,
         lastMessage: state.importExportMessage,
         lastMessageIsError: state.importExportMessageIsError,
       },
@@ -258,6 +339,17 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
         onClearSplit: (baseFieldId) => {
           target.dispatch({ name: 'field-split/clear', baseFieldId });
         },
+        onOpenChange: (open, blockSize) => {
+          target.layoutState.fieldsPanelOpen = open;
+          target.layoutState.fieldsPanelBlockSize = blockSize;
+        },
+        onResize: (blockSize) => {
+          target.layoutState.fieldsPanelBlockSize = Math.max(MIN_FIELDS_PANEL_BLOCK_SIZE, blockSize);
+        },
+      },
+      {
+        open: target.layoutState.fieldsPanelOpen,
+        blockSize: target.layoutState.fieldsPanelBlockSize,
       },
     ),
     createControlsView({
@@ -267,10 +359,16 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
     captureSection,
     navSection,
     autoSection,
-    createHistoryView(state.history, state.captureInProgress, state.blobKeyUnlocked, target.dispatch),
+    createHistoryView(state.history, state.selectedHistoryIds, state.captureInProgress, state.blobKeyUnlocked, target.dispatch, {
+      listBlockSize: target.layoutState.historyListBlockSize,
+      onListResize: (blockSize) => {
+        target.layoutState.historyListBlockSize = blockSize;
+      },
+    }),
     createBookmarksView(
       state.target.selectedUrl,
       state.bookmarks,
+      state.selectedBookmarkIds,
       state.captureInProgress,
       state.blobKeyUnlocked,
       state.bookmarkVisibilityScope,
@@ -285,5 +383,6 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState): void 
     ),
     actions,
   );
+  restoreScrollSnapshots(target.root, scrollPositions);
   restoreFocusedTextControl(target.root, focusedTextControl);
 }
