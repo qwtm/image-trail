@@ -2,6 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { applyFieldLoadFailureToState, reducePanelAction } from '../extension/src/core/actions.js';
 import { createInitialPanelState, setTargetState } from '../extension/src/core/state.js';
+import { isLockedPrivatePin } from '../extension/src/ui/panel.js';
+import { recallDeleteCountForQueue } from '../extension/src/ui/render.js';
 import type { UrlFieldSplitSpec } from '../extension/src/core/url/types.js';
 
 test('switching active fields clears a previous failed field marker', () => {
@@ -212,6 +214,11 @@ test('clearing visible bookmarks is presentation-only state', () => {
   assert.equal(cleared.hasOlderBookmarks, false);
 });
 
+test('recall delete count is derived from durable queue totals', () => {
+  assert.equal(recallDeleteCountForQueue({ bookmarkTotal: 47, bookmarkLimit: 3 }), 44);
+  assert.equal(recallDeleteCountForQueue({ bookmarkTotal: 2, bookmarkLimit: 3 }), 0);
+});
+
 test('settings toggle opens and closes the panel settings section', () => {
   const opened = reducePanelAction(createInitialPanelState(), { name: 'settings/toggle' });
   assert.equal(opened.settingsOpen, true);
@@ -321,6 +328,28 @@ test('clearing recall results does not mutate visible bookmarks', () => {
   assert.deepEqual(cleared.recall.selectedIds, []);
   assert.equal(cleared.recall.hasMore, false);
   assert.equal(cleared.bookmarks.length, 0);
+});
+
+test('locked private placeholders are detected before image export', () => {
+  assert.equal(
+    isLockedPrivatePin({
+      id: 'private-pin',
+      url: 'image-trail-private:private-pin',
+      timestamp: '2026-06-21T00:00:00.000Z',
+      source: 'bookmark',
+      privacyStatus: 'locked',
+    }),
+    true,
+  );
+  assert.equal(
+    isLockedPrivatePin({
+      id: 'plain-pin',
+      url: 'https://example.test/plain.jpg',
+      timestamp: '2026-06-21T00:00:00.000Z',
+      source: 'bookmark',
+    }),
+    false,
+  );
 });
 
 test('recall drawer appends paged candidates without duplicating rows', () => {

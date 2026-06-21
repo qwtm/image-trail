@@ -1687,6 +1687,14 @@ export class ImageTrailPanel {
   private async exportImage(saveAs: boolean): Promise<void> {
     if (this.state.importExportBusy) return;
     const selectedRecordsForDownload = this.selectedImageDownloadRecords();
+    if (selectedRecordsForDownload.some(isLockedPrivatePin)) {
+      this.state = reducePanelAction(this.state, {
+        name: 'import-export/error',
+        message: PRIVATE_PIN_EXPORT_LOCKED_MESSAGE,
+      });
+      this.render();
+      return;
+    }
     const urls =
       selectedRecordsForDownload.length > 0
         ? []
@@ -1763,6 +1771,14 @@ export class ImageTrailPanel {
       this.state = reducePanelAction(this.state, {
         name: 'import-export/error',
         message: 'Unlock encrypted originals before exporting encrypted images.',
+      });
+      this.render();
+      return;
+    }
+    if (this.selectedImageDownloadRecords().some(isLockedPrivatePin)) {
+      this.state = reducePanelAction(this.state, {
+        name: 'import-export/error',
+        message: PRIVATE_PIN_EXPORT_LOCKED_MESSAGE,
       });
       this.render();
       return;
@@ -2166,9 +2182,12 @@ function selectedRecords(records: readonly ImageDisplayRecord[], selectedIds: re
   return records.filter((record) => selected.has(record.id));
 }
 
-function isLockedPrivatePin(record: ImageDisplayRecord): boolean {
+export function isLockedPrivatePin(record: ImageDisplayRecord): boolean {
   return record.privacyStatus === 'locked' || record.url.startsWith('image-trail-private:');
 }
+
+const PRIVATE_PIN_EXPORT_LOCKED_MESSAGE =
+  'Unlock encrypted storage before exporting private pins so their image metadata and originals are available.';
 
 function historyPayloadToDisplayRecord(uuid: string, payload: DurableHistoryPayloadV1): ImageDisplayRecord {
   return createDisplayRecord({

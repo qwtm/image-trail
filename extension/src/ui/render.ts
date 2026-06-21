@@ -35,6 +35,10 @@ export interface PanelLayoutState {
   historyListBlockSize: number | null;
 }
 
+export function recallDeleteCountForQueue(state: Pick<PanelState, 'bookmarkTotal' | 'bookmarkLimit'>): number {
+  return Math.max(0, state.bookmarkTotal - state.bookmarkLimit);
+}
+
 interface FocusedTextControlSnapshot {
   readonly selector: string;
   readonly value: string;
@@ -321,7 +325,7 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState, option
             activeTemplate?.id ?? state.activeUrlTemplateId,
             {
               visibleQueueCount: state.bookmarks.length,
-              recallCount: state.recall.total,
+              recallCount: recallDeleteCountForQueue(state),
               busy: state.importExportBusy || state.recall.busy,
             },
             target.dispatch,
