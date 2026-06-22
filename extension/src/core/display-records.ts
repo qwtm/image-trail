@@ -16,6 +16,10 @@ export interface ImageDisplayRecord {
   readonly captureStatus?: CaptureStatus;
   readonly blobId?: string;
   readonly storedOriginal?: StoredOriginalReference;
+  readonly pinSaveStorage?: {
+    readonly destination: 'encrypted' | 'plaintext';
+    readonly reason?: 'setting' | 'locked' | 'unavailable' | 'failed';
+  };
   readonly privacyStatus?: 'locked' | 'unlocked';
   readonly protectedPin?: {
     readonly plainPinId: string;

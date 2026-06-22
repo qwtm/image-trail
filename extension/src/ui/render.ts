@@ -324,6 +324,11 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState, option
             state.urlTemplates,
             activeTemplate?.id ?? state.activeUrlTemplateId,
             {
+              pinSaveStoragePreference: state.pinSaveStoragePreference,
+              blobKeyUnlocked: state.blobKeyUnlocked,
+              blobKeyAvailable: state.blobKeyAvailable,
+            },
+            {
               visibleQueueCount: state.bookmarks.length,
               recallCount: recallDeleteCountForQueue(state),
               busy: state.importExportBusy || state.recall.busy,

@@ -762,6 +762,7 @@ test('IndexedDbBookmarkStore writes protected pins and locked relationship place
     assert.equal(saved.url, 'https://secret.example.test/protected.jpg');
     assert.equal(saved.title, 'Sensitive title');
     assert.equal(saved.thumbnail, 'data:image/png;base64,dGh1bWJuYWls');
+    assert.deepEqual(saved.pinSaveStorage, { destination: 'encrypted' });
     assert.equal(saved.protectedPin?.hasEncryptedMetadata, true);
     assert.equal(saved.protectedPin?.hasEncryptedThumbnail, true);
   } finally {
@@ -801,6 +802,188 @@ test('IndexedDbBookmarkStore writes protected pins and locked relationship place
   } finally {
     await lockedStore.close();
     lockBlobKey();
+  }
+});
+
+test('IndexedDbBookmarkStore falls back to plaintext when encrypted pin saves are locked', async () => {
+  await deleteImageTrailDb();
+  const store = new IndexedDbBookmarkStore({
+    getActiveBlobKey: () => null,
+    getPinSaveStoragePreference: () => 'encrypted',
+  });
+  try {
+    const saved = await store.save(
+      createDisplayRecord({
+        id: 'https://secret.example.test/locked-fallback.jpg',
+        url: 'https://secret.example.test/locked-fallback.jpg',
+        label: 'locked-fallback.jpg',
+        timestamp: '2026-06-21T00:00:01.000Z',
+        source: 'bookmark',
+      }),
+    );
+
+    assert.deepEqual(saved.pinSaveStorage, { destination: 'plaintext', reason: 'locked' });
+    assert.equal(saved.protectedPin, undefined);
+    const page = await store.loadPage({ offset: 0, limit: 30 });
+    assert.equal(page.items[0]?.url, 'https://secret.example.test/locked-fallback.jpg');
+    assert.equal(page.items[0]?.privacyStatus, undefined);
+  } finally {
+    await store.close();
+  }
+});
+
+test('IndexedDbBookmarkStore honors plaintext pin save preference even when unlocked', async () => {
+  await deleteImageTrailDb();
+  const active = (
+    await createAndActivateWrappedBlobKey({
+      password: 'pin-plaintext-password',
+      uuid: 'pin-plaintext-key',
+      now: '2026-06-21T00:00:00.000Z',
+    })
+  ).active;
+  const store = new IndexedDbBookmarkStore({
+    getActiveBlobKey: () => active,
+    getPinSaveStoragePreference: () => 'plaintext',
+  });
+  try {
+    const saved = await store.save(
+      createDisplayRecord({
+        id: 'https://secret.example.test/plaintext-setting.jpg',
+        url: 'https://secret.example.test/plaintext-setting.jpg',
+        label: 'plaintext-setting.jpg',
+        timestamp: '2026-06-21T00:00:01.000Z',
+        source: 'bookmark',
+      }),
+    );
+
+    assert.deepEqual(saved.pinSaveStorage, { destination: 'plaintext', reason: 'setting' });
+    assert.equal(saved.protectedPin, undefined);
+  } finally {
+    await store.close();
+    lockBlobKey();
+  }
+
+  const db = await openImageTrailDb();
+  assert.ok(db.db);
+  try {
+    assert.deepEqual(await new EncryptedPinsRepository(db.db).getStorageUsage(), { totalBytes: 0, blobCount: 0 });
+  } finally {
+    db.db.close();
+  }
+});
+
+test('IndexedDbBookmarkStore preserves existing protected pins when plaintext saves are preferred', async () => {
+  await deleteImageTrailDb();
+  const active = (
+    await createAndActivateWrappedBlobKey({
+      password: 'pin-existing-protected-password',
+      uuid: 'pin-existing-protected-key',
+      now: '2026-06-21T00:00:00.000Z',
+    })
+  ).active;
+  let preference: 'encrypted' | 'plaintext' = 'encrypted';
+  const store = new IndexedDbBookmarkStore({
+    getActiveBlobKey: () => active,
+    getPinSaveStoragePreference: () => preference,
+  });
+  try {
+    const encrypted = await store.save(
+      createDisplayRecord({
+        id: 'https://secret.example.test/existing-protected.jpg',
+        url: 'https://secret.example.test/existing-protected.jpg',
+        label: 'existing-protected.jpg',
+        thumbnail: 'data:image/png;base64,Zmlyc3Q=',
+        timestamp: '2026-06-21T00:00:01.000Z',
+        source: 'bookmark',
+      }),
+    );
+    preference = 'plaintext';
+    const updated = await store.save(
+      createDisplayRecord({
+        id: 'https://secret.example.test/existing-protected.jpg',
+        url: 'https://secret.example.test/existing-protected.jpg',
+        label: 'existing-protected-updated.jpg',
+        thumbnail: 'data:image/png;base64,c2Vjb25k',
+        timestamp: '2026-06-21T00:00:02.000Z',
+        source: 'bookmark',
+      }),
+    );
+
+    assert.equal(updated.id, encrypted.id);
+    assert.deepEqual(updated.pinSaveStorage, { destination: 'encrypted' });
+    assert.equal(updated.protectedPin?.encryptedPinId, encrypted.protectedPin?.encryptedPinId);
+    assert.equal(updated.label, 'existing-protected-updated.jpg');
+    const unlockedPage = await store.loadPage({ offset: 0, limit: 30 });
+    assert.equal(unlockedPage.items.length, 1);
+    assert.equal(unlockedPage.items[0]?.label, 'existing-protected-updated.jpg');
+  } finally {
+    await store.close();
+    lockBlobKey();
+  }
+
+  const lockedStore = new IndexedDbBookmarkStore({ getActiveBlobKey: () => null });
+  try {
+    const lockedPage = await lockedStore.loadPage({ offset: 0, limit: 30 });
+    assert.equal(lockedPage.items.length, 1);
+    assert.equal(lockedPage.items[0]?.privacyStatus, 'locked');
+  } finally {
+    await lockedStore.close();
+  }
+
+  const db = await openImageTrailDb();
+  assert.ok(db.db);
+  try {
+    assert.equal((await new EncryptedPinsRepository(db.db).getStorageUsage()).blobCount, 1);
+    assert.equal(await new BookmarksRepository(db.db).countEncrypted(), 1);
+  } finally {
+    db.db.close();
+  }
+});
+
+test('IndexedDbBookmarkStore cleans failed protected save attempts before plaintext fallback', async () => {
+  await deleteImageTrailDb();
+  const active = (
+    await createAndActivateWrappedBlobKey({
+      password: 'pin-failed-password',
+      uuid: 'pin-failed-key',
+      now: '2026-06-21T00:00:00.000Z',
+    })
+  ).active;
+  const originalSealAndPut = EncryptedPinsRepository.prototype.sealAndPut;
+  EncryptedPinsRepository.prototype.sealAndPut = async function failingSealAndPut(): ReturnType<EncryptedPinsRepository['sealAndPut']> {
+    throw new Error('simulated encrypted pin failure');
+  };
+  const store = new IndexedDbBookmarkStore({
+    getActiveBlobKey: () => active,
+    getPinSaveStoragePreference: () => 'encrypted',
+  });
+  try {
+    const saved = await store.save(
+      createDisplayRecord({
+        id: 'https://secret.example.test/failed-fallback.jpg',
+        url: 'https://secret.example.test/failed-fallback.jpg',
+        label: 'failed-fallback.jpg',
+        thumbnail: 'data:image/png;base64,Zg==',
+        timestamp: '2026-06-21T00:00:01.000Z',
+        source: 'bookmark',
+      }),
+    );
+
+    assert.deepEqual(saved.pinSaveStorage, { destination: 'plaintext', reason: 'failed' });
+    assert.equal(saved.protectedPin, undefined);
+  } finally {
+    await store.close();
+    EncryptedPinsRepository.prototype.sealAndPut = originalSealAndPut;
+    lockBlobKey();
+  }
+
+  const db = await openImageTrailDb();
+  assert.ok(db.db);
+  try {
+    assert.deepEqual(await new EncryptedPinsRepository(db.db).getStorageUsage(), { totalBytes: 0, blobCount: 0 });
+    assert.deepEqual(await new EncryptedPinThumbnailsRepository(db.db).getStorageUsage(), { totalBytes: 0, blobCount: 0 });
+  } finally {
+    db.db.close();
   }
 });
 

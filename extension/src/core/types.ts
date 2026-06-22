@@ -5,6 +5,7 @@ import type { UrlTemplateMatchMode, UrlTemplateRecord } from './url/templates.js
 import type { UrlFieldSplitSpec } from './url/types.js';
 
 export type PanelStatus = 'idle' | 'ready' | 'closed' | 'unsupported' | 'error' | 'picking';
+export type PinSaveStoragePreference = 'encrypted' | 'plaintext';
 
 export interface TargetState {
   readonly mode: 'auto' | 'manual' | 'none';
@@ -86,6 +87,7 @@ export interface PanelState {
   readonly bookmarkLimit: number;
   readonly bookmarkTotal: number;
   readonly bookmarkVisibilityScope: 'global' | 'site';
+  readonly pinSaveStoragePreference: PinSaveStoragePreference;
   readonly hasOlderBookmarks: boolean;
   readonly hasNewerBookmarks: boolean;
   readonly captureInProgress: boolean;
@@ -150,6 +152,7 @@ export type PanelActionName =
   | 'bookmarks/refresh-thumbnails'
   | 'settings/toggle'
   | 'settings/update-visible-bookmark-soft-max'
+  | 'settings/update-pin-save-storage-preference'
   | 'url-templates/load'
   | 'url-template/remove'
   | 'url-template/update-settings'
@@ -223,6 +226,7 @@ export type PanelAction =
         | 'bookmark-selection/clear'
         | 'bookmarks/page-loaded'
         | 'settings/update-visible-bookmark-soft-max'
+        | 'settings/update-pin-save-storage-preference'
         | 'url-templates/load'
         | 'url-template/remove'
         | 'url-template/update-settings'
@@ -282,6 +286,7 @@ export type PanelAction =
     }
   | { readonly name: 'history/load' | 'history/download' }
   | { readonly name: 'settings/update-visible-bookmark-soft-max'; readonly value: number }
+  | { readonly name: 'settings/update-pin-save-storage-preference'; readonly value: PinSaveStoragePreference }
   | { readonly name: 'url-templates/load'; readonly templates: readonly UrlTemplateRecord[]; readonly activeTemplateId?: string | null }
   | { readonly name: 'url-template/remove'; readonly id: string }
   | {

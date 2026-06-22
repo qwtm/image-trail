@@ -1,7 +1,7 @@
 import type { ImageDisplayRecord } from '../core/display-records.js';
 import { createDisplayRecord } from '../core/display-records.js';
 import { computeSha256 } from '../core/image/fingerprints.js';
-import type { BookmarkStore } from '../core/types.js';
+import type { BookmarkStore, PinSaveStoragePreference } from '../core/types.js';
 import type { ActiveBlobKey } from './crypto/blob-keyring.js';
 import { createKeyReference } from './crypto/key-reference.js';
 import type { KeyReference, StoredKeyRecord } from './crypto/types.js';
@@ -26,6 +26,7 @@ interface BookmarkKeyContext {
 
 interface ProtectedBookmarkOptions {
   readonly getActiveBlobKey?: () => ActiveBlobKey | null;
+  readonly getPinSaveStoragePreference?: () => PinSaveStoragePreference | Promise<PinSaveStoragePreference>;
 }
 
 type BookmarkContext = {
@@ -98,7 +99,34 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
     if (!context) return bookmark;
 
     const activeBlobKey = this.options.getActiveBlobKey?.() ?? null;
-    if (activeBlobKey) return this.saveProtected(context, bookmark, activeBlobKey);
+    const preference = (await this.options.getPinSaveStoragePreference?.()) ?? DEFAULT_LOCAL_SETTINGS.pinSaveStoragePreference;
+    if (preference === 'plaintext') {
+      if (activeBlobKey && (await this.hasProtectedPinForBookmark(context, bookmark))) {
+        return { ...(await this.saveProtected(context, bookmark, activeBlobKey)), pinSaveStorage: { destination: 'encrypted' } };
+      }
+      return this.savePlain(context, bookmark, { destination: 'plaintext', reason: 'setting' });
+    }
+
+    if (activeBlobKey) {
+      try {
+        return { ...(await this.saveProtected(context, bookmark, activeBlobKey)), pinSaveStorage: { destination: 'encrypted' } };
+      } catch {
+        return this.savePlain(context, bookmark, { destination: 'plaintext', reason: 'failed' });
+      }
+    }
+
+    return this.savePlain(context, bookmark, {
+      destination: 'plaintext',
+      reason: this.options.getActiveBlobKey ? 'locked' : 'unavailable',
+    });
+  }
+
+  private async savePlain(
+    context: BookmarkContext,
+    bookmark: ImageDisplayRecord,
+    pinSaveStorage?: ImageDisplayRecord['pinSaveStorage'],
+  ): Promise<ImageDisplayRecord> {
+    const importedDataUrl = bookmark.url.startsWith('data:image/');
 
     const indexUrl = importedDataUrl ? `image-trail-import:${bookmark.id}` : bookmark.url;
     const existing = importedDataUrl
@@ -114,7 +142,11 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
       indexUrl,
       existing?.queueUpdatedAt ?? bookmark.timestamp,
     );
-    return { ...bookmark, id: uuid };
+    return { ...bookmark, id: uuid, pinSaveStorage };
+  }
+
+  private async hasProtectedPinForBookmark(context: BookmarkContext, bookmark: ImageDisplayRecord): Promise<boolean> {
+    return !!(await context.encryptedPins.getByUrlHash(await hashUrl(bookmark.url)));
   }
 
   async loadRecallPage(input: {
@@ -349,38 +381,46 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
     const existingPlainPayload = existingPlain
       ? await context.repository.openRecord(existingPlain, context.bookmarkKey.key).catch(() => null)
       : null;
-    const thumbnail = await this.saveProtectedThumbnail(context, bookmark, activeBlobKey, plainPinId, existingPlainPayload?.protectedPin);
     const queueUpdatedAt = existingPlain?.queueUpdatedAt ?? existingProtected?.queueUpdatedAt ?? bookmark.timestamp;
+    let thumbnail: { readonly id: string } | null = null;
+    try {
+      thumbnail = await this.saveProtectedThumbnail(context, bookmark, activeBlobKey, plainPinId, existingPlainPayload?.protectedPin);
+      const protectedRecord = await context.encryptedPins.sealAndPut({
+        id: encryptedPinId,
+        plainPinId,
+        urlHash,
+        queueUpdatedAt,
+        payload: toProtectedPayload(bookmark, thumbnail?.id),
+        key: activeBlobKey.key,
+        keyReference: activeBlobKey.reference,
+        now: existingProtected?.envelope.updatedAt,
+      });
 
-    const protectedRecord = await context.encryptedPins.sealAndPut({
-      id: encryptedPinId,
-      plainPinId,
-      urlHash,
-      queueUpdatedAt,
-      payload: toProtectedPayload(bookmark, thumbnail?.id),
-      key: activeBlobKey.key,
-      keyReference: activeBlobKey.reference,
-      now: existingProtected?.envelope.updatedAt,
-    });
+      const relationship = protectedRelationship({
+        plainPinId,
+        encryptedPinId,
+        encryptedThumbnailId: thumbnail?.id ?? existingPlainPayload?.protectedPin?.encryptedThumbnailId,
+        storedOriginalBlobId:
+          bookmark.storedOriginal?.blobId ?? bookmark.blobId ?? existingPlainPayload?.protectedPin?.storedOriginalBlobId,
+        queueUpdatedAt,
+      });
+      await context.repository.sealAndPut(
+        plainPinId,
+        toRelationshipPayload(relationship),
+        context.bookmarkKey.key,
+        context.bookmarkKey.reference,
+        existingPlain?.envelope.updatedAt,
+        privatePinUrl(plainPinId),
+        queueUpdatedAt,
+      );
 
-    const relationship = protectedRelationship({
-      plainPinId,
-      encryptedPinId,
-      encryptedThumbnailId: thumbnail?.id ?? existingPlainPayload?.protectedPin?.encryptedThumbnailId,
-      storedOriginalBlobId: bookmark.storedOriginal?.blobId ?? bookmark.blobId,
-      queueUpdatedAt,
-    });
-    await context.repository.sealAndPut(
-      plainPinId,
-      toRelationshipPayload(relationship),
-      context.bookmarkKey.key,
-      context.bookmarkKey.reference,
-      existingPlain?.envelope.updatedAt,
-      privatePinUrl(plainPinId),
-      queueUpdatedAt,
-    );
-
-    return this.openProtectedDisplayRecord(context, protectedRecord, activeBlobKey);
+      return this.openProtectedDisplayRecord(context, protectedRecord, activeBlobKey);
+    } catch (error) {
+      const existingThumbnailId = existingPlainPayload?.protectedPin?.encryptedThumbnailId;
+      if (thumbnail?.id && thumbnail.id !== existingThumbnailId) await context.encryptedThumbnails.remove(thumbnail.id);
+      if (!existingProtected) await context.encryptedPins.remove(encryptedPinId);
+      throw error;
+    }
   }
 
   private async saveProtectedThumbnail(

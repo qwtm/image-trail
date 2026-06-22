@@ -1,4 +1,5 @@
 import { VISIBLE_BOOKMARK_SOFT_MAX_LIMITS } from '../core/settings.js';
+import type { PinSaveStoragePreference } from '../core/types.js';
 
 export interface PlaintextLocalSettings {
   readonly schemaVersion: 1;
@@ -7,6 +8,7 @@ export interface PlaintextLocalSettings {
   readonly panelDock: 'right' | 'left';
   readonly visibleBookmarkSoftMax: number;
   readonly bookmarkVisibilityScope: 'global' | 'site';
+  readonly pinSaveStoragePreference: PinSaveStoragePreference;
 }
 
 export const DEFAULT_LOCAL_SETTINGS: PlaintextLocalSettings = {
@@ -16,6 +18,7 @@ export const DEFAULT_LOCAL_SETTINGS: PlaintextLocalSettings = {
   panelDock: 'right',
   visibleBookmarkSoftMax: 30,
   bookmarkVisibilityScope: 'global',
+  pinSaveStoragePreference: 'encrypted',
 };
 
 export const LOCAL_SETTINGS_KEY = 'imageTrail.localSettings';
@@ -61,7 +64,14 @@ export function migrateLocalSettings(input: Partial<PlaintextLocalSettings>): Pl
       ? input.visibleBookmarkSoftMax
       : DEFAULT_LOCAL_SETTINGS.visibleBookmarkSoftMax,
     bookmarkVisibilityScope: input.bookmarkVisibilityScope === 'site' ? 'site' : 'global',
+    pinSaveStoragePreference: isPinSaveStoragePreference(input.pinSaveStoragePreference)
+      ? input.pinSaveStoragePreference
+      : DEFAULT_LOCAL_SETTINGS.pinSaveStoragePreference,
   };
+}
+
+export function isPinSaveStoragePreference(value: unknown): value is PinSaveStoragePreference {
+  return value === 'encrypted' || value === 'plaintext';
 }
 
 function isSafeThrottle(value: unknown): value is number {

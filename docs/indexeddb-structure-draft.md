@@ -268,6 +268,8 @@ Protected relationship payloads use the same store but keep sensitive fields emp
 
 Stores protected pin metadata using the existing password-unlocked blob key. This store is owned by the service worker; content scripts request bookmark/Recall data through extension messages and never open encrypted pin storage directly.
 
+New pin writes prefer this protected path only when the extension-owned `pinSaveStoragePreference` local setting is `encrypted` and encrypted blob storage is unlocked. If that setting is `plaintext`, or if encryption is locked/unavailable/fails, new pins save through the plaintext compatibility path. The setting does not migrate or rewrite existing records.
+
 Primary key:
 
 ```text

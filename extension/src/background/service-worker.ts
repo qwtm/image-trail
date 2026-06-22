@@ -99,7 +99,10 @@ interface PreviewPayload {
 }
 
 const previewPayloads = new Map<string, PreviewPayload>();
-const bookmarkStore = new IndexedDbBookmarkStore({ getActiveBlobKey });
+const bookmarkStore = new IndexedDbBookmarkStore({
+  getActiveBlobKey,
+  getPinSaveStoragePreference: async () => (await loadLocalSettings()).pinSaveStoragePreference,
+});
 const panelPositionStore = new IndexedDbPanelPositionStore();
 const urlTemplateStore = new IndexedDbUrlTemplateStore();
 const recentHistoryBySite = new Map<string, import('../core/display-records.js').ImageDisplayRecord[]>();
@@ -495,16 +498,20 @@ async function handleDeleteUrlTemplate(
 }
 
 async function handleLoadLocalSettings(): Promise<import('./messages.js').LoadLocalSettingsResultMessage['payload']> {
+  return { ok: true, settings: await loadLocalSettings() };
+}
+
+async function loadLocalSettings(): Promise<typeof DEFAULT_LOCAL_SETTINGS> {
   const stored = await chrome.storage.local.get(LOCAL_SETTINGS_KEY);
   const raw = stored[LOCAL_SETTINGS_KEY];
   if (typeof raw === 'string') {
     try {
-      return { ok: true, settings: migrateLocalSettings(JSON.parse(raw) as Partial<typeof DEFAULT_LOCAL_SETTINGS>) };
+      return migrateLocalSettings(JSON.parse(raw) as Partial<typeof DEFAULT_LOCAL_SETTINGS>);
     } catch {
-      return { ok: true, settings: DEFAULT_LOCAL_SETTINGS };
+      return DEFAULT_LOCAL_SETTINGS;
     }
   }
-  return { ok: true, settings: migrateLocalSettings(typeof raw === 'object' && raw !== null ? raw : DEFAULT_LOCAL_SETTINGS) };
+  return migrateLocalSettings(typeof raw === 'object' && raw !== null ? raw : DEFAULT_LOCAL_SETTINGS);
 }
 
 async function handleSaveLocalSettings(

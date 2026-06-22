@@ -1,4 +1,4 @@
-import type { PanelAction } from '../../core/types.js';
+import type { PanelAction, PinSaveStoragePreference } from '../../core/types.js';
 import type { UrlTemplateMatchMode, UrlTemplateRecord } from '../../core/url/templates.js';
 import { VISIBLE_BOOKMARK_SOFT_MAX_LIMITS } from '../../core/settings.js';
 
@@ -12,6 +12,11 @@ export function createSettingsView(
   visibleBookmarkSoftMax: number,
   templates: readonly UrlTemplateRecord[],
   activeTemplateId: string | null,
+  privatePinState: {
+    readonly pinSaveStoragePreference: PinSaveStoragePreference;
+    readonly blobKeyUnlocked: boolean;
+    readonly blobKeyAvailable: boolean;
+  },
   destructiveState: {
     readonly visibleQueueCount: number;
     readonly recallCount: number;
@@ -60,10 +65,56 @@ export function createSettingsView(
   section.append(
     heading,
     form,
+    createPrivatePinSettingsView(privatePinState, dispatch),
     createDestructiveSettingsView(destructiveState, dispatch),
     createTemplateSettingsView(templates, activeTemplateId, dispatch),
   );
   return section;
+}
+
+function createPrivatePinSettingsView(
+  state: {
+    readonly pinSaveStoragePreference: PinSaveStoragePreference;
+    readonly blobKeyUnlocked: boolean;
+    readonly blobKeyAvailable: boolean;
+  },
+  dispatch: (action: PanelAction) => void,
+): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'image-trail-panel__settings-templates';
+
+  const heading = document.createElement('h4');
+  heading.textContent = 'Private pins';
+
+  const label = document.createElement('label');
+  label.className = 'image-trail-panel__settings-checkbox';
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.checked = state.pinSaveStoragePreference === 'encrypted';
+  input.addEventListener('change', () => {
+    dispatch({ name: 'settings/update-pin-save-storage-preference', value: input.checked ? 'encrypted' : 'plaintext' });
+  });
+  const text = document.createElement('span');
+  text.textContent = 'Prefer encrypted pin saves';
+  label.append(input, text);
+
+  const meta = document.createElement('p');
+  meta.className = 'image-trail-panel__settings-empty';
+  meta.textContent = privatePinSettingsMessage(state);
+
+  wrapper.append(heading, label, meta);
+  return wrapper;
+}
+
+function privatePinSettingsMessage(state: {
+  readonly pinSaveStoragePreference: PinSaveStoragePreference;
+  readonly blobKeyUnlocked: boolean;
+  readonly blobKeyAvailable: boolean;
+}): string {
+  if (state.pinSaveStoragePreference === 'plaintext') return 'New pins save plaintext by current storage setting.';
+  if (state.blobKeyUnlocked) return 'New pins save encrypted while encrypted storage is unlocked.';
+  if (state.blobKeyAvailable) return 'New pins save plaintext until encrypted storage is unlocked.';
+  return 'New pins save plaintext until encrypted storage is set up.';
 }
 
 function createDestructiveSettingsView(
