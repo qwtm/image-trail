@@ -37,6 +37,7 @@ export const EMPTY_RECALL_STATE: RecallState = {
 export function createInitialPanelState(now = Date.now()): PanelState {
   return {
     visible: false,
+    minimized: false,
     status: 'idle',
     message: 'Image Trail is ready.',
     lastUpdatedAt: now,
@@ -85,6 +86,7 @@ export function closePanel(state: PanelState, now = Date.now()): PanelState {
   return {
     ...state,
     visible: false,
+    minimized: false,
     status: 'closed',
     message: 'Panel closed.',
     lastUpdatedAt: now,

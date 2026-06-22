@@ -679,6 +679,15 @@ export class ImageTrailPanel {
       return;
     }
 
+    if (action.name === 'panel/minimize' || action.name === 'panel/expand') {
+      this.state = reducePanelAction(this.state, action);
+      this.mount();
+      this.keyboard.enable();
+      this.pageAdapter.enableBookmarkShortcut();
+      this.render();
+      return;
+    }
+
     if (action.name === 'url-template/remove') {
       void this.removeUrlTemplate(action.id);
       return;
@@ -2216,8 +2225,10 @@ export class ImageTrailPanel {
         this.state,
         { renderRecall: options.includeRecall !== false },
       );
-      this.queuePanelPositionRestore();
-      this.applyRestoredPanelPosition();
+      if (!this.state.minimized) {
+        this.queuePanelPositionRestore();
+        this.applyRestoredPanelPosition();
+      }
     }
   }
 
