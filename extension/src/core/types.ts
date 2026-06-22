@@ -78,6 +78,7 @@ export interface RecallState {
 
 export interface PanelState {
   readonly visible: boolean;
+  readonly minimized: boolean;
   readonly status: PanelStatus;
   readonly message: string;
   readonly lastUpdatedAt: number;
@@ -124,6 +125,8 @@ export type CaptureSourceType = 'target' | 'history' | 'bookmark';
 export type PanelActionName =
   | 'toggle-panel'
   | 'close-panel'
+  | 'panel/minimize'
+  | 'panel/expand'
   | 'start-target-picker'
   | 'stop-target-picker'
   | 'grab-mode/start'

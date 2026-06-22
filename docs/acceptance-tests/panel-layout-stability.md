@@ -16,6 +16,9 @@ Purpose: verify that panel sections keep predictable sizing while the user inter
 - Hovering or scrolling over parsed fields must not prevent the outer panel from scrolling.
 - Recent history defaults to a three-row visible height and may be resized by the user.
 - Bookmarks remain uncapped unless a later requirement explicitly changes that rule.
+- The panel can be minimized to a compact Image Trail button docked on the viewport edge without closing the extension session.
+- Minimizing the panel does not stop Grab Mode, target picking, or page-level shift-click capture behavior.
+- Clicking the compact Image Trail button expands the full panel again.
 
 ## Steps
 
@@ -35,6 +38,12 @@ Purpose: verify that panel sections keep predictable sizing while the user inter
 14. Verify the height is recalculated for the current parsed-field rows.
 15. Resize parsed fields manually.
 16. Verify subsequent image, recent history, and bookmark clicks do not override the manually resized height while parsed fields remains open.
+17. Click the panel minimize button.
+18. Verify the panel collapses to one compact `Image Trail` button docked on the viewport edge.
+19. If Grab Mode is active, verify the minimized button remains visibly marked as active.
+20. Verify Grab Mode and shift-click image capture still work while the panel is minimized.
+21. Click the compact `Image Trail` button.
+22. Verify the full panel expands again.
 
 ## Expected Result
 
@@ -42,3 +51,4 @@ Purpose: verify that panel sections keep predictable sizing while the user inter
 - Parsed fields height changes only on close/reopen or direct user resize.
 - Recent history and bookmark interactions do not cause panel jumping.
 - The outer panel remains scrollable while interacting with parsed fields.
+- Minimized mode reduces the panel to one compact viewport-edge button and preserves active page workflows.

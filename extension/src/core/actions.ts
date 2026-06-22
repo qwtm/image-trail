@@ -133,6 +133,10 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
       return state.visible ? closePanel(state) : showPanel(state);
     case 'close-panel':
       return closePanel(state);
+    case 'panel/minimize':
+      return { ...state, visible: true, minimized: true, lastUpdatedAt: Date.now() };
+    case 'panel/expand':
+      return { ...state, visible: true, minimized: false, lastUpdatedAt: Date.now() };
     case 'start-target-picker':
       return { ...state, status: 'picking', message: 'Pick mode is active. Click the intended image.', lastUpdatedAt: Date.now() };
     case 'stop-target-picker':

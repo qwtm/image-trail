@@ -111,6 +111,31 @@ test('Grab Mode actions expose sticky page-image grab status', () => {
   assert.equal(stopped.message, 'Grab Mode stopped.');
 });
 
+test('minimized panel stays visible without stopping Grab Mode', () => {
+  const state = {
+    ...createInitialPanelState(),
+    visible: true,
+    target: { ...createInitialPanelState().target, grabModeActive: true, picking: true },
+  };
+
+  const minimized = reducePanelAction(state, { name: 'panel/minimize' });
+  assert.equal(minimized.visible, true);
+  assert.equal(minimized.minimized, true);
+  assert.equal(minimized.target.grabModeActive, true);
+  assert.equal(minimized.target.picking, true);
+
+  const expanded = reducePanelAction(minimized, { name: 'panel/expand' });
+  assert.equal(expanded.visible, true);
+  assert.equal(expanded.minimized, false);
+  assert.equal(expanded.target.grabModeActive, true);
+
+  const closed = reducePanelAction(expanded, { name: 'close-panel' });
+  assert.equal(closed.visible, false);
+  assert.equal(closed.minimized, false);
+  assert.equal(closed.target.grabModeActive, true);
+  assert.equal(closed.target.picking, false);
+});
+
 test('Previous/Next inclusion toggle only changes successful fields', () => {
   const state = { ...createInitialPanelState(), successfulFieldIds: ['q:0:0'] };
 

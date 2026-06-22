@@ -94,14 +94,35 @@ function createPanelHeader(state: PanelState, target: PanelRenderTarget): HTMLEl
   settings.title = state.settingsOpen ? 'Hide settings' : 'Show settings';
   settings.setAttribute('aria-pressed', state.settingsOpen ? 'true' : 'false');
 
+  const minimize = makeButton('-', { name: 'panel/minimize' }, target.dispatch);
+  minimize.className = 'image-trail-panel__icon-button';
+  minimize.setAttribute('aria-label', 'Minimize panel');
+  minimize.title = 'Minimize panel';
+
   const close = makeButton('X', { name: 'close-panel' }, target.dispatch);
   close.className = 'image-trail-panel__icon-button';
   close.setAttribute('aria-label', 'Close panel');
   close.title = 'Close panel';
 
-  actions.append(settings, close);
+  actions.append(settings, minimize, close);
   header.append(heading, actions);
   return header;
+}
+
+function createMinimizedPanel(state: PanelState, target: PanelRenderTarget): HTMLElement {
+  const container = document.createElement('div');
+  container.className = 'image-trail-panel__minimized';
+
+  const button = makeButton('Image Trail', { name: 'panel/expand' }, target.dispatch);
+  button.className = 'image-trail-panel__minimized-button';
+  button.setAttribute(
+    'aria-label',
+    state.target.grabModeActive ? 'Expand Image Trail panel. Grab Mode is active.' : 'Expand Image Trail panel',
+  );
+  button.title = state.target.grabModeActive ? 'Expand Image Trail panel. Grab Mode is active.' : 'Expand Image Trail panel';
+  button.dataset.grabMode = state.target.grabModeActive ? 'active' : 'inactive';
+  container.append(button);
+  return container;
 }
 
 function focusedTextControlSnapshot(root: HTMLElement): FocusedTextControlSnapshot | null {
@@ -197,6 +218,13 @@ function restoreScrollAnchor(container: HTMLElement, anchor: ScrollSnapshot['anc
 }
 
 export function renderPanel(target: PanelRenderTarget, state: PanelState, options: PanelRenderOptions = {}): void {
+  target.root.classList.toggle('is-minimized', state.minimized);
+  if (state.minimized) {
+    target.root.replaceChildren(createMinimizedPanel(state, target));
+    if (target.recallRoot && options.renderRecall !== false) target.recallRoot.replaceChildren();
+    return;
+  }
+
   const focusedTextControl = focusedTextControlSnapshot(target.root);
   const scrollPositions = scrollSnapshots(target.root, target.scrollAnchorId);
   const statusView = target.root.querySelector<HTMLElement>('.image-trail-panel__status-section');
@@ -485,6 +513,10 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState, option
 export function renderRecallDrawer(target: PanelRenderTarget, state: PanelState): void {
   const recallRoot = target.recallRoot;
   if (!recallRoot) return;
+  if (state.minimized) {
+    recallRoot.replaceChildren();
+    return;
+  }
   const animate = !recallRoot.querySelector('.image-trail-panel__recall-drawer');
   const previousList = recallRoot.querySelector<HTMLElement>('.image-trail-panel__recall-list');
   const previousScrollTop = previousList?.scrollTop ?? 0;
