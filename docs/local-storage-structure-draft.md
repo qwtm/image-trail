@@ -133,6 +133,7 @@ Plaintext local settings are acceptable for:
 - Navigation step/direction.
 - Request throttle values.
 - Visible bookmark/pin queue soft max. This controls how many durable queue records appear in the main panel; Recall starts after that visible window and pages remaining durable pins/bookmarks.
+- Pin save storage preference. This is a write-path preference (`encrypted` or `plaintext`), not a claim about where existing pins are stored.
 - Preview styling values.
 - Non-sensitive automation defaults.
 - Storage size caps and usage indicator preference.
@@ -180,7 +181,18 @@ Migration examples:
 003-add-runtime-history-window-settings
 004-add-locked-setting-refs
 005-add-field-visibility-settings
+006-add-pin-save-storage-preference
 ```
+
+## Pin Save Storage Preference
+
+`pinSaveStoragePreference` controls only future pin writes:
+
+- `encrypted` means prefer protected pin metadata and encrypted thumbnail storage when encrypted blob storage is unlocked and usable.
+- `plaintext` means save new pins through the plaintext compatibility path even when encrypted storage is unlocked.
+- If encrypted is preferred but encryption is locked, unavailable, or a protected save fails, the pin still saves through the plaintext compatibility path and the panel should show plaintext fallback status.
+
+Changing this setting must not migrate, reseal, rewrite, delete, or rebalance existing pins. Reads, Recall paging, queue ordering, export, delete, and clear behavior continue to follow the durable pin records and relationship rows already in storage.
 
 ## Validation Rules
 

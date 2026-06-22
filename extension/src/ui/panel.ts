@@ -249,6 +249,7 @@ export class ImageTrailPanel {
       ...this.state,
       bookmarkVisibilityScope: this.localSettings.bookmarkVisibilityScope,
       bookmarkLimit: this.localSettings.visibleBookmarkSoftMax,
+      pinSaveStoragePreference: this.localSettings.pinSaveStoragePreference,
       lastUpdatedAt: Date.now(),
     };
     this.render();
@@ -352,6 +353,13 @@ export class ImageTrailPanel {
     this.saveLocalSettings({ ...this.localSettings, visibleBookmarkSoftMax: value });
     await this.loadBookmarkPage(0, { render: false });
     this.renderPanelAndRefreshRecall();
+  }
+
+  private updatePinSaveStoragePreference(value: PlaintextLocalSettings['pinSaveStoragePreference']): void {
+    if (value === this.state.pinSaveStoragePreference) return;
+    this.state = reducePanelAction(this.state, { name: 'settings/update-pin-save-storage-preference', value });
+    this.saveLocalSettings({ ...this.localSettings, pinSaveStoragePreference: value });
+    this.render();
   }
 
   private loadRecentHistory = async (): Promise<void> => {
@@ -575,6 +583,11 @@ export class ImageTrailPanel {
 
     if (action.name === 'settings/update-visible-bookmark-soft-max') {
       void this.updateVisibleBookmarkSoftMax(action.value);
+      return;
+    }
+
+    if (action.name === 'settings/update-pin-save-storage-preference') {
+      this.updatePinSaveStoragePreference(action.value);
       return;
     }
 
@@ -1149,7 +1162,7 @@ export class ImageTrailPanel {
       source: 'bookmark',
     });
     const bookmark = this.bookmarkStore ? await this.bookmarkStore.save(draft) : draft;
-    this.state = { ...this.state, message: `Added to Image Trail: ${bookmark.url}`, lastUpdatedAt: Date.now() };
+    this.state = { ...this.state, message: bookmarkSaveMessage(bookmark), lastUpdatedAt: Date.now() };
     await this.loadBookmarkPage(0, { render: false });
     this.renderPanelAndRefreshRecall();
     return true;
@@ -1175,7 +1188,7 @@ export class ImageTrailPanel {
     this.state = {
       ...this.state,
       history: history.slice(0, 30),
-      message: `Added imported image to Image Trail: ${bookmark.label ?? file.name}`,
+      message: bookmarkSaveMessage(bookmark, bookmark.label ?? file.name),
       lastUpdatedAt: Date.now(),
     };
     await this.loadBookmarkPage(0, { render: false });
@@ -2184,6 +2197,21 @@ function selectedRecords(records: readonly ImageDisplayRecord[], selectedIds: re
 
 export function isLockedPrivatePin(record: ImageDisplayRecord): boolean {
   return record.privacyStatus === 'locked' || record.url.startsWith('image-trail-private:');
+}
+
+function bookmarkSaveMessage(record: ImageDisplayRecord, label = record.url): string {
+  if (record.pinSaveStorage?.destination !== 'plaintext') return `Added to Image Trail: ${label}`;
+  switch (record.pinSaveStorage.reason) {
+    case 'setting':
+      return `Saved plaintext pin by current storage setting: ${label}`;
+    case 'failed':
+      return `Saved plaintext pin because encrypted storage failed: ${label}`;
+    case 'unavailable':
+      return `Saved plaintext pin because encrypted storage is not set up: ${label}`;
+    case 'locked':
+    default:
+      return `Saved plaintext pin because encrypted storage is locked: ${label}`;
+  }
 }
 
 const PRIVATE_PIN_EXPORT_LOCKED_MESSAGE =

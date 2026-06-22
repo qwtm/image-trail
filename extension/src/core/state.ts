@@ -47,6 +47,7 @@ export function createInitialPanelState(now = Date.now()): PanelState {
     bookmarkLimit: 30,
     bookmarkTotal: 0,
     bookmarkVisibilityScope: 'global',
+    pinSaveStoragePreference: 'encrypted',
     hasOlderBookmarks: false,
     hasNewerBookmarks: false,
     captureInProgress: false,

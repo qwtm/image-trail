@@ -98,6 +98,9 @@ test('loads typed plaintext local settings through defaults and migrations', () 
   assert.equal(repository.load().panelDock, 'left');
   assert.equal(repository.load().visibleBookmarkSoftMax, 30);
   assert.equal(repository.load().bookmarkVisibilityScope, 'global');
+  assert.equal(repository.load().pinSaveStoragePreference, 'encrypted');
+  repository.save({ ...DEFAULT_LOCAL_SETTINGS, pinSaveStoragePreference: 'plaintext' });
+  assert.equal(repository.load().pinSaveStoragePreference, 'plaintext');
 });
 
 test('falls back to plaintext local setting defaults when storage is corrupt', () => {
@@ -154,6 +157,25 @@ test('migrates bookmark visibility scope setting safely', () => {
 
   assert.equal(site.load().bookmarkVisibilityScope, 'site');
   assert.equal(invalid.load().bookmarkVisibilityScope, DEFAULT_LOCAL_SETTINGS.bookmarkVisibilityScope);
+});
+
+test('migrates pin save storage preference setting safely', () => {
+  const plaintext = new LocalSettingsRepository({
+    getItem: () => JSON.stringify({ pinSaveStoragePreference: 'plaintext' }),
+    setItem: () => {},
+  });
+  const encrypted = new LocalSettingsRepository({
+    getItem: () => JSON.stringify({ pinSaveStoragePreference: 'encrypted' }),
+    setItem: () => {},
+  });
+  const invalid = new LocalSettingsRepository({
+    getItem: () => JSON.stringify({ pinSaveStoragePreference: 'private-ish' }),
+    setItem: () => {},
+  });
+
+  assert.equal(plaintext.load().pinSaveStoragePreference, 'plaintext');
+  assert.equal(encrypted.load().pinSaveStoragePreference, 'encrypted');
+  assert.equal(invalid.load().pinSaveStoragePreference, DEFAULT_LOCAL_SETTINGS.pinSaveStoragePreference);
 });
 
 test('tracks session unlock state without persisting key material', async () => {

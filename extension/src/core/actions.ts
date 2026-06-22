@@ -387,6 +387,8 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
       return { ...state, settingsOpen: !state.settingsOpen, lastUpdatedAt: Date.now() };
     case 'settings/update-visible-bookmark-soft-max':
       return { ...state, bookmarkLimit: action.value, bookmarkOffset: 0, lastUpdatedAt: Date.now() };
+    case 'settings/update-pin-save-storage-preference':
+      return { ...state, pinSaveStoragePreference: action.value, lastUpdatedAt: Date.now() };
     case 'url-templates/load':
       return {
         ...state,

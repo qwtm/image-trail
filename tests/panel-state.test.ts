@@ -227,6 +227,15 @@ test('settings toggle opens and closes the panel settings section', () => {
   assert.equal(closed.settingsOpen, false);
 });
 
+test('updating pin save storage preference only changes future save preference state', () => {
+  const state = createInitialPanelState();
+  const updated = reducePanelAction(state, { name: 'settings/update-pin-save-storage-preference', value: 'plaintext' });
+
+  assert.equal(updated.pinSaveStoragePreference, 'plaintext');
+  assert.equal(updated.bookmarkOffset, state.bookmarkOffset);
+  assert.deepEqual(updated.bookmarks, state.bookmarks);
+});
+
 test('record selection prunes removed and unloaded rows', () => {
   const state = {
     ...createInitialPanelState(),
