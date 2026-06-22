@@ -334,7 +334,9 @@ export class PageAdapter {
 
   private activeGrabStrategyForTarget(target: Element): GrabStrategy {
     const sourcePattern = this.grabSourcePatternForTarget(target);
-    const strategy = normalizeGrabStrategy(sourcePattern?.grabStrategy) ?? this.activeTemplateGrabStrategy;
+    const strategy = sourcePattern
+      ? (normalizeGrabStrategy(sourcePattern.grabStrategy) ?? { kind: 'clicked-image' })
+      : this.activeTemplateGrabStrategy;
     return this.grabStrategies.find((candidate) => candidate.id === strategy?.kind) ?? this.grabStrategies[1]!;
   }
 
@@ -360,7 +362,10 @@ export class PageAdapter {
     }
 
     try {
-      const grabStrategy = normalizeGrabStrategy(this.grabSourcePatternForTarget(target)?.grabStrategy) ?? this.activeTemplateGrabStrategy;
+      const sourcePattern = this.grabSourcePatternForTarget(target);
+      const grabStrategy = sourcePattern
+        ? (normalizeGrabStrategy(sourcePattern.grabStrategy) ?? { kind: 'clicked-image' })
+        : this.activeTemplateGrabStrategy;
       const strategy = grabStrategy?.kind === 'linked-page-image' ? grabStrategy : DEFAULT_LINKED_PAGE_IMAGE_GRAB_STRATEGY;
       const imageUrl = await resolveLinkedPageImage(pageUrl.href, strategy);
       await this.emitBookmarkResolvedUrl(imageUrl);
@@ -396,13 +401,17 @@ export class PageAdapter {
   }
 
   private grabSourcePatternUrlForTarget(target: Element): URL | null {
+    const link = target.closest('a[href]');
+    if (link instanceof HTMLAnchorElement) {
+      const linkUrl = safeHttpUrl(link.href, document.baseURI);
+      if (linkUrl) return linkUrl;
+    }
     const image = findImageFromShortcutTarget(target);
     if (image instanceof HTMLImageElement) {
       const imageUrl = safeHttpUrl(image.currentSrc || image.src, document.baseURI);
       if (imageUrl) return imageUrl;
     }
-    const link = target.closest('a[href]');
-    return link instanceof HTMLAnchorElement ? safeHttpUrl(link.href, document.baseURI) : null;
+    return null;
   }
 
   private async bookmarkPageImage(image: HTMLImageElement): Promise<void> {
