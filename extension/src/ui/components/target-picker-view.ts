@@ -8,7 +8,7 @@ export function createTargetPickerView(
 ): HTMLElement {
   const wrapper = document.createElement('details');
   wrapper.className = 'image-trail-panel__section image-trail-panel__target-utility';
-  wrapper.open = target.picking || target.mode !== 'auto' || target.candidateCount !== 1;
+  wrapper.open = target.picking || target.grabModeActive || target.mode !== 'auto' || target.candidateCount !== 1;
 
   const heading = document.createElement('summary');
   heading.className = 'image-trail-panel__target-summary';

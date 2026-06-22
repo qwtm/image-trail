@@ -69,7 +69,7 @@ export class PageAdapter {
   private selectedLockBox = false;
   private bookmarkShortcutActive = false;
   private grabModeActive = false;
-  private suppressNextBookmarkShortcutClick = false;
+  private suppressBookmarkShortcutClickTarget: EventTarget | null = null;
   private readonly grabStrategies: readonly GrabStrategy[] = [
     {
       id: 'bookmark-image',
@@ -251,15 +251,16 @@ export class PageAdapter {
 
   private onBookmarkShortcutPointerDown = (event: PointerEvent): void => {
     if (this.handleBookmarkShortcutEvent(event)) {
-      this.suppressNextBookmarkShortcutClick = true;
+      this.suppressBookmarkShortcutClickTarget = event.target;
       window.setTimeout(() => {
-        this.suppressNextBookmarkShortcutClick = false;
+        if (this.suppressBookmarkShortcutClickTarget === event.target) this.suppressBookmarkShortcutClickTarget = null;
       }, 700);
     }
   };
 
   private onBookmarkShortcutClick = (event: MouseEvent): void => {
-    if (this.suppressNextBookmarkShortcutClick) {
+    if (this.suppressBookmarkShortcutClickTarget === event.target) {
+      this.suppressBookmarkShortcutClickTarget = null;
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
