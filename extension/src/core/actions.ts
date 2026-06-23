@@ -457,14 +457,18 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
     case 'settings/update-privacy-mode':
       return { ...state, privacyModeEnabled: action.enabled, lastUpdatedAt: Date.now() };
     case 'url-templates/load': {
-      const activeTemplate = action.templates.find((template) => template.id === action.activeTemplateId);
       const previousActiveTemplate = state.urlTemplates.find((template) => template.id === state.activeUrlTemplateId);
+      const preservedFailedDraftTemplate =
+        state.status === 'error' && state.draftUrl && previousActiveTemplate
+          ? action.templates.find((template) => template.id === previousActiveTemplate.id)
+          : undefined;
+      const activeTemplate = action.templates.find((template) => template.id === action.activeTemplateId) ?? preservedFailedDraftTemplate;
       const previousActiveFieldIds =
         !activeTemplate && previousActiveTemplate ? previousActiveTemplate.fields.map((field) => field.id) : [];
       return {
         ...state,
         urlTemplates: action.templates,
-        activeUrlTemplateId: action.activeTemplateId ?? null,
+        activeUrlTemplateId: activeTemplate?.id ?? null,
         unlockedFieldIds: activeTemplate
           ? activeTemplate.fields.map((field) => field.id)
           : removeItems(state.unlockedFieldIds, previousActiveFieldIds),
@@ -524,6 +528,20 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
               })
             : pattern,
         ),
+        lastUpdatedAt: Date.now(),
+      };
+    case 'parsed-field-state/restore':
+      return {
+        ...state,
+        activeFieldId: action.record.activeFieldId,
+        failedFieldId: action.record.failedFieldId,
+        successfulFieldIds: action.record.successfulFieldIds,
+        unchangedFieldIds: action.record.unchangedFieldIds,
+        unlockedFieldIds: action.record.unlockedFieldIds,
+        manuallyExcludedFieldIds: action.record.manuallyExcludedFieldIds,
+        fieldSplitSpecs: action.record.fieldSplitSpecs,
+        activeUrlTemplateId: action.record.activeUrlTemplateId,
+        draftUrl: action.record.sourceUrl === action.record.selectedUrl ? null : action.record.sourceUrl,
         lastUpdatedAt: Date.now(),
       };
     case 'capture/request':

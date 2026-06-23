@@ -32,6 +32,8 @@ import {
   createLoadLocalSettingsResultMessage,
   createLoadPanelPositionMessage,
   createLoadPanelPositionResultMessage,
+  createLoadParsedFieldStateMessage,
+  createLoadParsedFieldStateResultMessage,
   createListGrabSourcePatternsMessage,
   createListGrabSourcePatternsResultMessage,
   createListUrlTemplatesMessage,
@@ -61,6 +63,8 @@ import {
   createSaveLocalSettingsResultMessage,
   createSavePanelPositionMessage,
   createSavePanelPositionResultMessage,
+  createSaveParsedFieldStateMessage,
+  createSaveParsedFieldStateResultMessage,
   createSaveGrabSourcePatternMessage,
   createSaveGrabSourcePatternResultMessage,
   createSaveUrlTemplateMessage,
@@ -89,6 +93,7 @@ import {
   isLoadBookmarksByIdsResultMessage,
   isLoadLocalSettingsResultMessage,
   isLoadPanelPositionResultMessage,
+  isLoadParsedFieldStateResultMessage,
   isListGrabSourcePatternsResultMessage,
   isListUrlTemplatesResultMessage,
   isLoadRecallCandidatesResultMessage,
@@ -103,6 +108,7 @@ import {
   isSaveBookmarkResultMessage,
   isSaveLocalSettingsResultMessage,
   isSavePanelPositionResultMessage,
+  isSaveParsedFieldStateResultMessage,
   isSaveGrabSourcePatternResultMessage,
   isSaveUrlTemplateResultMessage,
   isDeleteGrabSourcePatternResultMessage,
@@ -167,6 +173,42 @@ test('creates panel position messages', () => {
   assert.equal(isExtensionRequest(remove), true);
   assert.equal(isExtensionResponse(removeResult), true);
   assert.equal(isDeletePanelPositionResultMessage(removeResult), true);
+});
+
+test('creates parsed field state messages', () => {
+  const record = {
+    schemaVersion: 1 as const,
+    hostname: 'example.test',
+    pageUrl: 'https://example.test/gallery',
+    sourceUrl: 'https://cdn.example.test/image-0001.jpg',
+    selectedUrl: 'https://cdn.example.test/image-0001.jpg',
+    selectedHandleId: 'target-1',
+    activeFieldId: 'query:0:0',
+    failedFieldId: null,
+    successfulFieldIds: ['query:0:0'],
+    unchangedFieldIds: [],
+    unlockedFieldIds: ['query:0:0'],
+    manuallyExcludedFieldIds: [],
+    fieldSplitSpecs: [],
+    activeUrlTemplateId: 'template-1',
+    updatedAt: '2026-06-22T00:00:00.000Z',
+  };
+  const load = createLoadParsedFieldStateMessage('example.test', 'https://example.test/gallery');
+  const loadResult = createLoadParsedFieldStateResultMessage({ ok: true, record });
+  const save = createSaveParsedFieldStateMessage(record);
+  const saveResult = createSaveParsedFieldStateResultMessage({ ok: true });
+
+  assert.equal(load.type, MessageType.LoadParsedFieldState);
+  assert.equal(load.payload.hostname, 'example.test');
+  assert.equal(load.payload.pageUrl, 'https://example.test/gallery');
+  assert.equal(isExtensionRequest(load), true);
+  assert.equal(isExtensionResponse(loadResult), true);
+  assert.equal(isLoadParsedFieldStateResultMessage(loadResult), true);
+  assert.equal(save.type, MessageType.SaveParsedFieldState);
+  assert.deepEqual(save.payload.record, record);
+  assert.equal(isExtensionRequest(save), true);
+  assert.equal(isExtensionResponse(saveResult), true);
+  assert.equal(isSaveParsedFieldStateResultMessage(saveResult), true);
 });
 
 test('creates extension-owned local settings messages', () => {

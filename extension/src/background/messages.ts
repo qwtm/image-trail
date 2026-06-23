@@ -67,6 +67,10 @@ export const MessageType = {
   SavePanelPositionResult: 'imageTrail.savePanelPositionResult',
   DeletePanelPosition: 'imageTrail.deletePanelPosition',
   DeletePanelPositionResult: 'imageTrail.deletePanelPositionResult',
+  LoadParsedFieldState: 'imageTrail.loadParsedFieldState',
+  LoadParsedFieldStateResult: 'imageTrail.loadParsedFieldStateResult',
+  SaveParsedFieldState: 'imageTrail.saveParsedFieldState',
+  SaveParsedFieldStateResult: 'imageTrail.saveParsedFieldStateResult',
   LoadLocalSettings: 'imageTrail.loadLocalSettings',
   LoadLocalSettingsResult: 'imageTrail.loadLocalSettingsResult',
   SaveLocalSettings: 'imageTrail.saveLocalSettings',
@@ -587,6 +591,32 @@ export interface DeletePanelPositionResultMessage {
   readonly payload: { readonly ok: boolean };
 }
 
+export interface LoadParsedFieldStateMessage {
+  readonly type: typeof MessageType.LoadParsedFieldState;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload: { readonly hostname: string; readonly pageUrl: string };
+}
+
+export interface LoadParsedFieldStateResultMessage {
+  readonly type: typeof MessageType.LoadParsedFieldStateResult;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload:
+    | { readonly ok: true; readonly record: import('../core/types.js').ParsedFieldStateRecord | null }
+    | { readonly ok: false; readonly message: string };
+}
+
+export interface SaveParsedFieldStateMessage {
+  readonly type: typeof MessageType.SaveParsedFieldState;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload: { readonly record: import('../core/types.js').ParsedFieldStateRecord };
+}
+
+export interface SaveParsedFieldStateResultMessage {
+  readonly type: typeof MessageType.SaveParsedFieldStateResult;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload: { readonly ok: boolean };
+}
+
 export interface LoadLocalSettingsMessage {
   readonly type: typeof MessageType.LoadLocalSettings;
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
@@ -725,6 +755,8 @@ export type ExtensionRequest =
   | LoadPanelPositionMessage
   | SavePanelPositionMessage
   | DeletePanelPositionMessage
+  | LoadParsedFieldStateMessage
+  | SaveParsedFieldStateMessage
   | LoadLocalSettingsMessage
   | SaveLocalSettingsMessage
   | ListUrlTemplatesMessage
@@ -765,6 +797,8 @@ export type ExtensionResponse =
   | LoadPanelPositionResultMessage
   | SavePanelPositionResultMessage
   | DeletePanelPositionResultMessage
+  | LoadParsedFieldStateResultMessage
+  | SaveParsedFieldStateResultMessage
   | LoadLocalSettingsResultMessage
   | SaveLocalSettingsResultMessage
   | ListUrlTemplatesResultMessage
@@ -1085,6 +1119,26 @@ export function createDeletePanelPositionResultMessage(
   return { type: MessageType.DeletePanelPositionResult, version: MESSAGE_PROTOCOL_VERSION, payload };
 }
 
+export function createLoadParsedFieldStateMessage(hostname: string, pageUrl: string): LoadParsedFieldStateMessage {
+  return { type: MessageType.LoadParsedFieldState, version: MESSAGE_PROTOCOL_VERSION, payload: { hostname, pageUrl } };
+}
+
+export function createLoadParsedFieldStateResultMessage(
+  payload: LoadParsedFieldStateResultMessage['payload'],
+): LoadParsedFieldStateResultMessage {
+  return { type: MessageType.LoadParsedFieldStateResult, version: MESSAGE_PROTOCOL_VERSION, payload };
+}
+
+export function createSaveParsedFieldStateMessage(record: import('../core/types.js').ParsedFieldStateRecord): SaveParsedFieldStateMessage {
+  return { type: MessageType.SaveParsedFieldState, version: MESSAGE_PROTOCOL_VERSION, payload: { record } };
+}
+
+export function createSaveParsedFieldStateResultMessage(
+  payload: SaveParsedFieldStateResultMessage['payload'],
+): SaveParsedFieldStateResultMessage {
+  return { type: MessageType.SaveParsedFieldStateResult, version: MESSAGE_PROTOCOL_VERSION, payload };
+}
+
 export function createLoadLocalSettingsMessage(): LoadLocalSettingsMessage {
   return { type: MessageType.LoadLocalSettings, version: MESSAGE_PROTOCOL_VERSION, payload: { requestedAt: Date.now() } };
 }
@@ -1203,6 +1257,8 @@ export function isExtensionRequest(value: unknown): value is ExtensionRequest {
     value.type === MessageType.LoadPanelPosition ||
     value.type === MessageType.SavePanelPosition ||
     value.type === MessageType.DeletePanelPosition ||
+    value.type === MessageType.LoadParsedFieldState ||
+    value.type === MessageType.SaveParsedFieldState ||
     value.type === MessageType.LoadLocalSettings ||
     value.type === MessageType.SaveLocalSettings ||
     value.type === MessageType.ListUrlTemplates ||
@@ -1248,6 +1304,8 @@ export function isExtensionResponse(value: unknown): value is ExtensionResponse 
     value.type === MessageType.LoadPanelPositionResult ||
     value.type === MessageType.SavePanelPositionResult ||
     value.type === MessageType.DeletePanelPositionResult ||
+    value.type === MessageType.LoadParsedFieldStateResult ||
+    value.type === MessageType.SaveParsedFieldStateResult ||
     value.type === MessageType.LoadLocalSettingsResult ||
     value.type === MessageType.SaveLocalSettingsResult ||
     value.type === MessageType.ListUrlTemplatesResult ||
@@ -1392,6 +1450,16 @@ export function isSavePanelPositionResultMessage(value: unknown): value is SaveP
 export function isDeletePanelPositionResultMessage(value: unknown): value is DeletePanelPositionResultMessage {
   if (!hasVersionedObjectShape(value)) return false;
   return value.type === MessageType.DeletePanelPositionResult;
+}
+
+export function isLoadParsedFieldStateResultMessage(value: unknown): value is LoadParsedFieldStateResultMessage {
+  if (!hasVersionedObjectShape(value)) return false;
+  return value.type === MessageType.LoadParsedFieldStateResult;
+}
+
+export function isSaveParsedFieldStateResultMessage(value: unknown): value is SaveParsedFieldStateResultMessage {
+  if (!hasVersionedObjectShape(value)) return false;
+  return value.type === MessageType.SaveParsedFieldStateResult;
 }
 
 export function isLoadLocalSettingsResultMessage(value: unknown): value is LoadLocalSettingsResultMessage {

@@ -62,6 +62,29 @@ export interface UrlTemplateStore {
   removeGrabSourcePattern(hostname: string, id: string): Promise<void>;
 }
 
+export interface ParsedFieldStateRecord {
+  readonly schemaVersion: 1;
+  readonly hostname: string;
+  readonly pageUrl: string;
+  readonly sourceUrl: string;
+  readonly selectedUrl: string | null;
+  readonly selectedHandleId: string | null;
+  readonly activeFieldId: string | null;
+  readonly failedFieldId: string | null;
+  readonly successfulFieldIds: readonly string[];
+  readonly unchangedFieldIds: readonly string[];
+  readonly unlockedFieldIds: readonly string[];
+  readonly manuallyExcludedFieldIds: readonly string[];
+  readonly fieldSplitSpecs: readonly UrlFieldSplitSpec[];
+  readonly activeUrlTemplateId: string | null;
+  readonly updatedAt: string;
+}
+
+export interface ParsedFieldStateStore {
+  load(hostname: string, pageUrl: string): Promise<ParsedFieldStateRecord | null>;
+  save(record: ParsedFieldStateRecord): Promise<void>;
+}
+
 export interface RecallCandidate extends ImageDisplayRecord {
   readonly envelopeCreatedAt: string;
 }
@@ -182,6 +205,7 @@ export type PanelActionName =
   | 'grab-source-patterns/load'
   | 'grab-source-pattern/remove'
   | 'grab-source-pattern/update-settings'
+  | 'parsed-field-state/restore'
   | 'capture/request'
   | 'capture/start'
   | 'capture/complete'
@@ -268,6 +292,7 @@ export type PanelAction =
         | 'grab-source-patterns/load'
         | 'grab-source-pattern/remove'
         | 'grab-source-pattern/update-settings'
+        | 'parsed-field-state/restore'
         | 'capture/request'
         | 'capture/start'
         | 'capture/complete'
@@ -355,6 +380,7 @@ export type PanelAction =
       readonly matchMode?: UrlTemplateMatchMode;
       readonly grabStrategy?: UrlTemplateGrabStrategy | null;
     }
+  | { readonly name: 'parsed-field-state/restore'; readonly record: ParsedFieldStateRecord }
   | { readonly name: 'active-field/set'; readonly id: string | null }
   | { readonly name: 'target/fill-screen'; readonly enabled: boolean }
   | { readonly name: 'field-unlock/toggle'; readonly id: string }
