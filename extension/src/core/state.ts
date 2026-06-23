@@ -103,7 +103,7 @@ export function setTargetState(state: PanelState, target: TargetState, now = Dat
     status: target.picking ? 'picking' : 'ready',
     message: target.message,
     target,
-    draftUrl: null,
+    draftUrl: targetChanged ? null : state.draftUrl,
     failedFieldId: targetChanged ? null : state.failedFieldId,
     successfulFieldIds: targetChanged ? [] : state.successfulFieldIds,
     unchangedFieldIds: targetChanged ? [] : state.unchangedFieldIds,

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { applyFieldLoadFailureToState, reducePanelAction } from '../extension/src/core/actions.js';
 import { createInitialPanelState, setTargetState } from '../extension/src/core/state.js';
-import { isLockedPrivatePin } from '../extension/src/ui/panel.js';
+import { isLockedPrivatePin, shouldRestoreParsedFieldState } from '../extension/src/ui/panel.js';
 import {
   PRIVACY_RECORD_META,
   PRIVACY_RECORD_NAME,
@@ -101,6 +101,74 @@ test('same target load snapshots preserve learned field markers', () => {
   assert.deepEqual(next.unchangedFieldIds, ['q:1:0']);
   assert.deepEqual(next.unlockedFieldIds, ['q:0:0']);
   assert.equal(next.currentImageFingerprint, 'a'.repeat(64));
+});
+
+test('same target load snapshots preserve edited draft URL', () => {
+  const learned = {
+    ...createInitialPanelState(),
+    draftUrl: 'https://example.test/image-2.jpg',
+    target: {
+      mode: 'manual' as const,
+      picking: false,
+      grabModeActive: false,
+      candidateCount: 1,
+      selectedUrl: 'https://example.test/image-1.jpg',
+      selectedHandleId: 'handle-1',
+      selectedDimensions: '100 x 100',
+      fillScreen: false,
+      message: 'Target selected.',
+    },
+  };
+
+  const next = setTargetState(learned, {
+    mode: 'manual',
+    picking: false,
+    grabModeActive: false,
+    candidateCount: 1,
+    selectedUrl: 'https://example.test/image-1.jpg',
+    selectedHandleId: 'handle-1',
+    selectedDimensions: '100 x 100',
+    fillScreen: false,
+    message: 'Target refreshed.',
+  });
+
+  assert.equal(next.draftUrl, 'https://example.test/image-2.jpg');
+});
+
+test('successful same target projection can explicitly clear edited draft URL', () => {
+  const learned = {
+    ...createInitialPanelState(),
+    draftUrl: 'https://example.test/image-2.jpg',
+    target: {
+      mode: 'manual' as const,
+      picking: false,
+      grabModeActive: false,
+      candidateCount: 1,
+      selectedUrl: 'https://example.test/image-1.jpg',
+      selectedHandleId: 'handle-1',
+      selectedDimensions: '100 x 100',
+      fillScreen: false,
+      message: 'Target selected.',
+    },
+  };
+
+  const projected = {
+    ...setTargetState(learned, {
+      mode: 'manual',
+      picking: false,
+      grabModeActive: false,
+      candidateCount: 1,
+      selectedUrl: 'https://example.test/image-3.jpg',
+      selectedHandleId: 'handle-1',
+      selectedDimensions: '100 x 100',
+      fillScreen: false,
+      message: 'Target refreshed.',
+    }),
+    draftUrl: null,
+  };
+
+  assert.equal(projected.target.selectedUrl, 'https://example.test/image-3.jpg');
+  assert.equal(projected.draftUrl, null);
 });
 
 test('Grab Mode actions expose sticky page-image grab status', () => {
@@ -211,6 +279,18 @@ test('loaded active URL templates restore included fields for navigation', () =>
   assert.equal(inactive.activeUrlTemplateId, null);
   assert.deepEqual(inactive.unlockedFieldIds, ['q:1:0']);
   assert.deepEqual(inactive.manuallyExcludedFieldIds, ['q:0:0', 'q:2:0']);
+
+  const failedDraft = reducePanelAction(
+    {
+      ...loaded,
+      draftUrl: 'https://example.test/missing.jpg?page=404',
+      status: 'error',
+      message: 'Image failed to load: HTTP 404',
+    },
+    { name: 'url-templates/load', templates: [template], activeTemplateId: null },
+  );
+  assert.equal(failedDraft.activeUrlTemplateId, template.id);
+  assert.deepEqual(failedDraft.unlockedFieldIds, ['q:0:0']);
 
   const cleared = reducePanelAction(
     { ...loaded, unlockedFieldIds: ['q:0:0', 'q:1:0'], manuallyExcludedFieldIds: ['q:0:0', 'q:2:0'] },
@@ -827,4 +907,96 @@ test('clearing split specs collapses fields and clears related markers', () => {
   assert.deepEqual(next.unlockedFieldIds, []);
   assert.deepEqual(next.manuallyExcludedFieldIds, []);
   assert.deepEqual(next.fieldSplitSpecs, []);
+});
+
+test('parsed field state restore revives saved field markers', () => {
+  const splitSpec: UrlFieldSplitSpec = {
+    baseFieldId: 'q:0:0',
+    location: 'query',
+    queryIndex: 0,
+    tokenIndex: 0,
+    lengths: [2, 2],
+    pattern: '2-2',
+  };
+
+  const next = reducePanelAction(createInitialPanelState(), {
+    name: 'parsed-field-state/restore',
+    record: {
+      schemaVersion: 1,
+      hostname: 'example.test',
+      pageUrl: 'https://example.test/gallery',
+      sourceUrl: 'https://cdn.example.test/image-0001.jpg',
+      selectedUrl: 'https://cdn.example.test/image-0001.jpg',
+      selectedHandleId: 'target-1',
+      activeFieldId: 'q:0:1',
+      failedFieldId: 'q:0:0',
+      successfulFieldIds: ['q:0:1'],
+      unchangedFieldIds: ['q:1:0'],
+      unlockedFieldIds: ['q:0:1'],
+      manuallyExcludedFieldIds: ['q:2:0'],
+      fieldSplitSpecs: [splitSpec],
+      activeUrlTemplateId: 'template-1',
+      updatedAt: '2026-06-22T00:00:00.000Z',
+    },
+  });
+
+  assert.equal(next.activeFieldId, 'q:0:1');
+  assert.equal(next.failedFieldId, 'q:0:0');
+  assert.deepEqual(next.successfulFieldIds, ['q:0:1']);
+  assert.deepEqual(next.unchangedFieldIds, ['q:1:0']);
+  assert.deepEqual(next.unlockedFieldIds, ['q:0:1']);
+  assert.deepEqual(next.manuallyExcludedFieldIds, ['q:2:0']);
+  assert.deepEqual(next.fieldSplitSpecs, [splitSpec]);
+  assert.equal(next.activeUrlTemplateId, 'template-1');
+  assert.equal(next.draftUrl, null);
+});
+
+test('parsed field state restore revives draft URL attempts', () => {
+  const next = reducePanelAction(createInitialPanelState(), {
+    name: 'parsed-field-state/restore',
+    record: {
+      schemaVersion: 1,
+      hostname: 'example.test',
+      pageUrl: 'https://example.test/gallery',
+      sourceUrl: 'https://cdn.example.test/image-0002.jpg',
+      selectedUrl: 'https://cdn.example.test/image-0001.jpg',
+      selectedHandleId: 'target-1',
+      activeFieldId: 'q:0:0',
+      failedFieldId: 'q:0:0',
+      successfulFieldIds: [],
+      unchangedFieldIds: [],
+      unlockedFieldIds: [],
+      manuallyExcludedFieldIds: [],
+      fieldSplitSpecs: [],
+      activeUrlTemplateId: null,
+      updatedAt: '2026-06-22T00:00:00.000Z',
+    },
+  });
+
+  assert.equal(next.draftUrl, 'https://cdn.example.test/image-0002.jpg');
+  assert.equal(next.failedFieldId, 'q:0:0');
+});
+
+test('parsed field state restore does not replay drafts onto reused target handles', () => {
+  const record = {
+    schemaVersion: 1 as const,
+    hostname: 'example.test',
+    pageUrl: 'https://example.test/gallery',
+    sourceUrl: 'https://cdn.example.test/image-0002.jpg',
+    selectedUrl: 'https://cdn.example.test/image-0001.jpg',
+    selectedHandleId: 'target-1',
+    activeFieldId: 'q:0:0',
+    failedFieldId: null,
+    successfulFieldIds: ['q:0:0'],
+    unchangedFieldIds: [],
+    unlockedFieldIds: ['q:0:0'],
+    manuallyExcludedFieldIds: [],
+    fieldSplitSpecs: [],
+    activeUrlTemplateId: 'template-1',
+    updatedAt: '2026-06-22T00:00:00.000Z',
+  };
+
+  assert.equal(shouldRestoreParsedFieldState(record, 'https://cdn.example.test/image-0002.jpg', 'target-2'), true);
+  assert.equal(shouldRestoreParsedFieldState(record, 'https://cdn.example.test/image-0001.jpg', 'target-1'), true);
+  assert.equal(shouldRestoreParsedFieldState(record, 'https://cdn.example.test/image-0003.jpg', 'target-1'), false);
 });

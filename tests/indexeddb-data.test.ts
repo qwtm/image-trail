@@ -7,6 +7,7 @@ import { HistoryRepository, type EncryptedHistoryRecord } from '../extension/src
 import { BookmarksRepository, type EncryptedBookmarkRecord } from '../extension/src/data/repositories/bookmarks-repository.js';
 import { BlobsRepository } from '../extension/src/data/repositories/blobs-repository.js';
 import { PanelPositionRepository } from '../extension/src/data/repositories/panel-position-repository.js';
+import { ParsedFieldStateRepository } from '../extension/src/data/repositories/parsed-field-state-repository.js';
 import { UrlTemplateRepository } from '../extension/src/data/repositories/url-template-repository.js';
 import { DownloadsRepository } from '../extension/src/data/repositories/downloads-repository.js';
 import { EncryptedPinsRepository } from '../extension/src/data/repositories/encrypted-pins-repository.js';
@@ -1445,6 +1446,79 @@ test('PanelPositionRepository saves positions per hostname', async (t) => {
   await repository.delete('example.test');
   assert.equal(await repository.get('example.test'), null);
   assert.deepEqual(await repository.get('other.test'), { left: 24, top: 36 });
+});
+
+test('ParsedFieldStateRepository saves parsed field resume state per hostname and page', async (t) => {
+  const db = await openFreshImageTrailDb();
+  t.after(() => db.close());
+  const repository = new ParsedFieldStateRepository(db);
+  const record = {
+    schemaVersion: 1 as const,
+    hostname: 'example.test',
+    pageUrl: 'https://example.test/gallery',
+    sourceUrl: 'https://cdn.example.test/image-0001.jpg',
+    selectedUrl: 'https://cdn.example.test/image-0001.jpg',
+    selectedHandleId: 'target-1',
+    activeFieldId: 'path:0:0',
+    failedFieldId: 'query:1:0',
+    successfulFieldIds: ['path:0:0'],
+    unchangedFieldIds: ['query:0:0'],
+    unlockedFieldIds: ['path:0:0'],
+    manuallyExcludedFieldIds: ['query:2:0'],
+    fieldSplitSpecs: [
+      {
+        baseFieldId: 'query:0:0',
+        location: 'query' as const,
+        queryIndex: 0,
+        tokenIndex: 0,
+        lengths: [2, 2],
+        pattern: '2-2',
+      },
+    ],
+    activeUrlTemplateId: 'template-123',
+    updatedAt: '2026-06-22T00:00:00.000Z',
+  };
+
+  await repository.put(record);
+  await repository.put({ ...record, pageUrl: 'https://example.test/other', activeFieldId: 'query:9:0' });
+
+  assert.deepEqual(await repository.get('example.test', 'https://example.test/gallery'), record);
+  assert.equal((await repository.get('example.test', 'https://example.test/other'))?.activeFieldId, 'query:9:0');
+  assert.equal(await repository.get('other.test', 'https://example.test/gallery'), null);
+});
+
+test('ParsedFieldStateRepository ignores stale parsed field resume saves', async (t) => {
+  const db = await openFreshImageTrailDb();
+  t.after(() => db.close());
+  const repository = new ParsedFieldStateRepository(db);
+  const newer = {
+    schemaVersion: 1 as const,
+    hostname: 'example.test',
+    pageUrl: 'https://example.test/gallery',
+    sourceUrl: 'https://cdn.example.test/image-0003.jpg',
+    selectedUrl: 'https://cdn.example.test/image-0003.jpg',
+    selectedHandleId: 'target-1',
+    activeFieldId: 'path:0:0',
+    failedFieldId: null,
+    successfulFieldIds: ['path:0:0'],
+    unchangedFieldIds: [],
+    unlockedFieldIds: ['path:0:0'],
+    manuallyExcludedFieldIds: [],
+    fieldSplitSpecs: [],
+    activeUrlTemplateId: 'template-123',
+    updatedAt: '2026-06-22T00:00:03.000Z',
+  };
+  const stale = {
+    ...newer,
+    sourceUrl: 'https://cdn.example.test/image-0002.jpg',
+    selectedUrl: 'https://cdn.example.test/image-0002.jpg',
+    updatedAt: '2026-06-22T00:00:02.000Z',
+  };
+
+  await repository.put(newer);
+  await repository.put(stale);
+
+  assert.deepEqual(await repository.get('example.test', 'https://example.test/gallery'), newer);
 });
 
 test('UrlTemplateRepository saves templates per hostname', async (t) => {

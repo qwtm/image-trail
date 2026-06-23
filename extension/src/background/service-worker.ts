@@ -3,6 +3,7 @@ import { computeSha256 } from '../core/image/fingerprints.js';
 import type { ImageDisplayRecord } from '../core/display-records.js';
 import { IndexedDbBookmarkStore } from '../data/bookmarks-controller.js';
 import { IndexedDbPanelPositionStore } from '../data/panel-position-controller.js';
+import { IndexedDbParsedFieldStateStore } from '../data/parsed-field-state-controller.js';
 import { IndexedDbUrlTemplateStore } from '../data/url-template-controller.js';
 import { DEFAULT_LOCAL_SETTINGS, LOCAL_SETTINGS_KEY, migrateLocalSettings } from '../data/local-settings.js';
 import { getActiveBlobKey, lockBlobKey } from '../data/crypto/blob-keyring.js';
@@ -39,6 +40,7 @@ import {
   createLoadRecentHistoryResultMessage,
   createLoadRecallCandidatesResultMessage,
   createLoadPanelPositionResultMessage,
+  createLoadParsedFieldStateResultMessage,
   createLoadLocalSettingsResultMessage,
   createListGrabSourcePatternsResultMessage,
   createListUrlTemplatesResultMessage,
@@ -49,6 +51,7 @@ import {
   createRecallRecordsResultMessage,
   createSaveBookmarkResultMessage,
   createSavePanelPositionResultMessage,
+  createSaveParsedFieldStateResultMessage,
   createSaveLocalSettingsResultMessage,
   createSaveGrabSourcePatternResultMessage,
   createSaveUrlTemplateResultMessage,
@@ -83,6 +86,7 @@ import type {
 import type { AddRecentHistoryMessage, LoadRecentHistoryMessage, RemoveRecentHistoryMessage } from './messages.js';
 import type { LoadRecallCandidatesMessage, RecallRecordsMessage } from './messages.js';
 import type { DeletePanelPositionMessage, LoadPanelPositionMessage, SavePanelPositionMessage } from './messages.js';
+import type { LoadParsedFieldStateMessage, SaveParsedFieldStateMessage } from './messages.js';
 import type {
   DeleteGrabSourcePatternMessage,
   DeleteUrlTemplateMessage,
@@ -118,6 +122,7 @@ const bookmarkStore = new IndexedDbBookmarkStore({
   getPinSaveStoragePreference: async () => (await loadLocalSettings()).pinSaveStoragePreference,
 });
 const panelPositionStore = new IndexedDbPanelPositionStore();
+const parsedFieldStateStore = new IndexedDbParsedFieldStateStore();
 const urlTemplateStore = new IndexedDbUrlTemplateStore();
 const recentHistoryBySite = new Map<string, import('../core/display-records.js').ImageDisplayRecord[]>();
 const MAX_RECENT_HISTORY_ITEMS = 30;
@@ -546,6 +551,23 @@ async function handleDeletePanelPosition(
   const hostname = normalizeHostname(message.payload.hostname);
   if (!hostname) return { ok: false };
   await panelPositionStore.remove(hostname);
+  return { ok: true };
+}
+
+async function handleLoadParsedFieldState(
+  message: LoadParsedFieldStateMessage,
+): Promise<import('./messages.js').LoadParsedFieldStateResultMessage['payload']> {
+  const hostname = normalizeHostname(message.payload.hostname);
+  if (!hostname) return { ok: true, record: null };
+  return { ok: true, record: await parsedFieldStateStore.load(hostname, message.payload.pageUrl) };
+}
+
+async function handleSaveParsedFieldState(
+  message: SaveParsedFieldStateMessage,
+): Promise<import('./messages.js').SaveParsedFieldStateResultMessage['payload']> {
+  const hostname = normalizeHostname(message.payload.record.hostname);
+  if (!hostname) return { ok: false };
+  await parsedFieldStateStore.save({ ...message.payload.record, hostname });
   return { ok: true };
 }
 
@@ -1090,6 +1112,20 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
       handleDeletePanelPosition(message)
         .then((result) => sendResponse(createDeletePanelPositionResultMessage(result)))
         .catch(() => sendResponse(createDeletePanelPositionResultMessage({ ok: false })));
+      return true;
+
+    case MessageType.LoadParsedFieldState:
+      handleLoadParsedFieldState(message)
+        .then((result) => sendResponse(createLoadParsedFieldStateResultMessage(result)))
+        .catch(() =>
+          sendResponse(createLoadParsedFieldStateResultMessage({ ok: false, message: 'Parsed field state could not be loaded.' })),
+        );
+      return true;
+
+    case MessageType.SaveParsedFieldState:
+      handleSaveParsedFieldState(message)
+        .then((result) => sendResponse(createSaveParsedFieldStateResultMessage(result)))
+        .catch(() => sendResponse(createSaveParsedFieldStateResultMessage({ ok: false })));
       return true;
 
     case MessageType.ListUrlTemplates:

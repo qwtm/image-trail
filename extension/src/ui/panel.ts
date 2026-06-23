@@ -25,6 +25,8 @@ import type {
   PanelPosition,
   PanelPositionStore,
   PanelState,
+  ParsedFieldStateRecord,
+  ParsedFieldStateStore,
   TargetState,
   UrlTemplateStore,
 } from '../core/types.js';
@@ -116,6 +118,16 @@ function toTargetState(snapshot: TargetSelectionSnapshot): TargetState {
   };
 }
 
+export function shouldRestoreParsedFieldState(
+  record: ParsedFieldStateRecord,
+  currentRawUrl: string,
+  selectedHandleId: string | null,
+): boolean {
+  if (record.sourceUrl === currentRawUrl) return true;
+  if (!record.selectedHandleId || record.selectedHandleId !== selectedHandleId) return false;
+  return !!record.selectedUrl && record.selectedUrl === currentRawUrl;
+}
+
 export class ImageTrailPanel {
   private root: HTMLElement | null = null;
   private recallRoot: HTMLElement | null = null;
@@ -142,6 +154,8 @@ export class ImageTrailPanel {
   private panelStylesReadyPromise: Promise<void> | null = null;
   private recallOpeningUntil = 0;
   private recallMessageClearTimer: number | null = null;
+  private parsedFieldStateRestoreInProgress = false;
+  private parsedFieldStateUpdatedAtMs = 0;
   private readonly layoutState: PanelLayoutState = {
     fieldsPanelOpen: false,
     fieldsPanelBlockSize: null,
@@ -157,11 +171,12 @@ export class ImageTrailPanel {
     private readonly panelPositionStore: PanelPositionStore | null = null,
     private readonly localSettingsStore: LocalSettingsStore | null = null,
     private readonly urlTemplateStore: UrlTemplateStore | null = null,
+    private readonly parsedFieldStateStore: ParsedFieldStateStore | null = null,
   ) {
     this.unsubscribeFromTarget = this.pageAdapter.subscribe((snapshot) => {
       this.state = setTargetState(this.state, toTargetState(snapshot));
       this.render();
-      void this.loadGrabSettings();
+      void this.loadGrabSettings().then(() => this.restoreParsedFieldState());
     });
     this.unsubscribeFromLoads = this.pageAdapter.subscribeToSuccessfulLoads((target) => {
       void this.addRecentHistory(target.url, target.thumbnail, {
@@ -184,7 +199,7 @@ export class ImageTrailPanel {
     });
     void this.loadSettingsAndBookmarks();
     void this.loadRecentHistory();
-    void this.loadGrabSettings();
+    void this.loadGrabSettings().then(() => this.restoreParsedFieldState());
     void this.refreshStorageUsage();
     void this.refreshBlobKeyStatus();
 
@@ -467,6 +482,98 @@ export class ImageTrailPanel {
       return new URL(rebuildUrl(this.currentUrlModel())).hostname.toLowerCase();
     } catch {
       return hostnameFromLocation();
+    }
+  }
+
+  private parsedFieldStateHostname(): string | null {
+    return hostnameFromLocation();
+  }
+
+  private parsedFieldStatePageUrl(): string {
+    return window.location.href;
+  }
+
+  private createParsedFieldStateRecord(): ParsedFieldStateRecord | null {
+    const hostname = this.parsedFieldStateHostname();
+    if (!hostname) return null;
+    if (!this.state.target.selectedUrl && !this.state.draftUrl) return null;
+    return {
+      schemaVersion: 1,
+      hostname,
+      pageUrl: this.parsedFieldStatePageUrl(),
+      sourceUrl: this.currentRawUrl(),
+      selectedUrl: this.state.target.selectedUrl,
+      selectedHandleId: this.state.target.selectedHandleId,
+      activeFieldId: this.state.activeFieldId,
+      failedFieldId: this.state.failedFieldId,
+      successfulFieldIds: this.state.successfulFieldIds,
+      unchangedFieldIds: this.state.unchangedFieldIds,
+      unlockedFieldIds: this.state.unlockedFieldIds,
+      manuallyExcludedFieldIds: this.state.manuallyExcludedFieldIds,
+      fieldSplitSpecs: this.state.fieldSplitSpecs,
+      activeUrlTemplateId: this.state.activeUrlTemplateId,
+      updatedAt: this.nextParsedFieldStateUpdatedAt(),
+    };
+  }
+
+  private nextParsedFieldStateUpdatedAt(): string {
+    const now = Date.now();
+    this.parsedFieldStateUpdatedAtMs = Math.max(now, this.parsedFieldStateUpdatedAtMs + 1);
+    return new Date(this.parsedFieldStateUpdatedAtMs).toISOString();
+  }
+
+  private async saveParsedFieldState(): Promise<void> {
+    if (!this.parsedFieldStateStore) return;
+    const record = this.createParsedFieldStateRecord();
+    if (!record) return;
+    await this.parsedFieldStateStore.save(record);
+  }
+
+  private async restoreParsedFieldState(): Promise<void> {
+    if (this.parsedFieldStateRestoreInProgress) return;
+    if (!this.parsedFieldStateStore) return;
+    const hostname = this.parsedFieldStateHostname();
+    if (!hostname) return;
+    const record = await this.parsedFieldStateStore.load(hostname, this.parsedFieldStatePageUrl());
+    if (!record) return;
+    const currentRawUrl = this.currentRawUrl();
+    const sameSource = record.sourceUrl === currentRawUrl;
+    if (!shouldRestoreParsedFieldState(record, currentRawUrl, this.state.target.selectedHandleId)) return;
+    this.parsedFieldStateRestoreInProgress = true;
+    try {
+      if (!sameSource) {
+        const projected = await this.applySelectedUrl(record.sourceUrl);
+        if (!projected && record.sourceUrl !== this.currentRawUrl()) return;
+      }
+      this.state = reducePanelAction(this.state, {
+        name: 'parsed-field-state/restore',
+        record: this.filterParsedFieldStateForCurrentUrl(record),
+      });
+      this.syncGrabSettings();
+      void this.saveParsedFieldState();
+      this.render();
+    } finally {
+      this.parsedFieldStateRestoreInProgress = false;
+    }
+  }
+
+  private filterParsedFieldStateForCurrentUrl(record: ParsedFieldStateRecord): ParsedFieldStateRecord {
+    try {
+      const fieldIds = new Set(
+        collectUrlFields(applyFieldSplitSpecs(parseUrl(record.sourceUrl), record.fieldSplitSpecs)).map((field) => field.id),
+      );
+      const keep = (ids: readonly string[]): readonly string[] => ids.filter((id) => fieldIds.has(id));
+      return {
+        ...record,
+        activeFieldId: record.activeFieldId && fieldIds.has(record.activeFieldId) ? record.activeFieldId : null,
+        failedFieldId: record.failedFieldId && fieldIds.has(record.failedFieldId) ? record.failedFieldId : null,
+        successfulFieldIds: keep(record.successfulFieldIds),
+        unchangedFieldIds: keep(record.unchangedFieldIds),
+        unlockedFieldIds: keep(record.unlockedFieldIds),
+        manuallyExcludedFieldIds: keep(record.manuallyExcludedFieldIds),
+      };
+    } catch {
+      return { ...record, activeFieldId: null, failedFieldId: null };
     }
   }
 
@@ -893,17 +1000,20 @@ export class ImageTrailPanel {
 
     if (action.name === 'field-split/clear') {
       this.state = reducePanelAction(this.state, action);
+      void this.saveParsedFieldState();
       this.render();
       return;
     }
 
     if (action.name === 'active-field/set') {
       this.state = reducePanelAction(this.state, action);
+      void this.saveParsedFieldState();
       return;
     }
 
     if (action.name === 'field-unlock/toggle') {
       this.state = reducePanelAction(this.state, action);
+      void this.saveParsedFieldState();
       void this.saveUrlTemplateFromCurrentFields().then(() => this.render());
       return;
     }
@@ -1126,9 +1236,12 @@ export class ImageTrailPanel {
   }
 
   private currentUrlModel(): ParsedUrlModel {
+    return applyFieldSplitSpecs(parseUrl(this.currentRawUrl()), this.state.fieldSplitSpecs);
+  }
+
+  private currentRawUrl(): string {
     const snapshot = this.pageAdapter.getSnapshot();
-    const currentUrl = this.state.draftUrl ?? snapshot.selected?.url ?? window.location.href;
-    return applyFieldSplitSpecs(parseUrl(currentUrl), this.state.fieldSplitSpecs);
+    return this.state.draftUrl ?? snapshot.selected?.url ?? window.location.href;
   }
 
   private applyFieldSplitPattern(fieldId: string, pattern: string): void {
@@ -1152,6 +1265,7 @@ export class ImageTrailPanel {
     }
 
     this.state = applyFieldSplitSpecToState(this.state, splitSpec);
+    void this.saveParsedFieldState();
     this.render();
   }
 
@@ -1218,6 +1332,7 @@ export class ImageTrailPanel {
     if (revision !== this.projectionRevision) return false;
     if (!preload.ok) {
       this.state = applyFieldLoadFailureToState(this.state, { draftUrl: nextUrl, attemptedFieldIds, message: preload.message });
+      void this.saveParsedFieldState();
       this.render();
       return false;
     }
@@ -1229,6 +1344,7 @@ export class ImageTrailPanel {
         preload.sha256,
         baselineFingerprint,
       );
+      void this.saveParsedFieldState();
       this.render();
       return false;
     }
@@ -1237,10 +1353,11 @@ export class ImageTrailPanel {
     if (snapshot.selected) {
       const nextSnapshot = this.pageAdapter.applyUrlToSelected(nextUrl, preload.displayUrl);
       if (revision !== this.projectionRevision) return false;
-      this.state = setTargetState(this.state, toTargetState(nextSnapshot));
+      this.state = { ...setTargetState(this.state, toTargetState(nextSnapshot)), draftUrl: null };
     }
     this.state = this.applyFieldLoadResult(this.state, attemptedFieldIds, preload.sha256, baselineFingerprint);
     pushVisibleUrlWhenSameOrigin(nextUrl);
+    void this.saveParsedFieldState();
     this.render();
     void this.loadGrabSettings();
     return true;
@@ -1289,9 +1406,7 @@ export class ImageTrailPanel {
       unchangedFieldIds: unchanged
         ? addItems(removeItems(state.unchangedFieldIds, attemptedFieldIds), attemptedFieldIds)
         : removeItems(state.unchangedFieldIds, attemptedFieldIds),
-      unlockedFieldIds: changed
-        ? addItems(removeItems(state.unlockedFieldIds, attemptedFieldIds), autoUnlocked)
-        : removeItems(state.unlockedFieldIds, attemptedFieldIds),
+      unlockedFieldIds: changed ? addItems(removeItems(state.unlockedFieldIds, attemptedFieldIds), autoUnlocked) : state.unlockedFieldIds,
       currentImageFingerprint: nextFingerprint ?? state.currentImageFingerprint,
     };
   }
