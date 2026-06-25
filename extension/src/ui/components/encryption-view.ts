@@ -1,4 +1,5 @@
 import type { PanelAction } from '../../core/types.js';
+import { createActionGroup } from './action-group.js';
 
 let keyBackupFilePickerId = 0;
 let encryptedOriginalsOpen = true;
@@ -71,10 +72,7 @@ export function createEncryptionView(
 
   if (state.unlocked) {
     if (state.abandonedOriginalCount > 0) {
-      const actions = document.createElement('div');
-      actions.className = 'image-trail-panel__actions';
-      actions.append(cleanup);
-      body.append(actions);
+      body.append(createActionGroup('Maintenance', [cleanup], { secondary: true }));
     }
     body.append(createKeyBackupControls(state, dispatch), createLockControls(state, dispatch));
     section.append(summary, body);
@@ -87,9 +85,6 @@ export function createEncryptionView(
   password.autocomplete = 'current-password';
   password.className = 'image-trail-panel__password-input';
   password.disabled = state.busy;
-
-  const actions = document.createElement('div');
-  actions.className = 'image-trail-panel__actions';
 
   const unlockWithPassword = (): void => {
     if (!state.hasKey) {
@@ -125,12 +120,11 @@ export function createEncryptionView(
     }
   });
 
-  if (state.hasKey) {
-    actions.append(unlock);
-  } else {
-    actions.append(setup);
-  }
-  body.append(password, actions, createKeyBackupControls(state, dispatch));
+  body.append(
+    password,
+    createActionGroup(state.hasKey ? 'Unlock storage' : 'Setup', [state.hasKey ? unlock : setup]),
+    createKeyBackupControls(state, dispatch),
+  );
   section.append(summary, body);
   return section;
 }
@@ -186,15 +180,7 @@ function createKeyBackupControls(
   controls.append(password);
   if (!state.hasKey) controls.append(createKeyBackupFilePicker(file));
 
-  const actions = document.createElement('div');
-  actions.className = 'image-trail-panel__actions';
-  if (state.hasKey) {
-    actions.append(exportKey);
-  } else {
-    actions.append(importKey);
-  }
-
-  group.append(label, controls, actions);
+  group.append(label, controls, createActionGroup('Backup file', [state.hasKey ? exportKey : importKey]));
   return group;
 }
 
@@ -223,8 +209,6 @@ function createKeyBackupFilePicker(input: HTMLInputElement): HTMLElement {
 }
 
 function createLockControls(state: { readonly busy: boolean }, dispatch: (action: EncryptionAction) => void): HTMLElement {
-  const actions = document.createElement('div');
-  actions.className = 'image-trail-panel__actions';
   let confirming = false;
 
   const clear = document.createElement('button');
@@ -244,8 +228,7 @@ function createLockControls(state: { readonly busy: boolean }, dispatch: (action
     dispatch({ name: 'blob-key/clear' });
   });
 
-  actions.append(clear);
-  return actions;
+  return createActionGroup('Key removal', [clear], { secondary: true });
 }
 
 function readFileInput(input: HTMLInputElement, onRead: (fileContent: string) => void): void {

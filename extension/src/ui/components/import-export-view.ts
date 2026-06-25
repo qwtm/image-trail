@@ -1,4 +1,5 @@
 import type { ImportedEncryptedImageFile, ImportedImageFile } from '../../core/types.js';
+import { createActionGroup } from './action-group.js';
 
 type UrlReviewStatusClearScope = 'hostname' | 'page' | 'source' | 'all';
 
@@ -126,8 +127,11 @@ function createExportGroup(state: ImportExportViewState, dispatch: (action: Impo
   const clearAllBtn = createUrlReviewClearButton('Clear all review status', 'all', state, dispatch);
 
   const actions = document.createElement('div');
-  actions.className = 'image-trail-panel__actions';
-  actions.append(historyBtn, bookmarksBtn, urlReviewStatusBtn, clearSiteBtn, clearPageBtn, clearUrlBtn, clearAllBtn);
+  actions.className = 'image-trail-panel__action-groups';
+  actions.append(
+    createActionGroup('Export records', [historyBtn, bookmarksBtn, urlReviewStatusBtn]),
+    createActionGroup('Clear review status', [clearSiteBtn, clearPageBtn, clearUrlBtn, clearAllBtn], { secondary: true }),
+  );
 
   const updateExportControls = (): void => {
     const locked = state.busy || (!plaintext.input.checked && passwordInput.value.length < 4);
@@ -158,6 +162,7 @@ function createUrlReviewClearButton(
   button.type = 'button';
   button.textContent = label;
   button.disabled = state.busy;
+  button.className = 'image-trail-panel__secondary-action';
   button.addEventListener('click', () => dispatch({ name: 'clear/url-review-status', scope }));
   return button;
 }
@@ -226,8 +231,11 @@ function createImageGroup(state: ImportExportViewState, dispatch: (action: Impor
   });
 
   const actions = document.createElement('div');
-  actions.className = 'image-trail-panel__actions';
-  actions.append(importBtn, importEncryptedBtn, selectEverythingBtn, exportBtn, exportEncryptedBtn);
+  actions.className = 'image-trail-panel__action-groups';
+  actions.append(
+    createActionGroup('Import files', [importBtn, importEncryptedBtn]),
+    createActionGroup('Image downloads', [selectEverythingBtn, exportBtn, exportEncryptedBtn]),
+  );
 
   group.append(controls, actions);
   return group;
@@ -275,16 +283,6 @@ function createImportGroup(state: ImportExportViewState, dispatch: (action: Impo
     });
   });
 
-  const bookmarkletBtn = document.createElement('button');
-  bookmarkletBtn.type = 'button';
-  bookmarkletBtn.textContent = 'Import old bookmarklet data';
-  bookmarkletBtn.disabled = state.busy;
-  bookmarkletBtn.addEventListener('click', () => {
-    readFileInput(fileInput, (content) => {
-      dispatch({ name: 'import/bookmarklet', fileContent: content });
-    });
-  });
-
   const urlReviewStatusBtn = document.createElement('button');
   urlReviewStatusBtn.type = 'button';
   urlReviewStatusBtn.textContent = 'Import URL review status';
@@ -295,16 +293,42 @@ function createImportGroup(state: ImportExportViewState, dispatch: (action: Impo
     });
   });
 
+  const bookmarkletBtn = document.createElement('button');
+  bookmarkletBtn.type = 'button';
+  bookmarkletBtn.textContent = 'Import legacy bookmarklet JSON';
+  bookmarkletBtn.className = 'image-trail-panel__secondary-action';
+  bookmarkletBtn.disabled = state.busy;
+  bookmarkletBtn.addEventListener('click', () => {
+    readFileInput(fileInput, (content) => {
+      dispatch({ name: 'import/bookmarklet', fileContent: content });
+    });
+  });
+
   const controls = document.createElement('div');
   controls.className = 'image-trail-panel__control-stack';
   controls.append(filePicker, passwordInput);
 
   const actions = document.createElement('div');
-  actions.className = 'image-trail-panel__actions';
-  actions.append(historyBtn, bookmarksBtn, urlReviewStatusBtn, bookmarkletBtn);
+  actions.className = 'image-trail-panel__action-groups';
+  actions.append(
+    createActionGroup('Import records', [historyBtn, bookmarksBtn, urlReviewStatusBtn]),
+    createAdvancedActionGroup('Advanced import', createActionGroup('Legacy migration', [bookmarkletBtn], { secondary: true })),
+  );
 
   group.append(controls, actions);
   return group;
+}
+
+function createAdvancedActionGroup(label: string, content: HTMLElement): HTMLElement {
+  const details = document.createElement('details');
+  details.className = 'image-trail-panel__advanced-action-group';
+
+  const summary = document.createElement('summary');
+  summary.className = 'image-trail-panel__advanced-action-summary';
+  summary.textContent = label;
+
+  details.append(summary, content);
+  return details;
 }
 
 function createToggle(text: string): { readonly label: HTMLLabelElement; readonly input: HTMLInputElement } {
