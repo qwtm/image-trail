@@ -4,6 +4,7 @@ import {
   URL_REVIEW_STATUS_LIMITS,
   VISIBLE_BOOKMARK_SOFT_MAX_LIMITS,
 } from '../core/settings.js';
+import { DEFAULT_PREVIEW_OBJECT_FIT, isObjectFitMode, type ObjectFitMode } from '../core/preview-style.js';
 import type { PinSaveStoragePreference, RecentHistoryOverflowBehavior } from '../core/types.js';
 
 export interface PlaintextLocalSettings {
@@ -17,6 +18,8 @@ export interface PlaintextLocalSettings {
   readonly bookmarkVisibilityScope: 'global' | 'site';
   readonly pinSaveStoragePreference: PinSaveStoragePreference;
   readonly privacyModeEnabled: boolean;
+  readonly previewObjectFit: ObjectFitMode;
+  readonly previewFillScreen: boolean;
   readonly urlReviewStatusLimit: number;
   readonly clearUrlReviewStatusAfterExport: boolean;
 }
@@ -32,6 +35,8 @@ export const DEFAULT_LOCAL_SETTINGS: PlaintextLocalSettings = {
   bookmarkVisibilityScope: 'global',
   pinSaveStoragePreference: 'encrypted',
   privacyModeEnabled: false,
+  previewObjectFit: DEFAULT_PREVIEW_OBJECT_FIT,
+  previewFillScreen: true,
   urlReviewStatusLimit: DEFAULT_URL_REVIEW_STATUS_LIMIT,
   clearUrlReviewStatusAfterExport: false,
 };
@@ -89,6 +94,8 @@ export function migrateLocalSettings(input: Partial<PlaintextLocalSettings>): Pl
       ? input.pinSaveStoragePreference
       : DEFAULT_LOCAL_SETTINGS.pinSaveStoragePreference,
     privacyModeEnabled: input.privacyModeEnabled === true,
+    previewObjectFit: isObjectFitMode(input.previewObjectFit) ? input.previewObjectFit : DEFAULT_LOCAL_SETTINGS.previewObjectFit,
+    previewFillScreen: input.previewFillScreen !== false,
     urlReviewStatusLimit: isSafeUrlReviewStatusLimit(input.urlReviewStatusLimit)
       ? input.urlReviewStatusLimit
       : DEFAULT_LOCAL_SETTINGS.urlReviewStatusLimit,

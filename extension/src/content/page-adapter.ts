@@ -32,6 +32,7 @@ import {
 import { createThumbnailDataUrlFromImage } from './thumbnail-generator.js';
 import { createFetchLinkedPageMessage, isFetchLinkedPageResultMessage } from '../background/messages.js';
 import { sendRuntimeMessage } from './runtime-message.js';
+import { DEFAULT_PREVIEW_OBJECT_FIT, type ObjectFitMode } from '../core/preview-style.js';
 
 export type TargetSelectionMode = 'auto' | 'manual' | 'none';
 
@@ -42,6 +43,7 @@ export interface TargetSelectionSnapshot {
   readonly candidateCount: number;
   readonly selected: TargetImageInfo | null;
   readonly fillScreen: boolean;
+  readonly objectFit: ObjectFitMode;
   readonly message: string;
 }
 
@@ -109,7 +111,8 @@ export class PageAdapter {
   private selectedOriginalUrl: string | null = null;
   private selectedOriginalSnapshot: ImageNavigationSnapshot | null = null;
   private selectedActiveUrl: string | null = null;
-  private selectedFillScreen = false;
+  private selectedFillScreen = true;
+  private selectedObjectFit: ObjectFitMode = DEFAULT_PREVIEW_OBJECT_FIT;
   private lastSnapshot: TargetSelectionSnapshot = this.createSnapshot('No target selected.');
   private readonly observer = new DomObserver(() => this.refreshPickCandidates());
   private readonly listeners = new Set<TargetSelectionListener>();
@@ -178,6 +181,10 @@ export class PageAdapter {
   autoSelectSingleImage(): TargetSelectionSnapshot {
     const matches = findQualifyingImages();
     this.detectedCandidateCount = matches.length;
+    if (this.selected?.isConnected && matches.includes(this.selected)) {
+      markSelectedTarget(this.selected, { lockBox: this.selectedFillScreen, objectFit: this.selectedObjectFit });
+      if (matches.length !== 1) return this.emit(`Selected ${summarizeTargetUrlForMessage(this.lastSnapshot.selected?.url)}.`);
+    }
     if (matches.length === 1) {
       if (matches[0] === this.selected && this.selected.isConnected) {
         return this.emit(`Auto-selected ${summarizeTargetUrlForMessage(this.lastSnapshot.selected?.url)}.`);
@@ -247,6 +254,7 @@ export class PageAdapter {
     this.grabModeActive = false;
     this.clearGrabPreview();
     this.stopPickMode();
+    this.restoreSelectedTargetStyles();
     this.mode = 'none';
   }
 
@@ -260,17 +268,35 @@ export class PageAdapter {
     }
 
     applyImageUrl(this.selected, displayUrl);
-    markSelectedTarget(this.selected, { lockBox: this.selectedFillScreen });
+    markSelectedTarget(this.selected, { lockBox: this.selectedFillScreen, objectFit: this.selectedObjectFit });
     this.selectedActiveUrl = url;
     this.watchSelectedLoad(this.selected);
     return this.emit(`Applied ${url}`);
   }
 
+  setPreviewPreferences(preferences: { readonly fillScreen: boolean; readonly objectFit: ObjectFitMode }): TargetSelectionSnapshot {
+    this.selectedFillScreen = preferences.fillScreen;
+    this.selectedObjectFit = preferences.objectFit;
+    if (this.selected) {
+      markSelectedTarget(this.selected, { lockBox: this.selectedFillScreen, objectFit: this.selectedObjectFit });
+    }
+    this.lastSnapshot = this.createSnapshot(this.lastSnapshot.message);
+    return this.lastSnapshot;
+  }
+
   setSelectedFillScreen(enabled: boolean): TargetSelectionSnapshot {
     if (!this.selected) return this.emit('No host image selected.');
     this.selectedFillScreen = enabled;
-    markSelectedTarget(this.selected, { lockBox: this.selectedFillScreen });
+    markSelectedTarget(this.selected, { lockBox: this.selectedFillScreen, objectFit: this.selectedObjectFit });
     return this.emit(enabled ? 'Host image fills the page.' : 'Host image restored to page layout.');
+  }
+
+  setSelectedObjectFit(mode: ObjectFitMode): TargetSelectionSnapshot {
+    this.selectedObjectFit = mode;
+    if (this.selected) {
+      markSelectedTarget(this.selected, { lockBox: this.selectedFillScreen, objectFit: this.selectedObjectFit });
+    }
+    return this.emit(`Host image fit set to ${mode}.`);
   }
 
   releaseSelectedTarget(): TargetSelectionSnapshot {
@@ -577,11 +603,10 @@ export class PageAdapter {
     this.selectedOriginalUrl = originalUrl;
     this.selectedOriginalSnapshot = originalSnapshot;
     this.selectedActiveUrl = originalUrl;
-    this.selectedFillScreen = false;
     this.mode = mode;
     const handleId = createTargetImageInfo(image)?.handleId;
     if (handleId) image.setAttribute('data-image-trail-handle', handleId);
-    markSelectedTarget(image, { lockBox: this.selectedFillScreen });
+    markSelectedTarget(image, { lockBox: this.selectedFillScreen, objectFit: this.selectedObjectFit });
     this.watchSelectedLoad(image);
   }
 
@@ -600,7 +625,6 @@ export class PageAdapter {
     this.selectedOriginalUrl = null;
     this.selectedOriginalSnapshot = null;
     this.selectedActiveUrl = null;
-    this.selectedFillScreen = false;
   }
 
   private watchSelectedLoad(image: HTMLImageElement): void {
@@ -635,7 +659,7 @@ export class PageAdapter {
   };
 
   private async emitSuccessfulLoad(image: HTMLImageElement): Promise<void> {
-    if (image === this.selected) markSelectedTarget(image, { lockBox: this.selectedFillScreen });
+    if (image === this.selected) markSelectedTarget(image, { lockBox: this.selectedFillScreen, objectFit: this.selectedObjectFit });
     const target = createTargetImageInfo(image);
     if (!target) return;
     const reportedTarget = image === this.selected && this.selectedActiveUrl ? { ...target, url: this.selectedActiveUrl } : target;
@@ -656,6 +680,10 @@ export class PageAdapter {
     this.hovered = null;
   }
 
+  private restoreSelectedTargetStyles(): void {
+    if (this.selected) restoreElementStyles(this.selected);
+  }
+
   private createSnapshot(message: string): TargetSelectionSnapshot {
     const selected = this.selected?.isConnected ? createTargetImageInfo(this.selected) : null;
     return {
@@ -665,6 +693,7 @@ export class PageAdapter {
       candidateCount: this.picking ? this.candidates.size : this.detectedCandidateCount,
       selected: selected && this.selectedActiveUrl ? { ...selected, url: this.selectedActiveUrl } : selected,
       fillScreen: this.selectedFillScreen,
+      objectFit: this.selectedObjectFit,
       message,
     };
   }

@@ -1,5 +1,6 @@
 import type { AutomationState, PanelState, RecallState, TargetState } from './types.js';
 import { DEFAULT_URL_REVIEW_STATUS_LIMIT } from './settings.js';
+import { DEFAULT_PREVIEW_OBJECT_FIT } from './preview-style.js';
 
 export const EMPTY_TARGET_STATE: TargetState = {
   mode: 'none',
@@ -9,7 +10,8 @@ export const EMPTY_TARGET_STATE: TargetState = {
   selectedUrl: null,
   selectedHandleId: null,
   selectedDimensions: null,
-  fillScreen: false,
+  fillScreen: true,
+  objectFit: DEFAULT_PREVIEW_OBJECT_FIT,
   message: 'No target selected.',
 };
 

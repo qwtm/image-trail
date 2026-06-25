@@ -1,4 +1,5 @@
 import type { PanelAction, TargetState } from '../../core/types.js';
+import { OBJECT_FIT_MODES, isObjectFitMode } from '../../core/preview-style.js';
 import { PRIVACY_URL_TEXT } from './record-metadata.js';
 
 export function createTargetPickerView(
@@ -67,6 +68,26 @@ export function createTargetPickerView(
       : 'Resize the selected host image to fill the page preview area.';
     fillButton.addEventListener('click', () => dispatch({ name: 'target/fill-screen', enabled: !target.fillScreen }));
     actions.append(fillButton);
+
+    const fitLabel = document.createElement('label');
+    fitLabel.className = 'image-trail-panel__target-fit';
+    const fitText = document.createElement('span');
+    fitText.textContent = 'Fit';
+    const fitSelect = document.createElement('select');
+    fitSelect.className = 'image-trail-panel__target-fit-select';
+    fitSelect.setAttribute('aria-label', 'Preview object fit');
+    for (const mode of OBJECT_FIT_MODES) {
+      const option = document.createElement('option');
+      option.value = mode;
+      option.textContent = mode;
+      option.selected = target.objectFit === mode;
+      fitSelect.append(option);
+    }
+    fitSelect.addEventListener('change', () => {
+      if (isObjectFitMode(fitSelect.value)) dispatch({ name: 'target/set-object-fit', mode: fitSelect.value });
+    });
+    fitLabel.append(fitText, fitSelect);
+    actions.append(fitLabel);
   }
   const grabButton = document.createElement('button');
   grabButton.type = 'button';

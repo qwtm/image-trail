@@ -58,6 +58,7 @@ test('target changes clear failed field markers', () => {
     selectedHandleId: 'handle-1',
     selectedDimensions: '100 x 100',
     fillScreen: false,
+    objectFit: 'contain',
     message: 'Target selected.',
   });
 
@@ -89,6 +90,7 @@ test('same target load snapshots preserve learned field markers', () => {
       selectedHandleId: 'handle-1',
       selectedDimensions: '100 x 100',
       fillScreen: false,
+      objectFit: 'contain' as const,
       message: 'Target selected.',
     },
     successfulFieldIds: ['q:0:0'],
@@ -106,6 +108,7 @@ test('same target load snapshots preserve learned field markers', () => {
     selectedHandleId: 'handle-1',
     selectedDimensions: '100 x 100',
     fillScreen: false,
+    objectFit: 'contain',
     message: 'Target loaded.',
   });
 
@@ -128,6 +131,7 @@ test('same target load snapshots preserve edited draft URL', () => {
       selectedHandleId: 'handle-1',
       selectedDimensions: '100 x 100',
       fillScreen: false,
+      objectFit: 'contain' as const,
       message: 'Target selected.',
     },
   };
@@ -141,6 +145,7 @@ test('same target load snapshots preserve edited draft URL', () => {
     selectedHandleId: 'handle-1',
     selectedDimensions: '100 x 100',
     fillScreen: false,
+    objectFit: 'contain',
     message: 'Target refreshed.',
   });
 
@@ -160,6 +165,7 @@ test('successful same target projection can explicitly clear edited draft URL', 
       selectedHandleId: 'handle-1',
       selectedDimensions: '100 x 100',
       fillScreen: false,
+      objectFit: 'contain' as const,
       message: 'Target selected.',
     },
   };
@@ -174,6 +180,7 @@ test('successful same target projection can explicitly clear edited draft URL', 
       selectedHandleId: 'handle-1',
       selectedDimensions: '100 x 100',
       fillScreen: false,
+      objectFit: 'contain',
       message: 'Target refreshed.',
     }),
     draftUrl: null,

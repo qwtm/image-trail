@@ -272,6 +272,7 @@ test('target selection alone does not commit runtime history before load success
       selectedHandleId: 'target-1',
       selectedDimensions: '640×480',
       fillScreen: false,
+      objectFit: 'contain',
       message: 'Selected pending image.',
     },
     1,

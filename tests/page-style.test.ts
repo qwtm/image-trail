@@ -8,20 +8,33 @@ import {
 } from '../extension/src/content/page-style.js';
 
 function createImageElement(): HTMLElement {
+  const style = {
+    backgroundColor: '',
+    boxShadow: '',
+    cursor: '',
+    height: '72px',
+    left: '4px',
+    maxHeight: '90vh',
+    maxWidth: '90vw',
+    objectFit: 'cover',
+    opacity: '0.5',
+    outline: '',
+    outlineOffset: '',
+    position: 'absolute',
+    top: '8px',
+    width: '144px',
+    setProperty(name: string, value: string): void {
+      this[toCamelCase(name) as keyof typeof this] = value as never;
+    },
+  };
   return {
     dataset: {},
-    style: {
-      cursor: '',
-      height: '72px',
-      objectFit: 'cover',
-      opacity: '0.5',
-      outline: '',
-      outlineOffset: '',
-      boxShadow: '',
-      width: '144px',
-      backgroundColor: '',
-    } as CSSStyleDeclaration,
+    style: style as CSSStyleDeclaration,
   } as unknown as HTMLElement;
+}
+
+function toCamelCase(name: string): string {
+  return name.replace(/-([a-z])/gu, (_, letter: string) => letter.toUpperCase());
 }
 
 function createStyledElement(background: string, backgroundColor: string): HTMLElement {
@@ -40,6 +53,11 @@ test('selected target lockBox constrains the host image box and restores origina
 
   assert.equal(element.style.height, '100%');
   assert.equal(element.style.objectFit, 'contain');
+  assert.equal(element.style.position, 'fixed');
+  assert.equal(element.style.top, '0');
+  assert.equal(element.style.left, '0');
+  assert.equal(element.style.maxHeight, 'none');
+  assert.equal(element.style.maxWidth, 'none');
   assert.equal(element.style.width, '100%');
   assert.equal(element.dataset.imageTrailSelected, 'true');
 
@@ -47,9 +65,30 @@ test('selected target lockBox constrains the host image box and restores origina
 
   assert.equal(element.style.height, '72px');
   assert.equal(element.style.objectFit, 'cover');
+  assert.equal(element.style.position, 'absolute');
+  assert.equal(element.style.top, '8px');
+  assert.equal(element.style.left, '4px');
+  assert.equal(element.style.maxHeight, '90vh');
+  assert.equal(element.style.maxWidth, '90vw');
   assert.equal(element.style.width, '144px');
   assert.equal(element.style.backgroundColor, '');
   assert.equal(element.dataset.imageTrailSelected, undefined);
+});
+
+test('selected target lockBox accepts explicit preview object fit and restores it', () => {
+  const element = createImageElement();
+
+  markSelectedTarget(element, { lockBox: true, objectFit: 'cover' });
+
+  assert.equal(element.style.objectFit, 'cover');
+
+  markSelectedTarget(element, { lockBox: true, objectFit: 'scale-down' });
+
+  assert.equal(element.style.objectFit, 'scale-down');
+
+  restoreElementStyles(element);
+
+  assert.equal(element.style.objectFit, 'cover');
 });
 
 test('selected target lockBox makes the page backdrop black and restores it', () => {

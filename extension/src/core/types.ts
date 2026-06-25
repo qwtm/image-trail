@@ -4,6 +4,7 @@ import type { ImageDisplayRecord } from './display-records.js';
 import type { GrabSourcePattern, UrlTemplateMatchMode, UrlTemplateRecord } from './url/templates.js';
 import type { UrlTemplateGrabStrategy } from './url/grab-strategies.js';
 import type { UrlFieldDigitWidthSpec, UrlFieldSplitSpec } from './url/types.js';
+import type { ObjectFitMode } from './preview-style.js';
 
 export type PanelStatus = 'idle' | 'ready' | 'closed' | 'unsupported' | 'error' | 'picking';
 export type PinSaveStoragePreference = 'encrypted' | 'plaintext';
@@ -18,6 +19,7 @@ export interface TargetState {
   readonly selectedHandleId: string | null;
   readonly selectedDimensions: string | null;
   readonly fillScreen: boolean;
+  readonly objectFit: ObjectFitMode;
   readonly message: string;
 }
 
@@ -196,6 +198,7 @@ export type PanelActionName =
   | 'grab-mode/start'
   | 'grab-mode/stop'
   | 'target/fill-screen'
+  | 'target/set-object-fit'
   | 'target/release'
   | 'history/add-loaded'
   | 'history/remove'
@@ -310,6 +313,7 @@ export type PanelAction =
         | 'field-value-bump'
         | 'selected-url/apply'
         | 'target/fill-screen'
+        | 'target/set-object-fit'
         | 'active-field/set'
         | 'field-unlock/toggle'
         | 'field-split/apply'
@@ -436,6 +440,7 @@ export type PanelAction =
   | { readonly name: 'parsed-field-state/restore'; readonly record: ParsedFieldStateRecord }
   | { readonly name: 'active-field/set'; readonly id: string | null }
   | { readonly name: 'target/fill-screen'; readonly enabled: boolean }
+  | { readonly name: 'target/set-object-fit'; readonly mode: ObjectFitMode }
   | { readonly name: 'field-unlock/toggle'; readonly id: string }
   | { readonly name: 'field-split/apply'; readonly id: string; readonly pattern: string }
   | { readonly name: 'field-split/clear'; readonly baseFieldId: string }
