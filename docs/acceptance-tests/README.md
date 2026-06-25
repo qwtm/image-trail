@@ -20,3 +20,4 @@ These scenarios define the first browser-level acceptance coverage for the Brave
 - [Recents Retention Settings](recents-retention-settings.md)
 - [Settings Utility Layout](settings-utility-layout.md)
 - [Form Control Consistency](form-control-consistency.md)
+- [Settings Action Hierarchy](settings-action-hierarchy.md)
