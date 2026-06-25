@@ -125,6 +125,7 @@ function toTargetState(snapshot: TargetSelectionSnapshot): TargetState {
     selectedHandleId: snapshot.selected?.handleId ?? null,
     selectedDimensions: snapshot.selected ? `${snapshot.selected.width}×${snapshot.selected.height}` : null,
     fillScreen: snapshot.fillScreen,
+    objectFit: snapshot.objectFit,
     message: snapshot.message,
   };
 }
@@ -328,6 +329,11 @@ export class ImageTrailPanel {
       clearUrlReviewStatusAfterExport: this.localSettings.clearUrlReviewStatusAfterExport,
       lastUpdatedAt: Date.now(),
     };
+    const snapshot = this.pageAdapter.setPreviewPreferences({
+      fillScreen: this.localSettings.previewFillScreen,
+      objectFit: this.localSettings.previewObjectFit,
+    });
+    this.state = setTargetState(this.state, toTargetState(snapshot));
     if (options.render !== false) this.render();
   }
 
@@ -911,6 +917,15 @@ export class ImageTrailPanel {
     if (action.name === 'target/fill-screen') {
       const snapshot = this.pageAdapter.setSelectedFillScreen(action.enabled);
       this.state = setTargetState(this.state, toTargetState(snapshot));
+      this.saveLocalSettings({ ...this.localSettings, previewFillScreen: snapshot.fillScreen });
+      this.render();
+      return;
+    }
+
+    if (action.name === 'target/set-object-fit') {
+      const snapshot = this.pageAdapter.setSelectedObjectFit(action.mode);
+      this.state = setTargetState(this.state, toTargetState(snapshot));
+      this.saveLocalSettings({ ...this.localSettings, previewObjectFit: snapshot.objectFit });
       this.render();
       return;
     }

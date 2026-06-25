@@ -102,10 +102,28 @@ test('loads typed plaintext local settings through defaults and migrations', () 
   assert.equal(repository.load().bookmarkVisibilityScope, 'global');
   assert.equal(repository.load().pinSaveStoragePreference, 'encrypted');
   assert.equal(repository.load().privacyModeEnabled, false);
+  assert.equal(repository.load().previewObjectFit, 'contain');
+  assert.equal(repository.load().previewFillScreen, true);
   assert.equal(repository.load().urlReviewStatusLimit, 5000);
   assert.equal(repository.load().clearUrlReviewStatusAfterExport, false);
   repository.save({ ...DEFAULT_LOCAL_SETTINGS, pinSaveStoragePreference: 'plaintext' });
   assert.equal(repository.load().pinSaveStoragePreference, 'plaintext');
+});
+
+test('migrates preview preference local settings safely', () => {
+  const valid = new LocalSettingsRepository({
+    getItem: () => JSON.stringify({ previewObjectFit: 'cover', previewFillScreen: false }),
+    setItem: () => {},
+  });
+  const invalid = new LocalSettingsRepository({
+    getItem: () => JSON.stringify({ previewObjectFit: 'stretch', previewFillScreen: 'no' }),
+    setItem: () => {},
+  });
+
+  assert.equal(valid.load().previewObjectFit, 'cover');
+  assert.equal(valid.load().previewFillScreen, false);
+  assert.equal(invalid.load().previewObjectFit, DEFAULT_LOCAL_SETTINGS.previewObjectFit);
+  assert.equal(invalid.load().previewFillScreen, DEFAULT_LOCAL_SETTINGS.previewFillScreen);
 });
 
 test('falls back to plaintext local setting defaults when storage is corrupt', () => {

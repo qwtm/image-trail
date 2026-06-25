@@ -19,8 +19,8 @@ Purpose: verify that panel sections keep predictable sizing while the user inter
 - The panel can be minimized to a compact Image Trail button docked on the viewport edge without closing the extension session.
 - Minimizing the panel does not stop Grab Mode, target picking, or page-level shift-click capture behavior.
 - Clicking the compact Image Trail button expands the full panel again.
-- Opening the panel on a page with exactly one qualifying image auto-selects that image without immediately rewriting the page backdrop or image box.
-- Full-page selected-image preview styling is applied only when the user turns on the host image `Fill screen` control.
+- Opening the panel on a page with exactly one qualifying image auto-selects that image into the persisted preview layout.
+- The selected-image preview layout defaults to fullscreen `contain`, can be toggled back to page layout, and lets the user choose the image object-fit mode.
 
 ## Steps
 
@@ -47,15 +47,17 @@ Purpose: verify that panel sections keep predictable sizing while the user inter
 21. Click the compact `Image Trail` button.
 22. Verify the full panel expands again.
 23. Open the extension on a page with exactly one qualifying image.
-24. Verify the image is auto-selected with a lightweight selected outline and the host page does not flash to a black backdrop or resize the image box on open.
+24. Verify the image is auto-selected into intentional fullscreen preview without a visible first-open size jump.
 25. Close and reopen the panel.
-26. Verify repeated open/close cycles do not visibly flicker the page backdrop or image dimensions.
-27. Click the host image `Fill screen` control.
-28. Verify the selected image enters intentional full-page preview styling.
+26. Verify repeated open/close cycles restore and reapply the preview without visibly flickering the page backdrop or image dimensions.
+27. Change the Host target fit mode.
+28. Verify the selected image stays fullscreen and updates its object-fit behavior.
 29. Click `Fit in page`.
 30. Verify the selected image returns to its page layout while remaining selected.
-31. Apply a different URL through a parsed field or bookmark preview.
-32. Verify the selected image stays in page layout unless `Fill screen` is turned on.
+31. Click `Fill screen`.
+32. Verify the selected image returns to fullscreen preview using the last selected fit mode.
+33. Apply a different URL through a parsed field or bookmark preview.
+34. Verify the selected image keeps the current preview layout and fit mode.
 
 ## Expected Result
 
@@ -64,4 +66,4 @@ Purpose: verify that panel sections keep predictable sizing while the user inter
 - Recent history and bookmark interactions do not cause panel jumping.
 - The outer panel remains scrollable while interacting with parsed fields.
 - Minimized mode reduces the panel to one compact viewport-edge button and preserves active page workflows.
-- First-open auto-selection avoids page-level visual jank; heavy preview styling is reserved for the explicit `Fill screen` control.
+- First-open auto-selection uses the persisted preview layout without a transient oversized/unstyled jump.

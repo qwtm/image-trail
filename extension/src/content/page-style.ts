@@ -1,12 +1,27 @@
+import { DEFAULT_PREVIEW_OBJECT_FIT, type ObjectFitMode } from '../core/preview-style.js';
+
 type StyleSnapshot = Pick<
   CSSStyleDeclaration,
-  'backgroundColor' | 'cursor' | 'height' | 'objectFit' | 'opacity' | 'outline' | 'outlineOffset' | 'width'
+  | 'backgroundColor'
+  | 'cursor'
+  | 'height'
+  | 'left'
+  | 'maxHeight'
+  | 'maxWidth'
+  | 'objectFit'
+  | 'opacity'
+  | 'outline'
+  | 'outlineOffset'
+  | 'position'
+  | 'top'
+  | 'width'
 >;
 type PageBackdropSnapshot = Pick<CSSStyleDeclaration, 'background' | 'backgroundColor'>;
 type GrabPreviewStyleSnapshot = Pick<CSSStyleDeclaration, 'boxShadow' | 'cursor' | 'outline' | 'outlineOffset'>;
 
 interface SelectedTargetOptions {
   readonly lockBox?: boolean;
+  readonly objectFit?: ObjectFitMode;
 }
 
 const snapshots = new WeakMap<HTMLElement, StyleSnapshot>();
@@ -19,10 +34,15 @@ function snapshot(element: HTMLElement): void {
     backgroundColor: element.style.backgroundColor,
     cursor: element.style.cursor,
     height: element.style.height,
+    left: element.style.left,
+    maxHeight: element.style.maxHeight,
+    maxWidth: element.style.maxWidth,
     objectFit: element.style.objectFit,
     opacity: element.style.opacity,
     outline: element.style.outline,
     outlineOffset: element.style.outlineOffset,
+    position: element.style.position,
+    top: element.style.top,
     width: element.style.width,
   });
 }
@@ -77,8 +97,14 @@ export function markSelectedTarget(element: HTMLElement, options: SelectedTarget
     markPageBackdropBlack();
     element.style.backgroundColor = '#000';
     element.style.height = '100%';
-    element.style.objectFit = 'contain';
-    element.style.width = '100%';
+    element.style.left = '0';
+    element.style.maxHeight = 'none';
+    element.style.maxWidth = 'none';
+    element.style.objectFit = options.objectFit ?? DEFAULT_PREVIEW_OBJECT_FIT;
+    element.style.position = 'fixed';
+    element.style.top = '0';
+    element.style.setProperty('width', '100%', 'important');
+    element.style.setProperty('height', '100%', 'important');
   } else {
     element.style.objectFit = 'cover';
   }
@@ -93,10 +119,15 @@ export function restoreElementStyles(element: HTMLElement): void {
     element.style.backgroundColor = original.backgroundColor;
     element.style.cursor = original.cursor;
     element.style.height = original.height;
+    element.style.left = original.left;
+    element.style.maxHeight = original.maxHeight;
+    element.style.maxWidth = original.maxWidth;
     element.style.objectFit = original.objectFit;
     element.style.opacity = original.opacity;
     element.style.outline = original.outline;
     element.style.outlineOffset = original.outlineOffset;
+    element.style.position = original.position;
+    element.style.top = original.top;
     element.style.width = original.width;
     snapshots.delete(element);
   }
