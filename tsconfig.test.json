@@ -7,5 +7,5 @@
     "noEmit": false
   },
   "include": ["extension/src/**/*.ts", "tests/**/*.test.ts"],
-  "exclude": ["extension/src/test-fixtures/**/*.ts"]
+  "exclude": ["extension/src/test-fixtures/**/*.ts", "extension/src/**/*.stories.ts", "extension/src/ui/stories/**/*.ts"]
 }
