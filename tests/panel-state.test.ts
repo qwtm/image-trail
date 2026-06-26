@@ -1068,7 +1068,34 @@ test('parsed field state restore can replay edits from the original image page U
   };
 
   assert.equal(shouldRestoreParsedFieldState(record, record.pageUrl, 'image-trail-target-1'), true);
-  assert.equal(shouldRestoreParsedFieldState(record, record.pageUrl, 'image-trail-target-2'), false);
+  assert.equal(shouldRestoreParsedFieldState(record, 'https://example.test/other-image.jpg', 'image-trail-target-2'), false);
+  assert.equal(shouldRestoreParsedFieldState(record, 'https://example.test/other-image.jpg', 'image-trail-target-2', record.pageUrl), true);
+});
+
+test('parsed field state restore can replay saved projection when the browser page URL matches', () => {
+  const record = {
+    schemaVersion: 1 as const,
+    hostname: 'example.test',
+    pageUrl: 'https://example.test/gallery',
+    sourceUrl: 'https://cdn.example.test/image-0009.jpg',
+    selectedUrl: 'https://cdn.example.test/image-0008.jpg',
+    selectedHandleId: 'target-previous-tab',
+    activeFieldId: 'q:0:0',
+    failedFieldId: null,
+    successfulFieldIds: ['q:0:0'],
+    unchangedFieldIds: [],
+    unlockedFieldIds: ['q:0:0'],
+    manuallyExcludedFieldIds: [],
+    fieldSplitSpecs: [],
+    activeUrlTemplateId: 'template-1',
+    updatedAt: '2026-06-22T00:00:00.000Z',
+  };
+
+  assert.equal(shouldRestoreParsedFieldState(record, 'https://cdn.example.test/site-default.jpg', 'target-new-tab'), false);
+  assert.equal(
+    shouldRestoreParsedFieldState(record, 'https://cdn.example.test/site-default.jpg', 'target-new-tab', 'https://example.test/gallery'),
+    true,
+  );
 });
 
 test('parsed field state restore ignores stale draft URLs for same host image elements', () => {

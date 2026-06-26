@@ -34,6 +34,7 @@ import { createThumbnailDataUrlFromImage } from './thumbnail-generator.js';
 import { createFetchLinkedPageMessage, isFetchLinkedPageResultMessage } from '../background/messages.js';
 import { sendRuntimeMessage } from './runtime-message.js';
 import { DEFAULT_PREVIEW_OBJECT_FIT, type ObjectFitMode } from '../core/preview-style.js';
+import type { ProjectionReason } from '../core/projection-session.js';
 
 export type TargetSelectionMode = 'auto' | 'manual' | 'none';
 
@@ -49,7 +50,14 @@ export interface TargetSelectionSnapshot {
 }
 
 export type TargetSelectionListener = (snapshot: TargetSelectionSnapshot) => void;
-export type TargetLoadListener = (target: TargetImageInfo & { readonly thumbnail?: string; readonly trustedLoadedImage?: boolean }) => void;
+export type TargetLoadListener = (
+  target: TargetImageInfo & {
+    readonly thumbnail?: string;
+    readonly trustedLoadedImage?: boolean;
+    readonly projectionId?: string;
+    readonly projectionReason?: ProjectionReason;
+  },
+) => void;
 export type TargetBookmarkRequestListener = (
   target: Omit<TargetImageInfo, 'width' | 'height'> & {
     readonly width?: number;
@@ -111,10 +119,14 @@ export class PageAdapter {
   private pendingLoadTarget: HTMLImageElement | null = null;
   private pendingLoadActiveUrl: string | null = null;
   private pendingLoadDisplayUrl: string | null = null;
+  private pendingLoadProjectionId: string | null = null;
+  private pendingLoadProjectionReason: ProjectionReason | null = null;
   private selectedOriginalUrl: string | null = null;
   private selectedOriginalSnapshot: ImageNavigationSnapshot | null = null;
   private selectedActiveUrl: string | null = null;
   private selectedDisplayUrl: string | null = null;
+  private selectedProjectionId: string | null = null;
+  private selectedProjectionReason: ProjectionReason | null = null;
   private selectedFillScreen = true;
   private selectedObjectFit: ObjectFitMode = DEFAULT_PREVIEW_OBJECT_FIT;
   private lastSnapshot: TargetSelectionSnapshot = this.createSnapshot('No target selected.');
@@ -266,7 +278,11 @@ export class PageAdapter {
     return this.lastSnapshot;
   }
 
-  applyUrlToSelected(url: string, displayUrl = url): TargetSelectionSnapshot {
+  applyUrlToSelected(
+    url: string,
+    displayUrl = url,
+    options: { readonly projectionId?: string; readonly projectionReason?: ProjectionReason } = {},
+  ): TargetSelectionSnapshot {
     if (!this.selected?.isConnected) {
       return this.emit('Select a target image before loading a bookmark.');
     }
@@ -275,6 +291,8 @@ export class PageAdapter {
     markSelectedTarget(this.selected, { lockBox: this.selectedFillScreen, objectFit: this.selectedObjectFit });
     this.selectedActiveUrl = url;
     this.selectedDisplayUrl = displayUrl;
+    this.selectedProjectionId = options.projectionId ?? null;
+    this.selectedProjectionReason = options.projectionReason ?? null;
     this.watchSelectedLoad(this.selected);
     return this.emit(`Applied ${url}`);
   }
@@ -609,6 +627,8 @@ export class PageAdapter {
     this.selectedOriginalSnapshot = originalSnapshot;
     this.selectedActiveUrl = originalUrl;
     this.selectedDisplayUrl = originalUrl;
+    this.selectedProjectionId = null;
+    this.selectedProjectionReason = null;
     this.mode = mode;
     const handleId = createTargetImageInfo(image)?.handleId;
     if (handleId) image.setAttribute('data-image-trail-handle', handleId);
@@ -632,20 +652,26 @@ export class PageAdapter {
     this.selectedOriginalSnapshot = null;
     this.selectedActiveUrl = null;
     this.selectedDisplayUrl = null;
+    this.selectedProjectionId = null;
+    this.selectedProjectionReason = null;
   }
 
   private watchSelectedLoad(image: HTMLImageElement): void {
     this.clearPendingLoadTarget();
     const expectedActiveUrl = image === this.selected ? this.selectedActiveUrl : null;
     const expectedDisplayUrl = image === this.selected ? this.selectedDisplayUrl : null;
+    const expectedProjectionId = image === this.selected ? this.selectedProjectionId : null;
+    const expectedProjectionReason = image === this.selected ? this.selectedProjectionReason : null;
     if (isSuccessfulImageLoad(image)) {
-      void this.emitSuccessfulLoad(image, expectedActiveUrl, expectedDisplayUrl);
+      void this.emitSuccessfulLoad(image, expectedActiveUrl, expectedDisplayUrl, expectedProjectionId, expectedProjectionReason);
       return;
     }
 
     this.pendingLoadTarget = image;
     this.pendingLoadActiveUrl = expectedActiveUrl;
     this.pendingLoadDisplayUrl = expectedDisplayUrl;
+    this.pendingLoadProjectionId = expectedProjectionId;
+    this.pendingLoadProjectionReason = expectedProjectionReason;
     image.addEventListener('load', this.onSelectedLoad, { once: true });
     image.addEventListener('error', this.onSelectedError, { once: true });
   }
@@ -657,12 +683,20 @@ export class PageAdapter {
     this.pendingLoadTarget = null;
     this.pendingLoadActiveUrl = null;
     this.pendingLoadDisplayUrl = null;
+    this.pendingLoadProjectionId = null;
+    this.pendingLoadProjectionReason = null;
   }
 
   private onSelectedLoad = (event: Event): void => {
     const image = event.currentTarget;
     if (image instanceof HTMLImageElement && image === this.selected && isSuccessfulImageLoad(image)) {
-      void this.emitSuccessfulLoad(image, this.pendingLoadActiveUrl, this.pendingLoadDisplayUrl);
+      void this.emitSuccessfulLoad(
+        image,
+        this.pendingLoadActiveUrl,
+        this.pendingLoadDisplayUrl,
+        this.pendingLoadProjectionId,
+        this.pendingLoadProjectionReason,
+      );
     }
     this.clearPendingLoadTarget();
   };
@@ -670,8 +704,10 @@ export class PageAdapter {
   private onSelectedError = (event: Event): void => {
     const image = event.currentTarget;
     const failedActiveUrl = this.pendingLoadActiveUrl;
+    const failedProjectionId = this.pendingLoadProjectionId;
     if (image === this.pendingLoadTarget) this.clearPendingLoadTarget();
     if (image !== this.selected || !failedActiveUrl || failedActiveUrl !== this.selectedActiveUrl) return;
+    if ((failedProjectionId ?? null) !== this.selectedProjectionId) return;
     this.emit(failedActiveUrl.startsWith('data:') ? 'Failed to load data URL.' : `Failed to load ${failedActiveUrl}`);
   };
 
@@ -679,8 +715,11 @@ export class PageAdapter {
     image: HTMLImageElement,
     expectedActiveUrl: string | null = null,
     expectedDisplayUrl: string | null = null,
+    expectedProjectionId: string | null = null,
+    expectedProjectionReason: ProjectionReason | null = null,
   ): Promise<void> {
     if (image === this.selected && expectedActiveUrl !== this.selectedActiveUrl) return;
+    if (image === this.selected && expectedProjectionId !== this.selectedProjectionId) return;
     if (image === this.selected && expectedDisplayUrl) {
       if (!imageLoadedUrlMatches(image, expectedDisplayUrl)) return;
     }
@@ -693,7 +732,17 @@ export class PageAdapter {
       this.emit(reportedTarget.url.startsWith('data:') ? 'Loaded data URL' : `Loaded ${reportedTarget.url}`);
     }
     const thumbnail = (await createThumbnailDataUrlFromImage(image)) ?? undefined;
-    for (const listener of this.loadListeners) listener({ ...reportedTarget, thumbnail, trustedLoadedImage: true });
+    if (image === this.selected && expectedActiveUrl !== this.selectedActiveUrl) return;
+    if (image === this.selected && expectedProjectionId !== this.selectedProjectionId) return;
+    for (const listener of this.loadListeners) {
+      listener({
+        ...reportedTarget,
+        thumbnail,
+        trustedLoadedImage: true,
+        projectionId: expectedProjectionId ?? undefined,
+        projectionReason: expectedProjectionReason ?? undefined,
+      });
+    }
   }
 
   private clearHover(): void {
