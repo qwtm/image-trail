@@ -222,3 +222,72 @@ test('selected image load reports active URL when display data URL loads', async
     restoreDom();
   }
 });
+
+test('selected image projection load reports projection ownership metadata', async () => {
+  const image = new FakeImageElement();
+  const restoreDom = installFakeDom(image);
+  const adapter = new PageAdapter();
+  const loaded: Array<{ readonly url: string; readonly projectionId?: string; readonly projectionReason?: string }> = [];
+
+  try {
+    adapter.autoSelectSingleImage();
+    await Promise.resolve();
+    adapter.subscribeToSuccessfulLoads((target) =>
+      loaded.push({ url: target.url, projectionId: target.projectionId, projectionReason: target.projectionReason }),
+    );
+
+    image.complete = false;
+    image.naturalHeight = 0;
+    image.naturalWidth = 0;
+    adapter.applyUrlToSelected('https://example.test/projected.jpg', 'data:image/jpeg;base64,projected', {
+      projectionId: 'projection-1',
+      projectionReason: 'record-preview',
+    });
+
+    image.complete = true;
+    image.naturalHeight = 480;
+    image.naturalWidth = 640;
+    image.dispatchEvent(new Event('load'));
+    await Promise.resolve();
+
+    assert.deepEqual(loaded, [
+      {
+        url: 'https://example.test/projected.jpg',
+        projectionId: 'projection-1',
+        projectionReason: 'record-preview',
+      },
+    ]);
+  } finally {
+    restoreDom();
+  }
+});
+
+test('selected image load ignores stale projection completion after newer projection starts', async () => {
+  const image = new FakeImageElement();
+  const restoreDom = installFakeDom(image);
+  const adapter = new PageAdapter();
+  const loaded: Array<{ readonly url: string; readonly projectionId?: string }> = [];
+
+  try {
+    adapter.autoSelectSingleImage();
+    await Promise.resolve();
+    adapter.subscribeToSuccessfulLoads((target) => loaded.push({ url: target.url, projectionId: target.projectionId }));
+
+    image.complete = true;
+    image.naturalHeight = 480;
+    image.naturalWidth = 640;
+    adapter.applyUrlToSelected('https://example.test/first.jpg', 'data:image/jpeg;base64,first', {
+      projectionId: 'projection-1',
+      projectionReason: 'record-preview',
+    });
+    adapter.applyUrlToSelected('https://example.test/second.jpg', 'data:image/jpeg;base64,second', {
+      projectionId: 'projection-2',
+      projectionReason: 'record-preview',
+    });
+    await Promise.resolve();
+
+    assert.deepEqual(loaded, [{ url: 'https://example.test/second.jpg', projectionId: 'projection-2' }]);
+  } finally {
+    restoreDom();
+  }
+});

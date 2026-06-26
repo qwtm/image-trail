@@ -42,6 +42,7 @@ import { applyFieldDigitWidthSpecs, normalizeFieldDigitWidth, upsertFieldDigitWi
 import { parseUrl } from '../core/url/parse-url.js';
 import { bumpUrlField, rebuildUrl, setUrlFieldValue } from '../core/url/rebuild-url.js';
 import { collectUrlFields, selectDefaultField } from '../core/url/tokenize-fields.js';
+import { ProjectionSessionController, type ProjectionReason, type ProjectionSession } from '../core/projection-session.js';
 import {
   createUrlTemplateRecord,
   findBestMatchingTemplate,
@@ -91,6 +92,7 @@ interface RecordAddOptions {
   readonly trustLoadedImage?: boolean;
   readonly width?: number;
   readonly height?: number;
+  readonly projectionId?: string;
 }
 
 function parseDimensionText(value: string | null): { readonly width?: number; readonly height?: number } {
@@ -134,7 +136,9 @@ export function shouldRestoreParsedFieldState(
   record: ParsedFieldStateRecord,
   currentSelectedUrl: string | null,
   selectedHandleId: string | null,
+  currentPageUrl?: string,
 ): boolean {
+  if (currentPageUrl && record.pageUrl === currentPageUrl) return true;
   if (record.sourceUrl === currentSelectedUrl) return true;
   if (record.pageUrl === currentSelectedUrl && (!record.selectedHandleId || record.selectedHandleId === selectedHandleId)) return true;
   if (!record.selectedHandleId || record.selectedHandleId !== selectedHandleId) return false;
@@ -160,12 +164,12 @@ export class ImageTrailPanel {
   private unsubscribeFromGrabSourcePatternRequests: (() => void) | null = null;
 
   private readonly governor = new RequestGovernor();
+  private readonly projections = new ProjectionSessionController();
   private readonly keyboard: KeyboardRouter;
   private readonly slideshow: Slideshow;
   private readonly retry: Retry404;
   private localSettings: PlaintextLocalSettings = DEFAULT_LOCAL_SETTINGS;
   private previewScrollAnchorId: string | null = null;
-  private projectionRevision = 0;
   private storageUsageRequestId = 0;
   private bookmarkMutationQueue: Promise<void> = Promise.resolve();
   private panelPositionRestored = false;
@@ -205,10 +209,13 @@ export class ImageTrailPanel {
       void this.loadGrabSettings().then(() => this.restoreParsedFieldState());
     });
     this.unsubscribeFromLoads = this.pageAdapter.subscribeToSuccessfulLoads((target) => {
+      if (target.projectionId && !this.projections.isActive(target.projectionId)) return;
+      if (target.projectionId) this.projections.update(target.projectionId, { status: 'loaded' });
       void this.addRecentHistory(target.url, target.thumbnail, {
         trustLoadedImage: target.trustedLoadedImage,
         width: target.width,
         height: target.height,
+        projectionId: target.projectionId,
       });
     });
     this.unsubscribeFromBookmarkRequests = this.pageAdapter.subscribeToBookmarkRequests((target) => {
@@ -597,18 +604,19 @@ export class ImageTrailPanel {
     const hostname = this.parsedFieldStateHostname();
     if (!hostname) return;
     const currentSelectedUrl = this.currentSelectedUrl();
-    const exactRecord = await this.parsedFieldStateStore.load(hostname, this.parsedFieldStatePageUrl());
+    const currentPageUrl = this.parsedFieldStatePageUrl();
+    const exactRecord = await this.parsedFieldStateStore.load(hostname, currentPageUrl);
     const sourceRecord = currentSelectedUrl ? await this.parsedFieldStateStore.loadForSource(hostname, currentSelectedUrl) : null;
     const record = [exactRecord, sourceRecord].find(
       (candidate): candidate is ParsedFieldStateRecord =>
-        !!candidate && shouldRestoreParsedFieldState(candidate, currentSelectedUrl, this.state.target.selectedHandleId),
+        !!candidate && shouldRestoreParsedFieldState(candidate, currentSelectedUrl, this.state.target.selectedHandleId, currentPageUrl),
     );
     if (!record) return;
     const sameSource = imageResourceUrlsEqual(record.sourceUrl, currentSelectedUrl, window.location.href);
     this.parsedFieldStateRestoreInProgress = true;
     try {
       if (options.projectSavedSource && !sameSource) {
-        const projected = await this.applySelectedUrl(record.sourceUrl);
+        const projected = await this.applySelectedUrl(record.sourceUrl, [], { reason: 'parsed-field-restore' });
         if (!projected && !imageResourceUrlsEqual(record.sourceUrl, this.currentRawUrl(), window.location.href)) return;
       }
       this.state = reducePanelAction(this.state, {
@@ -1411,8 +1419,20 @@ export class ImageTrailPanel {
   }
 
   private currentRawUrl(): string {
+    return this.draftUrl() ?? this.projectedSourceUrl() ?? this.pageUrl();
+  }
+
+  private projectedSourceUrl(): string | null {
     const snapshot = this.pageAdapter.getSnapshot();
-    return this.state.draftUrl ?? snapshot.selected?.url ?? window.location.href;
+    return snapshot.selected?.url ?? this.state.target.selectedUrl ?? null;
+  }
+
+  private draftUrl(): string | null {
+    return this.state.draftUrl;
+  }
+
+  private pageUrl(): string {
+    return window.location.href;
   }
 
   private currentSelectedUrl(): string | null {
@@ -1530,14 +1550,17 @@ export class ImageTrailPanel {
   private async applySelectedUrl(
     nextUrl: string,
     attemptedFieldIds: readonly string[] = [],
-    options: { readonly pushVisibleUrl?: boolean } = {},
+    options: { readonly pushVisibleUrl?: boolean; readonly reason?: ProjectionReason } = {},
   ): Promise<boolean> {
-    const revision = ++this.projectionRevision;
+    const session = this.beginProjectionSession(options.reason ?? this.applySelectedUrlReason(attemptedFieldIds), nextUrl);
+    if (!session) return false;
     const baselineFingerprint = await this.currentImageFingerprint();
-    if (revision !== this.projectionRevision) return false;
+    if (!this.isCurrentProjectionSession(session)) return false;
+    this.projections.update(session, { status: 'preloading' });
     const preload = await this.preloadImageUrl(nextUrl);
-    if (revision !== this.projectionRevision) return false;
+    if (!this.isCurrentProjectionSession(session)) return false;
     if (!preload.ok) {
+      this.projections.update(session, { status: 'failed' });
       this.state = applyFieldLoadFailureToState(this.state, { draftUrl: nextUrl, attemptedFieldIds, message: preload.message });
       void this.saveUrlReviewStatus('failed', nextUrl, attemptedFieldIds, preload.message);
       void this.saveParsedFieldState();
@@ -1547,6 +1570,7 @@ export class ImageTrailPanel {
 
     const reviewStatus = urlReviewStatusForLoadResult(preload.sha256, baselineFingerprint);
     if (attemptedFieldIds.length > 0 && reviewStatus === 'unchanged') {
+      this.projections.update(session, { status: 'loaded', displayUrl: preload.displayUrl });
       this.state = this.applyFieldLoadResult(
         { ...this.state, draftUrl: nextUrl, message: 'Image loaded but did not change.', status: 'ready', lastUpdatedAt: Date.now() },
         attemptedFieldIds,
@@ -1561,8 +1585,9 @@ export class ImageTrailPanel {
 
     const snapshot = this.pageAdapter.getSnapshot();
     if (snapshot.selected) {
-      const nextSnapshot = this.pageAdapter.applyUrlToSelected(nextUrl, preload.displayUrl);
-      if (revision !== this.projectionRevision) return false;
+      const nextSnapshot = this.applyProjectionToSelectedImage(session, preload.displayUrl);
+      if (!nextSnapshot) return false;
+      if (!this.isCurrentProjectionSession(session)) return false;
       this.state = { ...setTargetState(this.state, toTargetState(nextSnapshot)), draftUrl: null };
     }
     this.state = this.applyFieldLoadResult(this.state, attemptedFieldIds, preload.sha256, baselineFingerprint);
@@ -1572,6 +1597,44 @@ export class ImageTrailPanel {
     this.render();
     void this.loadGrabSettings();
     return true;
+  }
+
+  private applySelectedUrlReason(attemptedFieldIds: readonly string[]): ProjectionReason {
+    return attemptedFieldIds.length > 0 ? 'parsed-field-navigation' : 'selected-url-apply';
+  }
+
+  private beginProjectionSession(reason: ProjectionReason, sourceUrl: string): ProjectionSession | null {
+    const result = this.projections.beginGuarded({
+      reason,
+      sourceUrl,
+      selectedHandleId: this.state.target.selectedHandleId,
+      originalSourceUrl: this.projectedSourceUrl(),
+    });
+    if (result.ok) return result.session;
+    console.warn('Image Trail projection loop guard blocked a repeated host image projection request.', result.warning);
+    this.state = {
+      ...this.state,
+      status: 'error',
+      message: 'Projection stopped because repeated host image requests looked like a loop.',
+      lastUpdatedAt: Date.now(),
+    };
+    this.render();
+    return null;
+  }
+
+  private isCurrentProjectionSession(session: ProjectionSession): boolean {
+    return this.projections.isActive(session);
+  }
+
+  private applyProjectionToSelectedImage(session: ProjectionSession, displayUrl: string): TargetSelectionSnapshot | null {
+    if (!this.isCurrentProjectionSession(session)) return null;
+    this.projections.update(session, { status: 'applying', displayUrl });
+    const snapshot = this.pageAdapter.applyUrlToSelected(session.sourceUrl, displayUrl, {
+      projectionId: session.id,
+      projectionReason: session.reason,
+    });
+    if (!this.isCurrentProjectionSession(session)) return null;
+    return snapshot;
   }
 
   private async preloadImageUrl(
@@ -1758,9 +1821,12 @@ export class ImageTrailPanel {
   }
 
   private async addRecentHistory(url: string, thumbnail?: string, options: RecordAddOptions = {}): Promise<void> {
+    if (options.projectionId && !this.projections.isActive(options.projectionId)) return;
     const validation = await this.validateRecordUrlForAdd(url, options);
+    if (options.projectionId && !this.projections.isActive(options.projectionId)) return;
     if (!validation.ok || !validation.sourceUrl) return;
     const resolvedThumbnail = await this.resolveRecordThumbnail(validation.sourceUrl, thumbnail, validation, options);
+    if (options.projectionId && !this.projections.isActive(options.projectionId)) return;
     const next = reducePanelAction(this.state, {
       name: 'history/add-loaded',
       url: validation.sourceUrl,
@@ -1770,7 +1836,9 @@ export class ImageTrailPanel {
     }).history;
     const item = next[0];
     if (!item) return;
+    if (options.projectionId && !this.projections.isActive(options.projectionId)) return;
     const history = this.recentHistoryStore ? await this.recentHistoryStore.add(item, window.location.href) : next;
+    if (options.projectionId && !this.projections.isActive(options.projectionId)) return;
     this.state = { ...this.state, history, lastUpdatedAt: Date.now() };
     this.render();
   }
@@ -1925,7 +1993,7 @@ export class ImageTrailPanel {
   private async loadBookmark(id: string): Promise<void> {
     const bookmark = this.state.bookmarks.find((item) => item.id === id);
     if (!bookmark) return;
-    await this.applySelectedUrl(bookmark.url);
+    await this.applySelectedUrl(bookmark.url, [], { reason: 'bookmark-load' });
   }
 
   private async removeBookmark(id: string): Promise<void> {
@@ -2161,30 +2229,32 @@ export class ImageTrailPanel {
   }
 
   private async previewRecord(url: string, blobId?: string, scrollAnchorId?: string): Promise<void> {
-    const revision = ++this.projectionRevision;
+    const session = this.beginProjectionSession('record-preview', url);
+    if (!session) return;
     this.previewScrollAnchorId = scrollAnchorId ?? null;
     try {
       if (!blobId) {
-        await this.previewUrl(url, revision);
+        await this.previewUrl(url, session);
         return;
       }
 
       if (!this.captureStore) {
-        await this.previewUrl(url, revision);
+        await this.previewUrl(url, session);
         return;
       }
       const retrieved = await this.captureStore.requestRetrieveBlob(blobId);
-      if (!this.isCurrentProjectionRevision(revision)) return;
+      if (!this.isCurrentProjectionSession(session)) return;
       if (!retrieved.ok) {
         if (retrieved.reason === 'encryption-locked') await this.refreshBlobKeyStatus();
-        if (!this.isCurrentProjectionRevision(revision)) return;
+        if (!this.isCurrentProjectionSession(session)) return;
+        this.projections.update(session, { status: 'failed' });
         this.state = { ...this.state, message: retrieved.message, status: 'error', lastUpdatedAt: Date.now() };
         this.render();
         return;
       }
 
-      if (await this.projectUrlToSelectedImage(retrieved.dataUrl, revision)) {
-        if (!this.isCurrentProjectionRevision(revision)) return;
+      if (await this.projectUrlToSelectedImage(retrieved.dataUrl, session)) {
+        if (!this.isCurrentProjectionSession(session)) return;
         this.state = {
           ...this.state,
           message: `Projected encrypted original (${(retrieved.byteLength / 1024).toFixed(1)} KB).`,
@@ -2194,7 +2264,8 @@ export class ImageTrailPanel {
         return;
       }
 
-      if (!this.isCurrentProjectionRevision(revision)) return;
+      if (!this.isCurrentProjectionSession(session)) return;
+      this.projections.update(session, { status: 'failed' });
       this.state = {
         ...this.state,
         message: 'Select a host image before previewing encrypted originals.',
@@ -2203,13 +2274,14 @@ export class ImageTrailPanel {
       };
       this.render();
     } finally {
-      if (this.isCurrentProjectionRevision(revision)) this.previewScrollAnchorId = null;
+      if (this.isCurrentProjectionSession(session)) this.previewScrollAnchorId = null;
     }
   }
 
-  private async previewUrl(url: string, revision: number): Promise<void> {
+  private async previewUrl(url: string, session: ProjectionSession): Promise<void> {
     if (!this.canProjectToSelectedImage()) {
-      if (!this.isCurrentProjectionRevision(revision)) return;
+      if (!this.isCurrentProjectionSession(session)) return;
+      this.projections.update(session, { status: 'failed' });
       this.state = {
         ...this.state,
         message: 'Select a host image before previewing an image.',
@@ -2221,6 +2293,7 @@ export class ImageTrailPanel {
     }
 
     if (this.isCurrentSelectedImageUrl(url)) {
+      this.projections.update(session, { status: 'loaded' });
       this.state = {
         ...this.state,
         message: 'Recent image is already projected into the selected host element.',
@@ -2231,8 +2304,8 @@ export class ImageTrailPanel {
       return;
     }
 
-    if (await this.projectUrlToSelectedImage(url, revision)) {
-      if (!this.isCurrentProjectionRevision(revision)) return;
+    if (await this.projectUrlToSelectedImage(url, session)) {
+      if (!this.isCurrentProjectionSession(session)) return;
       this.state = { ...this.state, message: 'Projected image into selected host element.', lastUpdatedAt: Date.now() };
       this.render();
       return;
@@ -2248,26 +2321,25 @@ export class ImageTrailPanel {
     return imageResourceUrlsEqual(url, this.currentSelectedUrl(), window.location.href);
   }
 
-  private isCurrentProjectionRevision(revision: number): boolean {
-    return revision === this.projectionRevision;
-  }
-
-  private async projectUrlToSelectedImage(url: string, revision: number): Promise<boolean> {
+  private async projectUrlToSelectedImage(url: string, session: ProjectionSession): Promise<boolean> {
     const handleId = this.state.target.selectedHandleId;
     if (!handleId) return false;
     const image = this.findSelectedImage(handleId);
     if (!image) return false;
 
+    this.projections.update(session, { status: 'preloading' });
     const preload = await this.preloadImageUrl(url);
-    if (!this.isCurrentProjectionRevision(revision)) return false;
+    if (!this.isCurrentProjectionSession(session)) return false;
     if (!preload.ok) {
+      this.projections.update(session, { status: 'failed' });
       this.state = { ...this.state, message: preload.message, status: 'error', lastUpdatedAt: Date.now() };
       this.render();
       return false;
     }
 
-    const snapshot = this.pageAdapter.applyUrlToSelected(url, preload.displayUrl);
-    if (!this.isCurrentProjectionRevision(revision)) return false;
+    const snapshot = this.applyProjectionToSelectedImage(session, preload.displayUrl);
+    if (!snapshot) return false;
+    if (!this.isCurrentProjectionSession(session)) return false;
     this.state = setTargetState(this.state, toTargetState(snapshot));
     this.render();
     void this.loadGrabSettings();
