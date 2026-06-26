@@ -88,7 +88,7 @@ const layerBoundaryRules = {
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'extension/dist/**', '.test-dist/**', 'coverage/**', 'node_modules/**', 'deprecated/**'],
+    ignores: ['dist/**', 'extension/dist/**', '.test-dist/**', 'coverage/**', 'storybook-static/**', 'node_modules/**', 'deprecated/**'],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
