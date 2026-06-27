@@ -1,7 +1,7 @@
-# June 20 Regression Fix Notes
+# June 20 2026 Regression Fixes
 
-This note moved to the GitHub wiki:
+This documentation now lives in the GitHub wiki:
 
 - [June 20 2026 Regression Fixes](https://github.com/qwtm/image-trail/wiki/June-20-2026-Regression-Fixes)
 
-Migration tracked in [issue #71](https://github.com/qwtm/image-trail/issues/71).
+This repository file is kept only as a pointer for existing links. Update the wiki page, not this stub.

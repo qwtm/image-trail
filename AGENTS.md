@@ -1,12 +1,15 @@
 # Agent Instructions
 
-This file is a compact orientation layer. Read `CONTRIBUTING.md` first, then the
-canonical GitHub wiki contributor guide it links:
+This file is the compact repo-local agent orientation layer. Read
+`CONTRIBUTING.md` first, then the canonical GitHub wiki contributor guide it
+links:
 
 - https://github.com/qwtm/image-trail/wiki/Contributing
 
-Keep detailed workflow/SOP changes in the wiki. Keep this file under roughly
-100 lines and use references instead of duplicating long procedures.
+Documentation is wiki-first. Existing repo markdown docs are pointer stubs
+unless this file explicitly says otherwise. Keep detailed workflow, SOP, and
+project documentation in the wiki. Keep this file under roughly 100 lines and
+use references instead of duplicating long procedures.
 
 ## Product Model
 
@@ -45,12 +48,15 @@ Keep detailed workflow/SOP changes in the wiki. Keep this file under roughly
 - For issue work, follow the wiki claim flow before implementation.
 - Link the working branch/PR through the issue's GitHub Development sidebar; text comments alone do not power automatic issue close-out.
 - Open PRs with explicit close/fix references when the PR should complete an issue.
+- Review/issue feedback must get a visible reply before it is resolved or left open: say what commit/code fixed it, why no action was needed, or what linked follow-up owns it.
+- Do not resolve GitHub review threads silently. If no code change is needed, reply with the rationale first.
 - Do not commit, push, open PRs, close issues, resolve threads, or update broad project state unless the user has asked for that step.
 
 ## Documentation And Validation
 
-- Long-lived narrative/project docs and workflow/SOP rules belong in the GitHub wiki.
-- Repo docs are for source-adjacent contracts, acceptance tests, architecture notes, migrations, and CI/automation policy.
+- Long-lived docs, planning, acceptance tests, ADRs, workflow/SOP rules, and project guidance belong in the GitHub wiki.
+- Repo markdown docs other than `AGENTS.md`, `CONTRIBUTING.md`, and root `README.md` should be pointer stubs to wiki pages.
+- When implementation reveals recurring agent pitfalls, update the relevant wiki guidance or leave a linked issue/PR comment; do not leave lessons only in chat.
 - After the first implementation stretch, provide a manual test run before asking for final signoff or PR approval.
 - Before claiming done, run:
   - `npm run lint`

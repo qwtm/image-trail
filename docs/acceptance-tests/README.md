@@ -1,26 +1,7 @@
 # Acceptance Tests
 
-These scenarios define the first browser-level acceptance coverage for the Brave/Chromium extension port. They are written as implementation-neutral tests so they can start as manual checks and later move into automated extension tests.
+This documentation now lives in the GitHub wiki:
 
-## Tests
+- [Acceptance Tests](https://github.com/qwtm/image-trail/wiki/Acceptance-Tests)
 
-- [M00 Planning Baseline Review](m00-planning-baseline-review.md)
-- [Local Original Capture Survives Remote Loss](local-original-capture-survives-remote-loss.md)
-- [Target Picker Captures Only The Selected Image](target-picker-captures-only-selected-image.md)
-- [Third-Party CDN Permission Flow](third-party-cdn-permission-flow.md)
-- [Oversized Original Is Bounded](oversized-original-is-bounded.md)
-- [Panel Layout Stability](panel-layout-stability.md)
-- [Multi-Select Image Download](multi-select-image-download.md)
-- [Key Backup Restore](key-backup-restore.md)
-- [Encrypted Image Downloads](encrypted-image-downloads.md)
-- [URL Template Learning](url-template-learning.md)
-- [Queue And Recall Clear/Delete Semantics](queue-recall-clear-delete.md)
-- [Grab Mode Strategies](grab-mode-strategies.md)
-- [URL Review Status Import/Export](url-review-status-import-export.md)
-- [Recents Retention Settings](recents-retention-settings.md)
-- [Settings Utility Layout](settings-utility-layout.md)
-- [Form Control Consistency](form-control-consistency.md)
-- [Settings Action Hierarchy](settings-action-hierarchy.md)
-- [Row And List Visual System](row-list-visual-system.md)
-- [Host Image Projection Ownership](host-image-projection-ownership.md)
-- [Bounded Neighbor Preloading](bounded-neighbor-preloading.md)
+This repository file is kept only as a pointer for existing links. Update the wiki page, not this stub.

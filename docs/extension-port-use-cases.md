@@ -1,7 +1,7 @@
 # Extension Port Use Cases
 
-This note moved to the GitHub wiki:
+This documentation now lives in the GitHub wiki:
 
 - [Extension Port Use Cases](https://github.com/qwtm/image-trail/wiki/Extension-Port-Use-Cases)
 
-Migration tracked in [issue #71](https://github.com/qwtm/image-trail/issues/71).
+This repository file is kept only as a pointer for existing links. Update the wiki page, not this stub.

@@ -1,13 +1,7 @@
 # Architecture Decision Records
 
-Architecture decision records track source-adjacent decisions that affect how the
-extension is built, tested, reviewed, or operated.
+This documentation now lives in the GitHub wiki:
 
-Keep ADRs short and update them when a PR changes the decision, the use cases, or
-the verification requirements. Long narrative planning should live in the
-[GitHub wiki](https://github.com/qwtm/image-trail/wiki), but ADRs stay in the
-repo because they version with the code and CI rules they constrain.
+- [Architecture Decision Records](https://github.com/qwtm/image-trail/wiki/Architecture-Decision-Records)
 
-## Records
-
-- [ADR-0001: Automation Check Governance](0001-automation-check-governance.md)
+This repository file is kept only as a pointer for existing links. Update the wiki page, not this stub.
