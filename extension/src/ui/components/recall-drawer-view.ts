@@ -223,8 +223,8 @@ function createRecallLabel(record: ImageDisplayRecord, options: { readonly priva
 }
 
 function recallMetaText(state: RecallState): string {
-  if (state.busy) return 'Loading bookmark records.';
-  if (state.total === 0) return 'No bookmark records found.';
+  if (state.busy) return 'Loading queue rows.';
+  if (state.total === 0) return 'No queue rows found.';
   const visible = state.candidates.length;
   const unavailable = state.failedCount > 0 ? ` - ${state.failedCount} unavailable` : '';
   const more = state.hasMore ? ' - more available' : '';
