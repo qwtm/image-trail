@@ -116,9 +116,9 @@ export function createImportExportView(state: ImportExportViewState, dispatch: (
 }
 
 export function createCloudBackupView(state: CloudBackupProviderState, dispatch: (action: CloudBackupAction) => void): HTMLElement {
-  const { section, body } = createCollapsibleImportExportSection(
+  const { section, body, header } = createCollapsibleImportExportSection(
     'image-trail-panel__cloud-backup',
-    'Cloud backup',
+    'pCloud',
     cloudBackupOpen,
     (open) => {
       cloudBackupOpen = open;
@@ -128,19 +128,11 @@ export function createCloudBackupView(state: CloudBackupProviderState, dispatch:
   const group = document.createElement('div');
   group.className = 'image-trail-panel__subsection image-trail-panel__cloud-provider';
 
-  const heading = document.createElement('div');
-  heading.className = 'image-trail-panel__cloud-provider-heading';
-
-  const title = document.createElement('h4');
-  title.textContent = 'pCloud';
-
   const status = document.createElement('span');
   status.className = `image-trail-panel__cloud-provider-status is-${state.connectionState}`;
   status.textContent = cloudConnectionLabel(state);
   status.title = status.textContent;
-
-  heading.append(title, status);
-  group.append(heading);
+  header.append(status);
 
   const description = document.createElement('p');
   description.className = 'image-trail-panel__meta';
@@ -217,7 +209,7 @@ function createCollapsibleImportExportSection(
   title: string,
   open: boolean,
   onToggle: (open: boolean) => void,
-): { readonly section: HTMLDetailsElement; readonly body: HTMLDivElement } {
+): { readonly section: HTMLDetailsElement; readonly body: HTMLDivElement; readonly header: HTMLDivElement } {
   const section = document.createElement('details');
   section.className = `image-trail-panel__settings-templates image-trail-panel__settings-utility-section ${className}`;
   section.open = open;
@@ -248,7 +240,7 @@ function createCollapsibleImportExportSection(
   syncCollapsedState();
 
   section.append(summary, body);
-  return { section, body };
+  return { section, body, header };
 }
 
 function createExportGroup(state: ImportExportViewState, dispatch: (action: ImportExportAction) => void): HTMLElement {
