@@ -18,6 +18,19 @@ export const SettingsSectionOrder: Story = {
   render: () => panelLayoutStory({ settingsOpen: true }),
 };
 
+export const ParsedFieldFailedLoad: Story = {
+  render: () =>
+    panelLayoutStory({
+      status: 'error',
+      message: 'Image failed to load: HTTP 404',
+      activeFieldId: 'q:0:0',
+      failedFieldId: 'q:0:0',
+      successfulFieldIds: ['q:1:0'],
+      unchangedFieldIds: [],
+      unlockedFieldIds: ['q:1:0'],
+    }),
+};
+
 function panelLayoutStory(overrides: Partial<PanelState> = {}): HTMLElement {
   const host = document.createElement('div');
   host.className = 'image-trail-panel-root image-trail-panel';
@@ -93,6 +106,9 @@ function panelState(overrides: Partial<PanelState> = {}): PanelState {
     blobKeyAvailable: true,
     blobKeyReference: 'session key',
     importExportBusy: false,
+    pcloudBackup: {
+      connectionState: 'disconnected',
+    },
     settingsOpen: false,
     automation: {
       slideshowPhase: 'idle',

@@ -2235,6 +2235,7 @@ export class ImageTrailPanel {
       }
       this.projections.update(session, { status: 'failed' });
       this.state = applyFieldLoadFailureToState(this.state, { draftUrl: nextUrl, attemptedFieldIds, message: preload.message });
+      this.scheduleFiniteCaptureErrorReset(this.state.lastUpdatedAt, 'status');
       void this.saveUrlReviewStatus('failed', nextUrl, attemptedFieldIds, preload.message);
       void this.saveParsedFieldState();
       this.render();
@@ -2818,6 +2819,7 @@ export class ImageTrailPanel {
       status: 'error',
       lastUpdatedAt: Date.now(),
     };
+    this.scheduleFiniteCaptureErrorReset(this.state.lastUpdatedAt, 'status');
     this.render();
     return { ok: false, message: this.state.message };
   }
@@ -3230,6 +3232,7 @@ export class ImageTrailPanel {
     if (!preload.ok) {
       this.projections.update(session, { status: 'failed' });
       this.state = { ...this.state, message: preload.message, status: 'error', lastUpdatedAt: Date.now() };
+      this.scheduleFiniteCaptureErrorReset(this.state.lastUpdatedAt, 'status');
       this.render();
       return false;
     }
