@@ -256,14 +256,7 @@ export function createBookmarksView(
     actions.addEventListener('click', (event) => event.stopPropagation());
     actions.addEventListener('keydown', (event) => event.stopPropagation());
 
-    if (item.captureStatus === 'captured' && item.blobId && !keyMissing) {
-      const deleteCapture = document.createElement('button');
-      deleteCapture.type = 'button';
-      deleteCapture.textContent = 'Remove';
-      deleteCapture.title = 'Remove the stored original from this row.';
-      deleteCapture.addEventListener('click', () => dispatch({ name: 'capture/delete', id: item.id, blobId: item.blobId! }));
-      actions.append(deleteCapture);
-    } else if (blobKeyUnlocked) {
+    if (item.captureStatus !== 'captured' && blobKeyUnlocked) {
       const capture = document.createElement('button');
       capture.type = 'button';
       capture.textContent = captureInProgress ? 'Capturing...' : 'Capture';
@@ -273,6 +266,28 @@ export function createBookmarksView(
         dispatch({ name: 'capture/request', url: item.url, sourceType: 'bookmark', sourceRecordId: item.id }),
       );
       actions.append(capture);
+    }
+
+    {
+      const deleteCapture = document.createElement('button');
+      deleteCapture.type = 'button';
+      deleteCapture.className = 'image-trail-panel__delete-original';
+      deleteCapture.textContent = 'Delete';
+      deleteCapture.title = 'Delete Original + Pin';
+      deleteCapture.addEventListener('click', () => {
+        if (deleteCapture.dataset.confirming !== 'true') {
+          deleteCapture.dataset.confirming = 'true';
+          deleteCapture.textContent = 'Confirm Delete';
+          deleteCapture.title = 'Click again to Delete Original + Pin';
+          return;
+        }
+        if (item.captureStatus === 'captured' && item.blobId && !keyMissing) {
+          dispatch({ name: 'capture/delete', id: item.id, blobId: item.blobId });
+          return;
+        }
+        dispatch({ name: 'bookmark/remove', id: item.id });
+      });
+      actions.append(deleteCapture);
     }
 
     if (!keyMissing || item.captureStatus === 'captured') {

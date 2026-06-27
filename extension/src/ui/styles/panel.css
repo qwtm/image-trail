@@ -85,8 +85,8 @@
 }
 
 .image-trail-panel-root.image-trail-panel.has-status-error {
-  border-color: rgb(255 78 78 / 84%);
-  animation: image-trail-error-frame-glow 950ms ease-out 3;
+  border-color: rgb(255 112 112 / 46%);
+  animation: image-trail-error-frame-glow 600ms ease-out 3;
 }
 
 .image-trail-panel-root.image-trail-panel.has-status-error::before {
@@ -94,7 +94,8 @@
     inset 0 0 0 1px rgb(255 88 88 / 80%),
     0 0 0 2px rgb(255 64 64 / 28%),
     0 0 24px rgb(255 36 36 / 54%);
-  animation: image-trail-error-frame-pulse 950ms ease-out 3;
+  opacity: 0;
+  animation: image-trail-error-frame-pulse 600ms ease-out 3;
 }
 
 .image-trail-panel-root.image-trail-panel.has-buffered-skip-pulse {
@@ -160,13 +161,39 @@
 }
 
 @keyframes image-trail-error-frame-pulse {
-  0%,
-  100% {
-    opacity: 0.62;
+  0% {
+    opacity: 0;
   }
 
   35% {
     opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes image-trail-error-toast-pulse {
+  0% {
+    box-shadow:
+      0 10px 28px rgb(0 0 0 / 46%),
+      0 0 0 rgb(255 36 36 / 0%),
+      inset 0 1px 0 rgb(255 255 255 / 10%);
+  }
+
+  35% {
+    box-shadow:
+      0 10px 28px rgb(0 0 0 / 46%),
+      0 0 24px rgb(255 36 36 / 42%),
+      inset 0 1px 0 rgb(255 255 255 / 10%);
+  }
+
+  100% {
+    box-shadow:
+      0 10px 28px rgb(0 0 0 / 46%),
+      0 0 0 rgb(255 36 36 / 0%),
+      inset 0 1px 0 rgb(255 255 255 / 10%);
   }
 }
 
@@ -396,15 +423,14 @@
 }
 
 .image-trail-panel-root.image-trail-panel__toast-root.has-status-error .image-trail-panel__toast {
-  border-color: rgb(255 98 98 / 88%);
-  background: rgb(66 12 16 / 96%);
+  border-color: rgb(255 112 112 / 52%);
+  background: rgb(42 14 16 / 96%);
   box-shadow:
     0 10px 28px rgb(0 0 0 / 46%),
-    0 0 24px rgb(255 36 36 / 42%),
     inset 0 1px 0 rgb(255 255 255 / 10%);
   animation:
     image-trail-toast-enter 170ms ease-out,
-    image-trail-error-frame-pulse 950ms ease-out 3;
+    image-trail-error-toast-pulse 600ms ease-out 3;
 }
 
 .image-trail-panel-root.image-trail-panel__toast-root.has-buffered-skip-pulse .image-trail-panel__toast {
@@ -1500,6 +1526,22 @@
   background: rgb(110 24 28 / 72%);
 }
 
+.image-trail-panel-root .image-trail-panel__delete-original {
+  border-color: rgb(255 122 122 / 66%);
+  box-shadow: 0 0 8px rgb(255 72 72 / 28%);
+}
+
+.image-trail-panel-root .image-trail-panel__delete-original:hover:not(:disabled),
+.image-trail-panel-root .image-trail-panel__delete-original:focus-visible {
+  box-shadow: 0 0 10px rgb(255 72 72 / 38%);
+}
+
+.image-trail-panel-root .image-trail-panel__delete-original[data-confirming='true'] {
+  border-color: rgb(255 92 92 / 82%);
+  background: rgb(94 18 22 / 76%);
+  box-shadow: 0 0 12px rgb(255 72 72 / 48%);
+}
+
 .image-trail-panel-root .image-trail-panel__file-picker-name {
   min-width: 0;
   overflow: hidden;
@@ -1673,7 +1715,7 @@
 }
 
 .image-trail-panel-root .image-trail-panel__history-section .image-trail-panel__record-list {
-  max-block-size: calc((44px + 6px + 28px + 14px) * 3 + 6px * 2);
+  max-block-size: calc(120px * 3 + 6px * 2);
   overflow-x: hidden;
   overflow-y: auto;
   padding-inline-end: 3px;
@@ -2123,9 +2165,11 @@
 .image-trail-panel-root .image-trail-panel__record-list li.is-locked-encrypted .image-trail-panel__record-thumbnail,
 .image-trail-panel-root .image-trail-panel__record-list li.is-locked-encrypted .image-trail-panel__record-link,
 .image-trail-panel-root .image-trail-panel__record-list li.is-locked-encrypted .image-trail-panel__bookmark-label,
+.image-trail-panel-root .image-trail-panel__record-list li.is-locked-encrypted .image-trail-panel__history-label,
 .image-trail-panel-root .image-trail-panel__record-list li.is-key-unavailable .image-trail-panel__record-thumbnail,
 .image-trail-panel-root .image-trail-panel__record-list li.is-key-unavailable .image-trail-panel__record-link,
-.image-trail-panel-root .image-trail-panel__record-list li.is-key-unavailable .image-trail-panel__bookmark-label {
+.image-trail-panel-root .image-trail-panel__record-list li.is-key-unavailable .image-trail-panel__bookmark-label,
+.image-trail-panel-root .image-trail-panel__record-list li.is-key-unavailable .image-trail-panel__history-label {
   filter: saturate(0.55);
   opacity: 0.48;
 }
@@ -2148,26 +2192,28 @@
   outline-offset: 2px;
 }
 
-.image-trail-panel-root .image-trail-panel__history-item {
-  grid-template-columns: 44px minmax(0, 1fr) minmax(104px, auto);
-}
-
+.image-trail-panel-root .image-trail-panel__history-item,
 .image-trail-panel-root .image-trail-panel__bookmark-item {
   position: relative;
-  grid-template-columns: 44px minmax(0, 1fr) auto;
+  grid-template-columns: 0 minmax(0, 1fr) auto;
   align-items: center;
-  min-block-size: 64px;
+  min-block-size: 120px;
   overflow: hidden;
 }
 
+.image-trail-panel-root .image-trail-panel__history-item > .image-trail-panel__record-thumbnail,
 .image-trail-panel-root .image-trail-panel__bookmark-item > .image-trail-panel__record-thumbnail {
   position: absolute;
-  inset: 6px auto 6px 6px;
+  inset-block: 0;
+  inset-inline-start: 0;
   z-index: 0;
-  inline-size: 132px;
-  block-size: calc(100% - 12px);
+  min-inline-size: 132px;
+  inline-size: auto;
+  block-size: 100%;
   max-inline-size: none;
-  mask-image: linear-gradient(to right, #000 0%, #000 42%, rgb(0 0 0 / 68%) 66%, transparent 100%);
+  object-fit: cover;
+  object-position: left center;
+  mask-image: linear-gradient(to right, black 0%, black 25%, rgb(0 0 0 / 50%) 50%, rgb(0 0 0 / 0%) 95%) !important;
 }
 
 .image-trail-panel-root .image-trail-panel__record-thumbnail {
@@ -2243,26 +2289,37 @@
   text-align: center;
 }
 
-.image-trail-panel-root .image-trail-panel__bookmark-label {
+.image-trail-panel-root .image-trail-panel__bookmark-label,
+.image-trail-panel-root .image-trail-panel__history-label {
   position: relative;
   z-index: 1;
   grid-column: 2;
   align-self: center;
   display: grid;
-  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
-  align-items: center;
-  gap: 7px;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 3px;
   min-width: 0;
   max-width: 100%;
-  padding: 4px 0 4px 44px;
+  padding: 4px 0 4px 84px;
+}
+
+.image-trail-panel-root .image-trail-panel__bookmark-label .image-trail-panel__record-extension-wrap,
+.image-trail-panel-root .image-trail-panel__history-label .image-trail-panel__record-extension-wrap {
+  grid-row: auto;
+  justify-self: start;
+  align-self: end;
+  place-items: start;
 }
 
 .image-trail-panel-root .image-trail-panel__record-extension-wrap {
   display: grid;
+  grid-template-columns: repeat(2, max-content);
   grid-row: 1 / span 2;
   align-self: center;
-  place-items: center;
-  gap: 3px;
+  align-items: center;
+  justify-items: start;
+  column-gap: 6px;
   min-width: 0;
 }
 
@@ -2287,8 +2344,10 @@
 }
 
 .image-trail-panel-root .image-trail-panel__stored-original-dot {
+  align-self: center;
   inline-size: 6px;
   block-size: 6px;
+  margin-inline-start: 6px;
   border-radius: 999px;
   background: #fff;
   box-shadow:
@@ -2318,6 +2377,11 @@
     sans-serif;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.image-trail-panel-root .image-trail-panel__bookmark-label .image-trail-panel__record-row-meta,
+.image-trail-panel-root .image-trail-panel__history-label .image-trail-panel__record-row-meta {
+  grid-column: 1;
 }
 
 .image-trail-panel-root .is-privacy-masked .image-trail-panel__bookmark-name,
@@ -2353,7 +2417,7 @@
   z-index: 1;
   grid-column: 3;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(88px, max-content));
+  grid-template-columns: minmax(88px, max-content);
   grid-auto-rows: 28px;
   justify-content: end;
   align-self: end;
