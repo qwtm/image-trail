@@ -1,7 +1,7 @@
-# Milestone User Story Plan - Updated
+# Milestone User Story Plan Updated
 
-This planning archive moved to the GitHub wiki:
+This documentation now lives in the GitHub wiki:
 
-- [Milestone User Story Plan - Updated](https://github.com/qwtm/image-trail/wiki/Milestone-User-Story-Plan-Updated)
+- [Milestone User Story Plan Updated](https://github.com/qwtm/image-trail/wiki/Milestone-User-Story-Plan-Updated)
 
-Migration tracked in [issue #71](https://github.com/qwtm/image-trail/issues/71).
+This repository file is kept only as a pointer for existing links. Update the wiki page, not this stub.
