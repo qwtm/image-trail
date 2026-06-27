@@ -76,6 +76,7 @@ import {
   createRetrieveBlobResultMessage,
   createStorageUsageResponseMessage,
   createTogglePanelMessage,
+  createUploadPCloudBackupResultMessage,
   isExtensionRequest,
   isStatusMessage,
 } from './messages.js';
@@ -124,8 +125,9 @@ import type { CreateBlobPreviewMessage } from './messages.js';
 import type { SetupBlobKeyMessage, UnlockBlobKeyMessage, BlobKeyResultMessage } from './messages.js';
 import type { ExportBlobKeyBackupMessage, ImportBlobKeyBackupMessage } from './messages.js';
 import type { ImportEncryptedImageMessage } from './messages.js';
+import type { UploadPCloudBackupMessage } from './messages.js';
 import { extractOrigin, hasOriginPermission, requestOriginPermission } from './permissions.js';
-import { connectPCloudProvider, disconnectPCloudProvider, loadPCloudProviderStatus } from './pcloud-provider.js';
+import { connectPCloudProvider, disconnectPCloudProvider, loadPCloudProviderStatus, uploadPCloudBackup } from './pcloud-provider.js';
 
 const CONTENT_SCRIPT_FILE = 'src/content/content-script.js';
 const SUPPORTED_PAGE_PATTERN = /^https?:\/\//u;
@@ -1432,6 +1434,21 @@ chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) =
               ok: false,
               status: { connected: false, message: 'pCloud disconnect failed.' },
               message: 'pCloud disconnect failed.',
+            }),
+          ),
+        );
+      return true;
+
+    case MessageType.UploadPCloudBackup:
+      uploadPCloudBackup((message as UploadPCloudBackupMessage).payload)
+        .then((result) => sendResponse(createUploadPCloudBackupResultMessage(result)))
+        .catch(() =>
+          sendResponse(
+            createUploadPCloudBackupResultMessage({
+              ok: false,
+              status: { connected: false, message: 'pCloud backup upload failed.', messageIsError: true },
+              reason: 'upload-failed',
+              message: 'pCloud backup upload failed.',
             }),
           ),
         );

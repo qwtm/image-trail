@@ -1241,3 +1241,95 @@ test('projection sessions only own their original selected target handle', () =>
   assert.equal(projectionSessionOwnsSelectedTarget(session, 'target-2'), false);
   assert.equal(projectionSessionOwnsSelectedTarget(session, null), false);
 });
+
+test('pCloud backup reducer tracks backing-up state and verified upload metadata', () => {
+  const connected = reducePanelAction(createInitialPanelState(), {
+    name: 'pcloud-backup/status',
+    status: {
+      connected: true,
+      apiHost: 'api.pcloud.com',
+      connectedAt: '2026-06-27T00:00:00.000Z',
+      message: 'pCloud is connected.',
+    },
+  });
+  const backingUp = reducePanelAction(connected, {
+    name: 'pcloud-backup/busy',
+    pendingOperation: 'backing-up',
+    message: 'Uploading encrypted backup to pCloud...',
+  });
+
+  assert.equal(backingUp.pcloudBackup.connectionState, 'busy');
+  assert.equal(backingUp.pcloudBackup.pendingOperation, 'backing-up');
+
+  const uploaded = reducePanelAction(backingUp, {
+    name: 'pcloud-backup/upload-complete',
+    apiHost: 'api.pcloud.com',
+    folderPath: '/Image Trail/backups',
+    fileName: 'image-trail-pcloud-backup-2026-06-27T00-00-00Z.image-trail-encrypted.json',
+    sizeBytes: 512,
+    sha256: 'b'.repeat(64),
+    uploadedAt: '2026-06-27T00:00:01.000Z',
+    message: 'Uploaded and verified backup.',
+  });
+
+  assert.equal(uploaded.pcloudBackup.connectionState, 'connected');
+  assert.equal(uploaded.pcloudBackup.pendingOperation, undefined);
+  assert.equal(uploaded.pcloudBackup.lastBackupFileName, 'image-trail-pcloud-backup-2026-06-27T00-00-00Z.image-trail-encrypted.json');
+  assert.equal(uploaded.pcloudBackup.lastBackupSizeBytes, 512);
+  assert.equal(uploaded.pcloudBackup.lastBackupSha256, 'b'.repeat(64));
+  assert.equal(uploaded.pcloudBackup.messageIsError, false);
+});
+
+test('pCloud upload errors keep connected provider state for retry', () => {
+  const state = reducePanelAction(createInitialPanelState(), {
+    name: 'pcloud-backup/status',
+    status: {
+      connected: true,
+      apiHost: 'eapi.pcloud.com',
+      message: 'pCloud is connected.',
+    },
+  });
+
+  const failed = reducePanelAction(state, {
+    name: 'pcloud-backup/upload-error',
+    message: 'Downloaded pCloud backup bytes did not match the local export.',
+  });
+
+  assert.equal(failed.pcloudBackup.connectionState, 'connected');
+  assert.equal(failed.pcloudBackup.pendingOperation, undefined);
+  assert.equal(failed.pcloudBackup.messageIsError, true);
+  assert.match(failed.pcloudBackup.message ?? '', /Downloaded pCloud backup bytes/u);
+});
+
+test('pCloud upload errors apply disconnected provider status for reconnect recovery', () => {
+  const connected = reducePanelAction(createInitialPanelState(), {
+    name: 'pcloud-backup/status',
+    status: {
+      connected: true,
+      apiHost: 'api.pcloud.com',
+      connectedAt: '2026-06-27T00:00:00.000Z',
+      message: 'pCloud is connected.',
+    },
+  });
+  const backingUp = reducePanelAction(connected, {
+    name: 'pcloud-backup/busy',
+    pendingOperation: 'backing-up',
+    message: 'Uploading encrypted backup to pCloud...',
+  });
+
+  const failed = reducePanelAction(backingUp, {
+    name: 'pcloud-backup/upload-error',
+    message: 'Connect pCloud before backing up.',
+    status: {
+      connected: false,
+      message: 'Connect pCloud before backing up.',
+      messageIsError: true,
+    },
+  });
+
+  assert.equal(failed.pcloudBackup.connectionState, 'disconnected');
+  assert.equal(failed.pcloudBackup.pendingOperation, undefined);
+  assert.equal(failed.pcloudBackup.apiHost, undefined);
+  assert.equal(failed.pcloudBackup.messageIsError, true);
+  assert.match(failed.pcloudBackup.message ?? '', /Connect pCloud/u);
+});

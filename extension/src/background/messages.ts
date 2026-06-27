@@ -95,6 +95,8 @@ export const MessageType = {
   ConnectPCloudProviderResult: 'imageTrail.connectPCloudProviderResult',
   DisconnectPCloudProvider: 'imageTrail.disconnectPCloudProvider',
   DisconnectPCloudProviderResult: 'imageTrail.disconnectPCloudProviderResult',
+  UploadPCloudBackup: 'imageTrail.uploadPCloudBackup',
+  UploadPCloudBackupResult: 'imageTrail.uploadPCloudBackupResult',
   ListUrlTemplates: 'imageTrail.listUrlTemplates',
   ListUrlTemplatesResult: 'imageTrail.listUrlTemplatesResult',
   SaveUrlTemplate: 'imageTrail.saveUrlTemplate',
@@ -791,6 +793,18 @@ export interface DisconnectPCloudProviderResultMessage {
   readonly payload: import('../core/cloud/pcloud-provider.js').PCloudProviderResult;
 }
 
+export interface UploadPCloudBackupMessage {
+  readonly type: typeof MessageType.UploadPCloudBackup;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload: import('../core/cloud/pcloud-provider.js').PCloudBackupUploadInput;
+}
+
+export interface UploadPCloudBackupResultMessage {
+  readonly type: typeof MessageType.UploadPCloudBackupResult;
+  readonly version: typeof MESSAGE_PROTOCOL_VERSION;
+  readonly payload: import('../core/cloud/pcloud-provider.js').PCloudBackupUploadResult;
+}
+
 export interface ListUrlTemplatesMessage {
   readonly type: typeof MessageType.ListUrlTemplates;
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
@@ -917,6 +931,7 @@ export type ExtensionRequest =
   | PCloudProviderStatusMessage
   | ConnectPCloudProviderMessage
   | DisconnectPCloudProviderMessage
+  | UploadPCloudBackupMessage
   | ListUrlTemplatesMessage
   | SaveUrlTemplateMessage
   | DeleteUrlTemplateMessage
@@ -969,6 +984,7 @@ export type ExtensionResponse =
   | PCloudProviderStatusResultMessage
   | ConnectPCloudProviderResultMessage
   | DisconnectPCloudProviderResultMessage
+  | UploadPCloudBackupResultMessage
   | ListUrlTemplatesResultMessage
   | SaveUrlTemplateResultMessage
   | DeleteUrlTemplateResultMessage
@@ -1427,6 +1443,16 @@ export function createDisconnectPCloudProviderResultMessage(
   return { type: MessageType.DisconnectPCloudProviderResult, version: MESSAGE_PROTOCOL_VERSION, payload };
 }
 
+export function createUploadPCloudBackupMessage(payload: UploadPCloudBackupMessage['payload']): UploadPCloudBackupMessage {
+  return { type: MessageType.UploadPCloudBackup, version: MESSAGE_PROTOCOL_VERSION, payload };
+}
+
+export function createUploadPCloudBackupResultMessage(
+  payload: UploadPCloudBackupResultMessage['payload'],
+): UploadPCloudBackupResultMessage {
+  return { type: MessageType.UploadPCloudBackupResult, version: MESSAGE_PROTOCOL_VERSION, payload };
+}
+
 export function createListUrlTemplatesMessage(hostname: string): ListUrlTemplatesMessage {
   return { type: MessageType.ListUrlTemplates, version: MESSAGE_PROTOCOL_VERSION, payload: { hostname } };
 }
@@ -1541,6 +1567,7 @@ export function isExtensionRequest(value: unknown): value is ExtensionRequest {
     value.type === MessageType.PCloudProviderStatus ||
     value.type === MessageType.ConnectPCloudProvider ||
     value.type === MessageType.DisconnectPCloudProvider ||
+    value.type === MessageType.UploadPCloudBackup ||
     value.type === MessageType.ListUrlTemplates ||
     value.type === MessageType.SaveUrlTemplate ||
     value.type === MessageType.DeleteUrlTemplate ||
@@ -1598,6 +1625,7 @@ export function isExtensionResponse(value: unknown): value is ExtensionResponse 
     value.type === MessageType.PCloudProviderStatusResult ||
     value.type === MessageType.ConnectPCloudProviderResult ||
     value.type === MessageType.DisconnectPCloudProviderResult ||
+    value.type === MessageType.UploadPCloudBackupResult ||
     value.type === MessageType.ListUrlTemplatesResult ||
     value.type === MessageType.SaveUrlTemplateResult ||
     value.type === MessageType.DeleteUrlTemplateResult ||
@@ -1810,6 +1838,11 @@ export function isConnectPCloudProviderResultMessage(value: unknown): value is C
 export function isDisconnectPCloudProviderResultMessage(value: unknown): value is DisconnectPCloudProviderResultMessage {
   if (!hasVersionedObjectShape(value)) return false;
   return value.type === MessageType.DisconnectPCloudProviderResult;
+}
+
+export function isUploadPCloudBackupResultMessage(value: unknown): value is UploadPCloudBackupResultMessage {
+  if (!hasVersionedObjectShape(value)) return false;
+  return value.type === MessageType.UploadPCloudBackupResult;
 }
 
 export function isListUrlTemplatesResultMessage(value: unknown): value is ListUrlTemplatesResultMessage {

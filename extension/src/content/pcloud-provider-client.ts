@@ -2,11 +2,18 @@ import {
   createConnectPCloudProviderMessage,
   createDisconnectPCloudProviderMessage,
   createPCloudProviderStatusMessage,
+  createUploadPCloudBackupMessage,
   isConnectPCloudProviderResultMessage,
   isDisconnectPCloudProviderResultMessage,
   isPCloudProviderStatusResultMessage,
+  isUploadPCloudBackupResultMessage,
 } from '../background/messages.js';
-import type { PCloudProviderResult, PCloudProviderStatus } from '../core/cloud/pcloud-provider.js';
+import type {
+  PCloudBackupUploadInput,
+  PCloudBackupUploadResult,
+  PCloudProviderResult,
+  PCloudProviderStatus,
+} from '../core/cloud/pcloud-provider.js';
 import { sendRuntimeMessage } from './runtime-message.js';
 
 function hasRuntimeMessaging(): boolean {
@@ -57,4 +64,20 @@ export async function disconnectPCloudProvider(): Promise<PCloudProviderResult> 
   }
   const status = { connected: false, message: 'pCloud disconnect failed.' };
   return { ok: false, status, message: status.message };
+}
+
+export async function uploadPCloudBackup(input: PCloudBackupUploadInput): Promise<PCloudBackupUploadResult> {
+  if (!hasRuntimeMessaging()) {
+    const message = 'pCloud backup upload is only available in the extension runtime.';
+    return { ok: false, status: { connected: false, message, messageIsError: true }, reason: 'runtime-unavailable', message };
+  }
+  try {
+    const response = await sendRuntimeMessage(createUploadPCloudBackupMessage(input));
+    if (isUploadPCloudBackupResultMessage(response)) return response.payload;
+  } catch {
+    const message = 'pCloud backup upload failed.';
+    return { ok: false, status: { connected: false, message, messageIsError: true }, reason: 'upload-failed', message };
+  }
+  const message = 'pCloud backup upload failed.';
+  return { ok: false, status: { connected: false, message, messageIsError: true }, reason: 'upload-failed', message };
 }

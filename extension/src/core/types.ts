@@ -145,7 +145,11 @@ export interface PCloudBackupState {
   readonly accountPremium?: boolean;
   readonly quotaBytes?: number;
   readonly usedQuotaBytes?: number;
-  readonly pendingOperation?: 'connecting' | 'disconnecting';
+  readonly pendingOperation?: 'connecting' | 'disconnecting' | 'backing-up';
+  readonly lastBackupAt?: string;
+  readonly lastBackupFileName?: string;
+  readonly lastBackupSizeBytes?: number;
+  readonly lastBackupSha256?: string;
   readonly message?: string;
   readonly messageIsError?: boolean;
 }
@@ -291,6 +295,8 @@ export type PanelActionName =
   | 'pcloud-backup/status'
   | 'pcloud-backup/busy'
   | 'pcloud-backup/message'
+  | 'pcloud-backup/upload-complete'
+  | 'pcloud-backup/upload-error'
   | 'pcloud-backup/error'
   | 'cloud-backup/connect'
   | 'cloud-backup/backup-now'
@@ -303,7 +309,6 @@ export type PanelActionName =
   | 'export/encrypted-image'
   | 'import/history'
   | 'import/bookmarks'
-  | 'import/bookmarklet'
   | 'import/image'
   | 'import/encrypted-image'
   | 'recall/open'
@@ -394,6 +399,8 @@ export type PanelAction =
         | 'pcloud-backup/status'
         | 'pcloud-backup/busy'
         | 'pcloud-backup/message'
+        | 'pcloud-backup/upload-complete'
+        | 'pcloud-backup/upload-error'
         | 'pcloud-backup/error'
         | 'cloud-backup/connect'
         | 'cloud-backup/backup-now'
@@ -406,7 +413,6 @@ export type PanelAction =
         | 'export/encrypted-image'
         | 'import/history'
         | 'import/bookmarks'
-        | 'import/bookmarklet'
         | 'import/image'
         | 'import/encrypted-image'
         | 'recall/open'
@@ -522,18 +528,33 @@ export type PanelAction =
   | { readonly name: 'import-export/complete'; readonly message: string }
   | { readonly name: 'import-export/error'; readonly message: string }
   | { readonly name: 'pcloud-backup/status'; readonly status: import('./cloud/pcloud-provider.js').PCloudProviderStatus }
-  | { readonly name: 'pcloud-backup/busy'; readonly pendingOperation: 'connecting' | 'disconnecting'; readonly message: string }
-  | { readonly name: 'pcloud-backup/message'; readonly message: string }
-  | { readonly name: 'pcloud-backup/error'; readonly message: string }
   | {
-      readonly name:
-        | 'cloud-backup/connect'
-        | 'cloud-backup/backup-now'
-        | 'cloud-backup/choose-restore'
-        | 'cloud-backup/retry'
-        | 'cloud-backup/disconnect';
-      readonly provider: 'pcloud';
+      readonly name: 'pcloud-backup/busy';
+      readonly pendingOperation: 'connecting' | 'disconnecting' | 'backing-up';
+      readonly message: string;
     }
+  | { readonly name: 'pcloud-backup/message'; readonly message: string }
+  | {
+      readonly name: 'pcloud-backup/upload-complete';
+      readonly fileName: string;
+      readonly folderPath: string;
+      readonly apiHost: string;
+      readonly sizeBytes: number;
+      readonly sha256: string;
+      readonly uploadedAt: string;
+      readonly message: string;
+    }
+  | {
+      readonly name: 'pcloud-backup/upload-error';
+      readonly message: string;
+      readonly status?: import('./cloud/pcloud-provider.js').PCloudProviderStatus;
+    }
+  | { readonly name: 'pcloud-backup/error'; readonly message: string }
+  | { readonly name: 'cloud-backup/connect'; readonly provider: 'pcloud' }
+  | { readonly name: 'cloud-backup/backup-now'; readonly provider: 'pcloud'; readonly password: string }
+  | { readonly name: 'cloud-backup/choose-restore'; readonly provider: 'pcloud' }
+  | { readonly name: 'cloud-backup/retry'; readonly provider: 'pcloud' }
+  | { readonly name: 'cloud-backup/disconnect'; readonly provider: 'pcloud' }
   | { readonly name: 'export/history' | 'export/bookmarks'; readonly password: string; readonly plaintext: boolean }
   | { readonly name: 'export/url-review-status' }
   | { readonly name: 'clear/url-review-status'; readonly scope?: 'hostname' | 'page' | 'source' | 'all' }
@@ -541,7 +562,6 @@ export type PanelAction =
   | { readonly name: 'export/encrypted-image' }
   | { readonly name: 'import/history' | 'import/bookmarks'; readonly fileContent: string; readonly password: string }
   | { readonly name: 'import/url-review-status'; readonly fileContent: string }
-  | { readonly name: 'import/bookmarklet'; readonly fileContent: string }
   | { readonly name: 'import/image'; readonly files: readonly ImportedImageFile[] }
   | { readonly name: 'import/encrypted-image'; readonly files: readonly ImportedEncryptedImageFile[] }
   | { readonly name: 'recall/open'; readonly side: RecallDrawerSide }

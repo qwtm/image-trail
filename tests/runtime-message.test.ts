@@ -7,6 +7,7 @@ import {
   connectPCloudProvider,
   disconnectPCloudProvider,
   loadPCloudProviderStatus,
+  uploadPCloudBackup,
 } from '../extension/src/content/pcloud-provider-client.js';
 import { sendRuntimeMessage } from '../extension/src/content/runtime-message.js';
 import { createDisplayRecord } from '../extension/src/core/display-records.js';
@@ -63,12 +64,15 @@ test('pCloud provider client treats runtime failures as unavailable status', asy
     const status = await loadPCloudProviderStatus();
     const connect = await connectPCloudProvider();
     const disconnect = await disconnectPCloudProvider();
+    const upload = await uploadPCloudBackup({ fileName: 'backup.json', fileContent: '{}' });
 
     assert.equal(status.connected, false);
     assert.equal(connect.ok, false);
     assert.equal(connect.status.connected, false);
     assert.equal(disconnect.ok, false);
     assert.equal(disconnect.status.connected, false);
+    assert.equal(upload.ok, false);
+    assert.equal(upload.status.connected, false);
   } finally {
     globalThis.chrome = originalChrome;
   }

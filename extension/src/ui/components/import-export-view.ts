@@ -15,13 +15,12 @@ export type ImportExportAction =
   | { readonly name: 'import/history'; readonly fileContent: string; readonly password: string }
   | { readonly name: 'import/bookmarks'; readonly fileContent: string; readonly password: string }
   | { readonly name: 'import/url-review-status'; readonly fileContent: string }
-  | { readonly name: 'import/bookmarklet'; readonly fileContent: string }
   | { readonly name: 'import/image'; readonly files: readonly ImportedImageFile[] }
   | { readonly name: 'import/encrypted-image'; readonly files: readonly ImportedEncryptedImageFile[] };
 
 export type CloudBackupAction =
   | { readonly name: 'cloud-backup/connect'; readonly provider: 'pcloud' }
-  | { readonly name: 'cloud-backup/backup-now'; readonly provider: 'pcloud' }
+  | { readonly name: 'cloud-backup/backup-now'; readonly provider: 'pcloud'; readonly password: string }
   | { readonly name: 'cloud-backup/choose-restore'; readonly provider: 'pcloud' }
   | { readonly name: 'cloud-backup/retry'; readonly provider: 'pcloud' }
   | { readonly name: 'cloud-backup/disconnect'; readonly provider: 'pcloud' };
@@ -34,6 +33,7 @@ export interface CloudBackupProviderState {
   readonly apiHost?: string;
   readonly folderPath?: string;
   readonly lastBackupAt?: string;
+  readonly lastBackupName?: string;
   readonly lastBackupSize?: string;
   readonly lastBackupSha256?: string;
   readonly pendingOperation?: 'connecting' | 'disconnecting' | 'backing-up' | 'restoring';
@@ -149,12 +149,25 @@ export function createCloudBackupView(state: CloudBackupProviderState, dispatch:
   const metadata = cloudBackupMetadata(state);
   if (metadata.length > 0) group.append(createCloudBackupMetadata(metadata));
 
+  const passwordControl = createPasswordField({
+    label: 'Cloud backup password',
+    description: 'Protects encrypted pCloud backup files. This password is not stored.',
+    placeholder: 'Backup password',
+    autocomplete: 'new-password',
+  });
+  const passwordInput = passwordControl.input;
+  passwordInput.disabled = state.connectionState !== 'connected';
+  group.append(passwordControl.field);
+
   const connectBtn = createCloudBackupButton('Connect pCloud', state, () => dispatch({ name: 'cloud-backup/connect', provider: 'pcloud' }));
   connectBtn.disabled = state.connectionState !== 'disconnected';
 
-  const backupBtn = createCloudBackupButton('Back up now', state, () => dispatch({ name: 'cloud-backup/backup-now', provider: 'pcloud' }));
+  const backupBtn = createCloudBackupButton('Back up now', state, () => {
+    dispatch({ name: 'cloud-backup/backup-now', provider: 'pcloud', password: passwordInput.value });
+    passwordInput.value = '';
+    updateBackupControls();
+  });
   backupBtn.classList.add('image-trail-panel__primary-action');
-  backupBtn.disabled = state.connectionState !== 'connected';
 
   const restoreBtn = createCloudBackupButton('Choose restore file', state, () =>
     dispatch({ name: 'cloud-backup/choose-restore', provider: 'pcloud' }),
@@ -177,6 +190,13 @@ export function createCloudBackupView(state: CloudBackupProviderState, dispatch:
     createActionGroup('Manual backup', [backupBtn, restoreBtn]),
     createActionGroup('Account', [disconnectBtn], { secondary: true }),
   );
+
+  function updateBackupControls(): void {
+    backupBtn.disabled = state.connectionState !== 'connected' || passwordInput.value.length < 4;
+  }
+
+  passwordInput.addEventListener('input', updateBackupControls);
+  updateBackupControls();
 
   group.append(actions);
   body.append(group);
@@ -408,7 +428,7 @@ function createImportGroup(state: ImportExportViewState, dispatch: (action: Impo
 
   const passwordControl = createPasswordField({
     label: 'Encrypted import password',
-    description: 'Unlocks encrypted history or bookmark import files. Plain URL review and legacy imports ignore this password.',
+    description: 'Unlocks encrypted history or bookmark import files. Plain URL review imports ignore this password.',
     placeholder: 'Import password',
     autocomplete: 'current-password',
     disabled: state.busy,
@@ -417,7 +437,7 @@ function createImportGroup(state: ImportExportViewState, dispatch: (action: Impo
 
   const fileControl = createFilePickerField({
     label: 'Import JSON file',
-    description: 'Choose an Image Trail history, bookmark, URL review status, or legacy bookmarklet JSON file.',
+    description: 'Choose an Image Trail history, bookmark, or URL review status JSON file.',
     buttonText: 'Choose JSON',
     noFileText: 'No file selected',
     accept: '.json',
@@ -460,43 +480,16 @@ function createImportGroup(state: ImportExportViewState, dispatch: (action: Impo
     });
   });
 
-  const bookmarkletBtn = document.createElement('button');
-  bookmarkletBtn.type = 'button';
-  bookmarkletBtn.textContent = 'Import legacy bookmarklet JSON';
-  bookmarkletBtn.className = 'image-trail-panel__secondary-action';
-  bookmarkletBtn.classList.toggle('is-waiting', state.busy);
-  bookmarkletBtn.disabled = state.busy;
-  bookmarkletBtn.addEventListener('click', () => {
-    readFileInput(fileInput, (content) => {
-      dispatch({ name: 'import/bookmarklet', fileContent: content });
-    });
-  });
-
   const controls = document.createElement('div');
   controls.className = 'image-trail-panel__control-stack';
   controls.append(fileControl.field, passwordControl.field);
 
   const actions = document.createElement('div');
   actions.className = 'image-trail-panel__action-groups';
-  actions.append(
-    createActionGroup('Import records', [historyBtn, bookmarksBtn, urlReviewStatusBtn]),
-    createAdvancedActionGroup('Advanced import', createActionGroup('Legacy migration', [bookmarkletBtn], { secondary: true })),
-  );
+  actions.append(createActionGroup('Import records', [historyBtn, bookmarksBtn, urlReviewStatusBtn]));
 
   group.append(controls, actions);
   return group;
-}
-
-function createAdvancedActionGroup(label: string, content: HTMLElement): HTMLElement {
-  const details = document.createElement('details');
-  details.className = 'image-trail-panel__advanced-action-group';
-
-  const summary = document.createElement('summary');
-  summary.className = 'image-trail-panel__advanced-action-summary';
-  summary.textContent = label;
-
-  details.append(summary, content);
-  return details;
 }
 
 function createCloudBackupButton(label: string, state: CloudBackupProviderState, onClick: () => void): HTMLButtonElement {
@@ -531,6 +524,7 @@ function cloudBackupMetadata(state: CloudBackupProviderState): ReadonlyArray<rea
   const rows: Array<readonly [string, string]> = [];
   if (state.apiHost) rows.push(['API host', state.apiHost]);
   if (state.folderPath) rows.push(['Folder', state.folderPath]);
+  if (state.lastBackupName) rows.push(['File', state.lastBackupName]);
   if (state.lastBackupAt) rows.push(['Last backup', state.lastBackupAt]);
   if (state.lastBackupSize) rows.push(['Size', state.lastBackupSize]);
   if (state.lastBackupSha256) rows.push(['SHA-256', state.lastBackupSha256]);

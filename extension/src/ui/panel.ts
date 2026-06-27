@@ -2,7 +2,12 @@ import type { CaptureStore } from '../content/capture-controller.js';
 import { requestEncryptedImageExport, requestEncryptedImageImport, requestImageDownload } from '../content/download-controller.js';
 import type { RecallStore } from '../content/recall-store.js';
 import type { RecentHistoryStore } from '../content/recent-history-store.js';
-import { connectPCloudProvider, disconnectPCloudProvider, loadPCloudProviderStatus } from '../content/pcloud-provider-client.js';
+import {
+  connectPCloudProvider,
+  disconnectPCloudProvider,
+  loadPCloudProviderStatus,
+  uploadPCloudBackup,
+} from '../content/pcloud-provider-client.js';
 import { KeyboardRouter } from '../content/keyboard.js';
 import { RequestGovernor } from '../content/request-governor.js';
 import type { PageAdapter, TargetSelectionSnapshot } from '../content/page-adapter.js';
@@ -93,7 +98,6 @@ import {
   exportPlainBookmarks,
   exportPlainHistory,
   exportUrlReviewStatus as exportUrlReviewStatusFile,
-  importBookmarkletJson,
   importBookmarks as importBookmarkRecords,
   importEncryptedHistory,
   importUrlReviewStatus as importUrlReviewStatusFile,
@@ -1430,7 +1434,7 @@ export class ImageTrailPanel {
     }
 
     if (action.name === 'cloud-backup/backup-now') {
-      this.showPCloudBackupPlaceholder('backup');
+      void this.backupPCloudNow(action.password);
       return;
     }
 
@@ -1481,11 +1485,6 @@ export class ImageTrailPanel {
 
     if (action.name === 'import/url-review-status') {
       void this.importUrlReviewStatus(action.fileContent);
-      return;
-    }
-
-    if (action.name === 'import/bookmarklet') {
-      void this.importBookmarklet(action.fileContent);
       return;
     }
 
@@ -3339,6 +3338,76 @@ export class ImageTrailPanel {
     this.render();
   }
 
+  private async backupPCloudNow(password: string): Promise<void> {
+    if (this.state.pcloudBackup.connectionState === 'busy') return;
+    if (password.length < 4) {
+      this.state = reducePanelAction(this.state, {
+        name: 'pcloud-backup/upload-error',
+        message: 'Enter a cloud backup password with at least 4 characters before uploading.',
+      });
+      this.render();
+      return;
+    }
+
+    this.state = reducePanelAction(this.state, {
+      name: 'pcloud-backup/busy',
+      pendingOperation: 'backing-up',
+      message: 'Creating encrypted backup...',
+    });
+    this.render();
+
+    const bookmarks = await this.loadAllBookmarksForExport();
+    if (bookmarks.some(isLockedPrivatePin)) {
+      this.state = reducePanelAction(this.state, { name: 'pcloud-backup/upload-error', message: PRIVATE_PIN_EXPORT_LOCKED_MESSAGE });
+      this.render();
+      return;
+    }
+    if (bookmarks.length === 0) {
+      this.state = reducePanelAction(this.state, {
+        name: 'pcloud-backup/upload-error',
+        message: 'No durable pins or bookmarks to back up.',
+      });
+      this.render();
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const exportResult = await exportEncryptedBookmarks({ entries: bookmarks.map(bookmarkRecordToExportEntry), password, now });
+    if (!exportResult.status.ok || !exportResult.fileContent) {
+      this.state = reducePanelAction(this.state, { name: 'pcloud-backup/upload-error', message: exportResult.status.message });
+      this.render();
+      return;
+    }
+
+    this.state = reducePanelAction(this.state, {
+      name: 'pcloud-backup/busy',
+      pendingOperation: 'backing-up',
+      message: 'Uploading encrypted backup to pCloud...',
+    });
+    this.render();
+
+    const upload = await uploadPCloudBackup({
+      fileName: pcloudBackupFileName(now),
+      fileContent: exportResult.fileContent,
+    });
+    if (!upload.ok) {
+      this.state = reducePanelAction(this.state, { name: 'pcloud-backup/upload-error', message: upload.message, status: upload.status });
+      this.render();
+      return;
+    }
+    this.state = reducePanelAction(this.state, {
+      name: 'pcloud-backup/upload-complete',
+      fileName: upload.fileName,
+      folderPath: upload.folderPath,
+      apiHost: upload.apiHost,
+      sizeBytes: upload.sizeBytes,
+      sha256: upload.sha256,
+      uploadedAt: upload.uploadedAt,
+      message: upload.message,
+    });
+    this.render();
+  }
+
   private showPCloudBackupPlaceholder(kind: 'backup' | 'restore'): void {
     const message =
       kind === 'backup'
@@ -3736,23 +3805,6 @@ export class ImageTrailPanel {
       message: `${result.status.message} ${importedCount ?? 0} saved to extension state.`,
     });
     this.render();
-  }
-
-  private async importBookmarklet(fileContent: string): Promise<void> {
-    this.state = reducePanelAction(this.state, { name: 'import-export/start' });
-    this.render();
-    const result = importBookmarkletJson(fileContent);
-    if (!result.status.ok) {
-      this.state = reducePanelAction(this.state, { name: 'import-export/error', message: result.status.message });
-      this.render();
-      return;
-    }
-    for (const entry of result.bookmarks) {
-      await this.bookmarkStore?.save(bookmarkPayloadToDisplayRecord(entry.uuid, entry.payload));
-    }
-    await this.loadBookmarkPage(0, { render: false });
-    this.state = reducePanelAction(this.state, { name: 'import-export/complete', message: result.status.message });
-    this.renderPanelAndRefreshRecall();
   }
 
   private async loadAllBookmarksForExport(): Promise<readonly ImageDisplayRecord[]> {
@@ -4187,6 +4239,11 @@ function selectedRecords(records: readonly ImageDisplayRecord[], selectedIds: re
 
 export function isLockedPrivatePin(record: ImageDisplayRecord): boolean {
   return record.privacyStatus === 'locked' || record.url.startsWith('image-trail-private:');
+}
+
+function pcloudBackupFileName(isoTimestamp: string): string {
+  const timestamp = isoTimestamp.replaceAll(':', '-').replace(/\.\d{3}Z$/u, 'Z');
+  return `image-trail-pcloud-backup-${timestamp}.image-trail-encrypted.json`;
 }
 
 function bookmarkSaveMessage(record: ImageDisplayRecord, label = record.url): string {
