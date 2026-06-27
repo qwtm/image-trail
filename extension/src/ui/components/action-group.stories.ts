@@ -14,15 +14,11 @@ type Story = StoryObj<typeof meta>;
 
 export const PrimaryAndSecondary: Story = {};
 
-export const WithAdvancedMigration: Story = {
-  render: () => panelStory(actionGroupsStory({ includeMigrationActions: true })),
-};
-
 export const Narrow: Story = {
   render: () => panelStory(actionGroupsStory(), { width: 300 }),
 };
 
-function actionGroupsStory(options: { readonly includeMigrationActions?: boolean } = {}): HTMLElement {
+function actionGroupsStory(): HTMLElement {
   const section = document.createElement('section');
   section.className = 'image-trail-panel__section image-trail-panel__settings-section';
 
@@ -39,10 +35,6 @@ function actionGroupsStory(options: { readonly includeMigrationActions?: boolean
     ]),
     createActionGroup('Import and export', [storyButton('Import pins'), storyButton('Export pins'), storyButton('Export recents')]),
   ];
-
-  if (options.includeMigrationActions) {
-    actionGroups.push(createActionGroup('Advanced migration', [storyButton('Import bookmarklet JSON')], { secondary: true }));
-  }
 
   actionGroups.push(createActionGroup('Danger zone', [storyButton('Delete current queue', { danger: true })], { secondary: true }));
 

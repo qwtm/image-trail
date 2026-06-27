@@ -21,7 +21,6 @@ import { exportEncryptedHistory, exportPlainHistory } from '../extension/src/dat
 import { importEncryptedHistory } from '../extension/src/data/import-export/history-import.js';
 import { exportEncryptedBookmarks, exportPlainBookmarks } from '../extension/src/data/import-export/bookmarks-export.js';
 import { importBookmarks } from '../extension/src/data/import-export/bookmarks-import.js';
-import { importBookmarkletJson } from '../extension/src/data/import-export/bookmarklet-import.js';
 import { recallEncryptedRecord, recallSelectedRecords } from '../extension/src/data/import-export/recall.js';
 import { exportKeyWithPassword } from '../extension/src/data/import-export/key-export.js';
 import { exportStoredKeyBackupWithPassword, importStoredKeyBackupWithPassword } from '../extension/src/data/import-export/key-backup.js';
@@ -351,46 +350,6 @@ test('bookmarks-export: encrypts large thumbnail payloads', async () => {
   const importResult = await importBookmarks(exportResult.fileContent!, 'bookmark-pass');
   assert.ok(importResult.status.ok, importResult.status.message);
   assert.equal(importResult.entries[0].payload.thumbnail, largeThumbnail);
-});
-
-test('bookmarklet-import: imports favorites and deduplicates URLs', () => {
-  const json = JSON.stringify({
-    favorites: [
-      { url: 'https://example.test/a.jpg', title: 'Image A' },
-      { url: 'https://example.test/b.jpg' },
-      { url: 'https://example.test/a.jpg', title: 'Duplicate A' },
-    ],
-    history: [{ url: 'https://example.test/c.jpg', title: 'History C' }],
-  });
-
-  const result = importBookmarkletJson(json, '2026-06-18T00:00:00.000Z');
-  assert.ok(result.status.ok);
-  assert.equal(result.bookmarks.length, 3);
-  assert.equal(result.bookmarks[0].payload.url, 'https://example.test/a.jpg');
-  assert.equal(result.bookmarks[0].payload.sourceCompatibility, 'favorites');
-  assert.equal(result.skipped.length, 0);
-});
-
-test('bookmarklet-import: skips invalid URLs', () => {
-  const json = JSON.stringify({
-    favorites: [{ url: 'https://example.test/valid.jpg' }, { url: 'not-a-url' }, { url: '' }],
-  });
-
-  const result = importBookmarkletJson(json);
-  assert.ok(result.status.ok);
-  assert.equal(result.bookmarks.length, 1);
-  assert.equal(result.skipped.length, 2);
-});
-
-test('bookmarklet-import: rejects invalid JSON', () => {
-  const result = importBookmarkletJson('not-json');
-  assert.equal(result.status.ok, false);
-});
-
-test('bookmarklet-import: rejects empty data', () => {
-  const result = importBookmarkletJson(JSON.stringify({ unrelated: true }));
-  assert.equal(result.status.ok, false);
-  assert.equal(result.status.code, 'not-found');
 });
 
 test('recall: decrypts a single encrypted history record into visible payload', async () => {

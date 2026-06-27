@@ -385,6 +385,11 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState, option
     connectionState: state.pcloudBackup.connectionState,
     apiHost: state.pcloudBackup.apiHost,
     folderPath: '/Image Trail/backups',
+    lastBackupAt: state.pcloudBackup.lastBackupAt,
+    lastBackupName: state.pcloudBackup.lastBackupFileName,
+    lastBackupSize:
+      state.pcloudBackup.lastBackupSizeBytes === undefined ? undefined : formatCloudBackupBytes(state.pcloudBackup.lastBackupSizeBytes),
+    lastBackupSha256: state.pcloudBackup.lastBackupSha256,
     pendingOperation: state.pcloudBackup.pendingOperation,
     message: state.pcloudBackup.message,
     messageIsError: state.pcloudBackup.messageIsError,
@@ -540,6 +545,12 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState, option
   restoreScrollSnapshots(target.root, scrollPositions);
   restoreFocusedTextControl(target.root, focusedTextControl);
   if (options.renderRecall !== false) renderRecallDrawer(target, state);
+}
+
+function formatCloudBackupBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function renderStatusToast(toastRoot: HTMLElement | null | undefined, state: PanelState): void {

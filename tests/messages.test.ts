@@ -32,6 +32,8 @@ import {
   createConnectPCloudProviderResultMessage,
   createDisconnectPCloudProviderMessage,
   createDisconnectPCloudProviderResultMessage,
+  createUploadPCloudBackupMessage,
+  createUploadPCloudBackupResultMessage,
   createLoadBookmarksMessage,
   createLoadBookmarksByIdsMessage,
   createLoadBookmarksByIdsResultMessage,
@@ -109,6 +111,7 @@ import {
   isDeletePanelPositionResultMessage,
   isConnectPCloudProviderResultMessage,
   isDisconnectPCloudProviderResultMessage,
+  isUploadPCloudBackupResultMessage,
   isLoadBookmarksResultMessage,
   isLoadBookmarksByIdsResultMessage,
   isLoadLocalSettingsResultMessage,
@@ -222,6 +225,22 @@ test('creates pCloud provider messages without token fields', () => {
     status: { connected: false, message: 'pCloud disconnected.' },
     message: 'pCloud disconnected.',
   });
+  const upload = createUploadPCloudBackupMessage({
+    fileName: 'image-trail-pcloud-backup-2026-06-27T00-00-00Z.image-trail-encrypted.json',
+    fileContent: '{"encrypted":true}',
+  });
+  const uploadResult = createUploadPCloudBackupResultMessage({
+    ok: true,
+    status: statusResult.payload,
+    apiHost: 'api.pcloud.com',
+    fileId: 42,
+    fileName: upload.payload.fileName,
+    folderPath: '/Image Trail/backups',
+    sizeBytes: upload.payload.fileContent.length,
+    sha256: 'a'.repeat(64),
+    uploadedAt: '2026-06-27T00:00:00.000Z',
+    message: 'Uploaded and verified backup.',
+  });
 
   assert.equal(status.type, MessageType.PCloudProviderStatus);
   assert.equal(isExtensionRequest(status), true);
@@ -236,6 +255,12 @@ test('creates pCloud provider messages without token fields', () => {
   assert.equal(isExtensionRequest(disconnect), true);
   assert.equal(isExtensionResponse(disconnectResult), true);
   assert.equal(isDisconnectPCloudProviderResultMessage(disconnectResult), true);
+  assert.equal(upload.type, MessageType.UploadPCloudBackup);
+  assert.equal(isExtensionRequest(upload), true);
+  assert.equal(isExtensionResponse(uploadResult), true);
+  assert.equal(isUploadPCloudBackupResultMessage(uploadResult), true);
+  assert.equal(JSON.stringify(upload).includes('accessToken'), false);
+  assert.equal(JSON.stringify(uploadResult).includes('accessToken'), false);
 });
 
 test('creates parsed field state messages', () => {

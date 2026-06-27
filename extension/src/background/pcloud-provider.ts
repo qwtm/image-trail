@@ -1,6 +1,8 @@
 import {
   normalizePCloudApiHost,
   parsePCloudOAuthRedirect,
+  type PCloudBackupUploadInput,
+  type PCloudBackupUploadResult,
   type PCloudApiHost,
   type PCloudProviderResult,
   type PCloudProviderStatus,
@@ -21,6 +23,11 @@ const PCLOUD_CONNECTION_KEY = 'imageTrail.pcloudConnection';
 const PCLOUD_CLIENT_ID = '83ag1CIbJd7';
 const PCLOUD_AUTHORIZE_URL = 'https://my.pcloud.com/oauth2/authorize';
 const DEFAULT_PCLOUD_API_HOST: PCloudApiHost = 'api.pcloud.com';
+const PCLOUD_ROOT_FOLDER_NAME = 'Image Trail';
+const PCLOUD_BACKUP_FOLDER_NAME = 'backups';
+const PCLOUD_BACKUP_FOLDER_PATH = '/Image Trail/backups';
+const PCLOUD_LIST_RETRY_ATTEMPTS = 5;
+const PCLOUD_LIST_RETRY_BASE_MS = 500;
 
 function hasChromeStorage(): boolean {
   return typeof chrome !== 'undefined' && !!chrome.storage?.local;
@@ -67,9 +74,8 @@ function recordOrNull(value: unknown): Record<string, unknown> | null {
 
 async function restrictStorageToTrustedContexts(): Promise<void> {
   if (!hasChromeStorage()) throw new Error('Extension storage is unavailable.');
-  const setAccessLevel = chrome.storage.local.setAccessLevel;
-  if (typeof setAccessLevel !== 'function') throw new Error('Trusted extension storage is unavailable.');
-  await setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
+  if (typeof chrome.storage.local.setAccessLevel !== 'function') throw new Error('Trusted extension storage is unavailable.');
+  await chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
 }
 
 async function loadConnectionRecord(): Promise<PCloudConnectionRecord | null> {
@@ -127,8 +133,7 @@ function launchWebAuthFlow(url: string): Promise<string> {
   });
 }
 
-async function fetchPCloudJson(apiHost: PCloudApiHost, method: string, accessToken: string): Promise<Record<string, unknown>> {
-  const body = new URLSearchParams({ access_token: accessToken });
+async function requestPCloudJson(apiHost: PCloudApiHost, method: string, body: BodyInit): Promise<Record<string, unknown>> {
   const response = await fetch(`https://${apiHost}/${method}`, { method: 'POST', body });
   const data = (await response.json()) as Record<string, unknown>;
   const resultCode = numberOrUndefined(data.result);
@@ -137,6 +142,15 @@ async function fetchPCloudJson(apiHost: PCloudApiHost, method: string, accessTok
     throw new Error(error);
   }
   return data;
+}
+
+async function fetchPCloudJson(
+  apiHost: PCloudApiHost,
+  method: string,
+  accessToken: string,
+  params: Record<string, string> = {},
+): Promise<Record<string, unknown>> {
+  return requestPCloudJson(apiHost, method, new URLSearchParams({ access_token: accessToken, ...params }));
 }
 
 async function loadValidatedStatus(record: PCloudConnectionRecord): Promise<PCloudProviderStatus> {
@@ -149,6 +163,172 @@ async function loadValidatedStatus(record: PCloudConnectionRecord): Promise<PClo
   };
   await saveConnectionRecord(refreshed);
   return pcloudStatusFromRecord(refreshed, 'pCloud is connected.');
+}
+
+function folderIdFromMetadata(data: Record<string, unknown>): number {
+  const metadata = recordOrNull(data.metadata);
+  const folderId = numberOrUndefined(metadata?.folderid);
+  if (!metadata || metadata.isfolder !== true || folderId === undefined)
+    throw new Error('pCloud did not return the expected folder metadata.');
+  return folderId;
+}
+
+async function ensureFolder(record: PCloudConnectionRecord, parentFolderId: number, name: string): Promise<number> {
+  const data = await fetchPCloudJson(record.apiHost, 'createfolderifnotexists', record.accessToken, {
+    folderid: String(parentFolderId),
+    name,
+  });
+  return folderIdFromMetadata(data);
+}
+
+function uploadMetadataFromResponse(data: Record<string, unknown>): Record<string, unknown> {
+  const metadataList = Array.isArray(data.metadata) ? data.metadata : [data.metadata];
+  const metadata = metadataList.map(recordOrNull).find((item): item is Record<string, unknown> => !!item);
+  if (!metadata) throw new Error('pCloud did not return upload metadata.');
+  return metadata;
+}
+
+function arrayBufferFromBytes(bytes: Uint8Array): ArrayBuffer {
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+}
+
+async function uploadBackupFile(
+  record: PCloudConnectionRecord,
+  folderId: number,
+  input: PCloudBackupUploadInput,
+  bytes: Uint8Array,
+): Promise<{ readonly fileId: number; readonly sizeBytes: number; readonly fileName: string }> {
+  const form = new FormData();
+  form.set('access_token', record.accessToken);
+  form.set('folderid', String(folderId));
+  form.set('filename', input.fileName);
+  form.set('nopartial', '1');
+  form.set('renameifexists', '1');
+  form.set('file', new Blob([arrayBufferFromBytes(bytes)], { type: 'application/json' }), input.fileName);
+
+  const data = await requestPCloudJson(record.apiHost, 'uploadfile', form);
+  const metadata = uploadMetadataFromResponse(data);
+  const fileId = numberOrUndefined(metadata.fileid);
+  const sizeBytes = numberOrUndefined(metadata.size);
+  const fileName = stringOrUndefined(metadata.name) ?? input.fileName;
+  if (fileId === undefined || sizeBytes === undefined) throw new Error('pCloud did not return uploaded file metadata.');
+  return { fileId, sizeBytes, fileName };
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function waitForListedFile(record: PCloudConnectionRecord, folderId: number, fileId: number): Promise<void> {
+  for (let attempt = 1; attempt <= PCLOUD_LIST_RETRY_ATTEMPTS; attempt += 1) {
+    const data = await fetchPCloudJson(record.apiHost, 'listfolder', record.accessToken, {
+      folderid: String(folderId),
+      noshares: '1',
+    });
+    const metadata = recordOrNull(data.metadata);
+    const contents = Array.isArray(metadata?.contents) ? metadata.contents : [];
+    const listed = contents.map(recordOrNull).some((item) => numberOrUndefined(item?.fileid) === fileId);
+    if (listed) return;
+    if (attempt < PCLOUD_LIST_RETRY_ATTEMPTS) await sleep(PCLOUD_LIST_RETRY_BASE_MS * attempt);
+  }
+  throw new Error('Uploaded pCloud backup was not visible in the backup folder listing.');
+}
+
+function validateDownloadHost(host: string): string {
+  const normalized = host.trim().toLowerCase();
+  if (normalized === 'pcloud.com' || normalized.endsWith('.pcloud.com')) return normalized;
+  throw new Error('pCloud returned an unexpected download host.');
+}
+
+async function downloadPCloudFile(record: PCloudConnectionRecord, fileId: number): Promise<Uint8Array> {
+  const data = await fetchPCloudJson(record.apiHost, 'getfilelink', record.accessToken, {
+    fileid: String(fileId),
+    forcedownload: '1',
+    skipfilename: '1',
+  });
+  const hosts = Array.isArray(data.hosts) ? data.hosts : [];
+  const host = stringOrUndefined(hosts[0]);
+  const path = stringOrUndefined(data.path);
+  if (!host || !path) throw new Error('pCloud did not return a download link.');
+  const response = await fetch(`https://${validateDownloadHost(host)}${path}`);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text.trim() || 'pCloud backup download verification failed.');
+  }
+  return new Uint8Array(await response.arrayBuffer());
+}
+
+async function digestHex(algorithm: 'SHA-1' | 'SHA-256', bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest(algorithm, arrayBufferFromBytes(bytes));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function verifyPCloudChecksum(record: PCloudConnectionRecord, fileId: number, bytes: Uint8Array): Promise<void> {
+  const data = await fetchPCloudJson(record.apiHost, 'checksumfile', record.accessToken, { fileid: String(fileId) });
+  const remoteSha1 = stringOrUndefined(data.sha1)?.toLowerCase();
+  if (!remoteSha1) throw new Error('pCloud did not return a SHA-1 checksum for backup verification.');
+  const localSha1 = await digestHex('SHA-1', bytes);
+  if (remoteSha1 !== localSha1) throw new Error('pCloud backup checksum did not match the local export.');
+}
+
+async function verifyPCloudBackupBytes(
+  record: PCloudConnectionRecord,
+  fileId: number,
+  bytes: Uint8Array,
+): Promise<'download' | 'checksum'> {
+  let downloaded: Uint8Array;
+  try {
+    downloaded = await downloadPCloudFile(record, fileId);
+  } catch {
+    await verifyPCloudChecksum(record, fileId, bytes);
+    return 'checksum';
+  }
+  if (!bytesEqual(bytes, downloaded)) throw new Error('Downloaded pCloud backup bytes did not match the local export.');
+  return 'download';
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.byteLength !== right.byteLength) return false;
+  for (let index = 0; index < left.byteLength; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
+}
+
+async function deletePCloudFile(record: PCloudConnectionRecord, fileId: number): Promise<void> {
+  await fetchPCloudJson(record.apiHost, 'deletefile', record.accessToken, { fileid: String(fileId) });
+}
+
+function failedUploadResult(
+  record: PCloudConnectionRecord | null,
+  reason: string,
+  message: string,
+  cleanup?: { readonly fileId: number; readonly needed: boolean },
+): PCloudBackupUploadResult {
+  return {
+    ok: false,
+    status: { ...pcloudStatusFromRecord(record), message, messageIsError: true },
+    reason,
+    message,
+    cleanupFileId: cleanup?.fileId,
+    cleanupNeeded: cleanup?.needed,
+  };
+}
+
+async function failVerifiedUpload(
+  record: PCloudConnectionRecord,
+  fileId: number,
+  reason: string,
+  message: string,
+): Promise<PCloudBackupUploadResult> {
+  try {
+    await deletePCloudFile(record, fileId);
+    return failedUploadResult(record, reason, `${message} The unverified pCloud file was deleted.`, { fileId, needed: false });
+  } catch {
+    return failedUploadResult(record, reason, `${message} Cleanup needed: delete pCloud fileid ${fileId}.`, { fileId, needed: true });
+  }
 }
 
 export async function loadPCloudProviderStatus(): Promise<PCloudProviderStatus> {
@@ -197,4 +377,50 @@ export async function disconnectPCloudProvider(): Promise<PCloudProviderResult> 
   await clearConnectionRecord();
   const status = { connected: false, message: 'pCloud disconnected.' };
   return { ok: true, status, message: status.message };
+}
+
+export async function uploadPCloudBackup(input: PCloudBackupUploadInput): Promise<PCloudBackupUploadResult> {
+  const fileName = input.fileName.trim();
+  if (!fileName || !input.fileContent) {
+    return failedUploadResult(null, 'invalid-input', 'A backup file name and encrypted file content are required.');
+  }
+
+  const record = await loadConnectionRecord();
+  if (!record) return failedUploadResult(null, 'not-connected', 'Connect pCloud before backing up.');
+
+  try {
+    const bytes = new TextEncoder().encode(input.fileContent);
+    const sha256 = await digestHex('SHA-256', bytes);
+    const rootFolderId = await ensureFolder(record, 0, PCLOUD_ROOT_FOLDER_NAME);
+    const backupFolderId = await ensureFolder(record, rootFolderId, PCLOUD_BACKUP_FOLDER_NAME);
+    const uploaded = await uploadBackupFile(record, backupFolderId, { fileName, fileContent: input.fileContent }, bytes);
+
+    let verificationMethod: 'download' | 'checksum';
+    try {
+      await waitForListedFile(record, backupFolderId, uploaded.fileId);
+      verificationMethod = await verifyPCloudBackupBytes(record, uploaded.fileId, bytes);
+    } catch (error) {
+      return await failVerifiedUpload(record, uploaded.fileId, 'verification-failed', sanitizeError(error));
+    }
+
+    const uploadedAt = new Date().toISOString();
+    const message =
+      verificationMethod === 'download'
+        ? `Uploaded and verified ${uploaded.fileName}.`
+        : `Uploaded and verified ${uploaded.fileName} with pCloud checksum.`;
+    return {
+      ok: true,
+      status: pcloudStatusFromRecord(record, message),
+      fileId: uploaded.fileId,
+      fileName: uploaded.fileName,
+      folderPath: PCLOUD_BACKUP_FOLDER_PATH,
+      apiHost: record.apiHost,
+      sizeBytes: uploaded.sizeBytes,
+      sha256,
+      uploadedAt,
+      message,
+    };
+  } catch (error) {
+    return failedUploadResult(record, 'upload-failed', sanitizeError(error));
+  }
 }

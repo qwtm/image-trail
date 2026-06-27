@@ -17,6 +17,33 @@ export interface PCloudProviderResult {
   readonly message: string;
 }
 
+export interface PCloudBackupUploadInput {
+  readonly fileName: string;
+  readonly fileContent: string;
+}
+
+export type PCloudBackupUploadResult =
+  | {
+      readonly ok: true;
+      readonly status: PCloudProviderStatus;
+      readonly fileId: number;
+      readonly fileName: string;
+      readonly folderPath: string;
+      readonly apiHost: PCloudApiHost;
+      readonly sizeBytes: number;
+      readonly sha256: string;
+      readonly uploadedAt: string;
+      readonly message: string;
+    }
+  | {
+      readonly ok: false;
+      readonly status: PCloudProviderStatus;
+      readonly reason: string;
+      readonly message: string;
+      readonly cleanupFileId?: number;
+      readonly cleanupNeeded?: boolean;
+    };
+
 export interface ParsedPCloudOAuthRedirect {
   readonly accessToken: string;
   readonly apiHost: PCloudApiHost;
