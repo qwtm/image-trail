@@ -26,6 +26,7 @@ interface PCloudConnectionRecord {
 const PCLOUD_CONNECTION_KEY = 'imageTrail.pcloudConnection';
 const PCLOUD_CLIENT_ID = '83ag1CIbJd7';
 const PCLOUD_AUTHORIZE_URL = 'https://my.pcloud.com/oauth2/authorize';
+const PCLOUD_DOWNLOAD_REFERRER = 'https://my.pcloud.com/';
 const DEFAULT_PCLOUD_API_HOST: PCloudApiHost = 'api.pcloud.com';
 const PCLOUD_ROOT_FOLDER_NAME = 'Image Trail';
 const PCLOUD_BACKUP_FOLDER_NAME = 'backups';
@@ -286,7 +287,10 @@ async function downloadPCloudFile(record: PCloudConnectionRecord, fileId: number
   for (const hostValue of hosts) {
     const host = stringOrUndefined(hostValue);
     if (!host) continue;
-    const response = await fetch(`https://${validateDownloadHost(host)}${path}`, { referrerPolicy: 'no-referrer' });
+    const response = await fetch(`https://${validateDownloadHost(host)}${path}`, {
+      referrer: PCLOUD_DOWNLOAD_REFERRER,
+      referrerPolicy: 'origin',
+    });
     if (response.ok) return new Uint8Array(await response.arrayBuffer());
     const text = await response.text();
     lastError = text.trim() || lastError;

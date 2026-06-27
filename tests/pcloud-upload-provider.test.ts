@@ -342,7 +342,8 @@ test('downloadPCloudBackup downloads encrypted JSON and reports local SHA-256 wi
       return jsonResponse({ result: 0, hosts: ['c123.pcloud.com'], path: '/restore-backup' });
     }
     if (url === 'https://c123.pcloud.com/restore-backup') {
-      assert.equal(init?.referrerPolicy, 'no-referrer');
+      assert.equal(init?.referrer, 'https://my.pcloud.com/');
+      assert.equal(init?.referrerPolicy, 'origin');
       return new Response(fileContent);
     }
     throw new Error(`Unexpected fetch ${url}`);
@@ -363,7 +364,12 @@ test('downloadPCloudBackup downloads encrypted JSON and reports local SHA-256 wi
     }
     assert.equal(JSON.stringify(result).includes('token-secret'), false);
     assert.equal(
-      calls.some((call) => call.url === 'https://c123.pcloud.com/restore-backup' && call.init?.referrerPolicy === 'no-referrer'),
+      calls.some(
+        (call) =>
+          call.url === 'https://c123.pcloud.com/restore-backup' &&
+          call.init?.referrer === 'https://my.pcloud.com/' &&
+          call.init.referrerPolicy === 'origin',
+      ),
       true,
     );
   } finally {
@@ -387,11 +393,13 @@ test('downloadPCloudBackup retries alternate pCloud hosts after direct-link refe
       return jsonResponse({ result: 0, hosts: ['blocked.pcloud.com', 'c123.pcloud.com'], path: '/restore-backup' });
     }
     if (url === 'https://blocked.pcloud.com/restore-backup') {
-      assert.equal(init?.referrerPolicy, 'no-referrer');
+      assert.equal(init?.referrer, 'https://my.pcloud.com/');
+      assert.equal(init?.referrerPolicy, 'origin');
       return new Response('Invalid link referer.', { status: 400 });
     }
     if (url === 'https://c123.pcloud.com/restore-backup') {
-      assert.equal(init?.referrerPolicy, 'no-referrer');
+      assert.equal(init?.referrer, 'https://my.pcloud.com/');
+      assert.equal(init?.referrerPolicy, 'origin');
       return new Response(fileContent);
     }
     throw new Error(`Unexpected fetch ${url}`);
