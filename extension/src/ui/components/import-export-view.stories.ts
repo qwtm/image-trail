@@ -169,6 +169,19 @@ export const CloudBackupConnected: Story = {
     }),
 };
 
+export const CloudBackupCollapsed: Story = {
+  render: () =>
+    cloudBackupStory(
+      {
+        connectionState: 'connected',
+        apiHost: 'api.pcloud.com',
+        folderPath: '/Image Trail/backups',
+        message: 'Ready for manual encrypted backup.',
+      },
+      { collapsed: true },
+    ),
+};
+
 export const CloudBackupBackingUp: Story = {
   render: () =>
     cloudBackupStory({
@@ -243,8 +256,13 @@ function imageTransferStory(overrides: Partial<ImportExportStoryState> = {}, sto
   return panelStory(createImageTransferView(importExportState(overrides), mockDispatch('image transfer story action')), storyOptions);
 }
 
-function cloudBackupStory(overrides: Partial<CloudBackupStoryState> = {}, storyOptions: { readonly width?: number } = {}): HTMLElement {
-  return panelStory(createCloudBackupView(cloudBackupState(overrides), mockDispatch('cloud backup story action')), storyOptions);
+function cloudBackupStory(
+  overrides: Partial<CloudBackupStoryState> = {},
+  storyOptions: { readonly width?: number; readonly collapsed?: boolean } = {},
+): HTMLElement {
+  const view = createCloudBackupView(cloudBackupState(overrides), mockDispatch('cloud backup story action'));
+  if (storyOptions.collapsed) view.open = false;
+  return panelStory(view, storyOptions);
 }
 
 function importExportState(overrides: Partial<ImportExportStoryState> = {}): ImportExportStoryState {
