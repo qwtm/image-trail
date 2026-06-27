@@ -233,51 +233,72 @@ function createRestoreCandidateControls(
   const wrapper = document.createElement('div');
   wrapper.className = 'image-trail-panel__control-stack image-trail-panel__cloud-restore-picker';
 
-  const label = document.createElement('label');
-  label.className = 'image-trail-panel__field';
-  const labelText = document.createElement('span');
-  labelText.className = 'image-trail-panel__field-label';
-  labelText.textContent = 'Restore backup';
+  const heading = document.createElement('h4');
+  heading.textContent = 'Restore backup';
 
-  const select = document.createElement('select');
-  select.disabled = state.connectionState !== 'connected';
+  const hint = document.createElement('p');
+  hint.className = 'image-trail-panel__meta';
+  hint.textContent =
+    passwordInput.value.length < 4 ? 'Enter the backup password, then choose a pCloud backup to preview.' : 'Choose a backup to preview.';
+
+  const list = document.createElement('div');
+  list.className = 'image-trail-panel__cloud-restore-list';
+  list.setAttribute('role', 'list');
+
   for (const candidate of candidates) {
-    const option = document.createElement('option');
-    option.value = String(candidate.fileId);
-    option.textContent = restoreCandidateLabel(candidate);
-    option.dataset.fileName = candidate.fileName;
-    select.append(option);
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'image-trail-panel__cloud-restore-row';
+    row.disabled = state.connectionState !== 'connected';
+    row.title = candidate.fileName;
+    row.addEventListener('click', () => {
+      if (passwordInput.value.length < 4) {
+        hint.textContent = 'Enter the backup password before previewing this pCloud backup.';
+        hint.classList.add('image-trail-panel__error');
+        passwordInput.focus();
+        return;
+      }
+      dispatch({
+        name: 'cloud-backup/preview-restore',
+        provider: 'pcloud',
+        fileId: candidate.fileId,
+        fileName: candidate.fileName,
+        password: passwordInput.value,
+      });
+      passwordInput.value = '';
+      updatePreviewControls();
+    });
+
+    const name = document.createElement('span');
+    name.className = 'image-trail-panel__cloud-restore-name';
+    name.textContent = candidate.fileName;
+
+    const meta = document.createElement('span');
+    meta.className = 'image-trail-panel__cloud-restore-meta';
+    meta.textContent = restoreCandidateMeta(candidate);
+
+    row.append(name, meta);
+    list.append(row);
   }
 
-  label.append(labelText, select);
-
-  const preview = createCloudBackupButton('Preview selected restore', state, () => {
-    const selected = select.selectedOptions.item(0);
-    if (!selected) return;
-    dispatch({
-      name: 'cloud-backup/preview-restore',
-      provider: 'pcloud',
-      fileId: Number(selected.value),
-      fileName: selected.dataset.fileName ?? selected.textContent ?? 'pCloud backup',
-      password: passwordInput.value,
-    });
-    passwordInput.value = '';
-    updatePreviewControls();
-  });
-  preview.classList.add('image-trail-panel__primary-action');
   function updatePreviewControls(): void {
-    preview.disabled = state.connectionState !== 'connected' || passwordInput.value.length < 4;
+    hint.classList.remove('image-trail-panel__error');
+    hint.textContent =
+      passwordInput.value.length < 4 ? 'Enter the backup password, then choose a pCloud backup to preview.' : 'Choose a backup to preview.';
+    for (const row of list.querySelectorAll<HTMLButtonElement>('.image-trail-panel__cloud-restore-row')) {
+      row.disabled = state.connectionState !== 'connected';
+    }
   }
 
   passwordInput.addEventListener('input', updatePreviewControls);
   updatePreviewControls();
-  wrapper.append(label, createActionGroup('Restore preview', [preview]));
+  wrapper.append(heading, hint, list);
   return wrapper;
 }
 
-function restoreCandidateLabel(candidate: NonNullable<CloudBackupProviderState['restoreCandidates']>[number]): string {
+function restoreCandidateMeta(candidate: NonNullable<CloudBackupProviderState['restoreCandidates']>[number]): string {
   const modified = candidate.modifiedAt ? `, ${candidate.modifiedAt}` : '';
-  return `${candidate.fileName} (${candidate.size}${modified})`;
+  return `${candidate.size}${modified}`;
 }
 
 function createCollapsibleImportExportSection(
