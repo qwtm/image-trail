@@ -108,6 +108,7 @@ const ROOT_ID = 'image-trail-panel-root';
 const STYLE_PATH = 'src/ui/styles/panel.css';
 const RECALL_DRAWER_OPEN_ANIMATION_MS = 190;
 const RECALL_SUCCESS_MESSAGE_MS = 1800;
+const FINITE_CAPTURE_ERROR_MS = 2400;
 
 interface ValidatedRecordUrl extends ImageRecordUrlValidation {
   readonly preloadDataUrl?: string;
@@ -230,6 +231,7 @@ export class ImageTrailPanel {
   private panelStylesReadyPromise: Promise<void> | null = null;
   private recallOpeningUntil = 0;
   private recallMessageClearTimer: number | null = null;
+  private finiteCaptureErrorTimer: number | null = null;
   private parsedFieldStateRestoreInProgress = false;
   private parsedFieldStateUpdatedAtMs = 0;
   private parsedFieldStateSaveQueue: Promise<void> = Promise.resolve();
@@ -367,6 +369,7 @@ export class ImageTrailPanel {
     this.panelStylesReady = false;
     this.panelStylesReadyPromise = null;
     this.clearRecallMessageTimer();
+    this.clearFiniteCaptureErrorTimer();
   }
 
   disconnect(): void {
@@ -1002,6 +1005,28 @@ export class ImageTrailPanel {
     if (this.recallMessageClearTimer === null) return;
     window.clearTimeout(this.recallMessageClearTimer);
     this.recallMessageClearTimer = null;
+  }
+
+  private scheduleFiniteCaptureErrorReset(updatedAt: number, mode: 'status' | 'capture-result'): void {
+    this.clearFiniteCaptureErrorTimer();
+    this.finiteCaptureErrorTimer = window.setTimeout(() => {
+      this.finiteCaptureErrorTimer = null;
+      if (this.state.lastUpdatedAt !== updatedAt) return;
+      if (mode === 'status') {
+        if (this.state.status !== 'error') return;
+        this.state = { ...this.state, status: 'ready', lastUpdatedAt: Date.now() };
+      } else {
+        if (this.state.captureResult === null || this.state.captureResult.status === 'captured') return;
+        this.state = reducePanelAction(this.state, { name: 'capture/clear' });
+      }
+      this.render();
+    }, FINITE_CAPTURE_ERROR_MS);
+  }
+
+  private clearFiniteCaptureErrorTimer(): void {
+    if (this.finiteCaptureErrorTimer === null) return;
+    window.clearTimeout(this.finiteCaptureErrorTimer);
+    this.finiteCaptureErrorTimer = null;
   }
 
   private renderPanelAndRefreshRecall(): void {
@@ -2935,13 +2960,15 @@ export class ImageTrailPanel {
     if (this.state.captureInProgress) return;
     const isImportedImage = url.startsWith('data:image/');
     if (!isImportedImage && !isDurableImageSourceUrl(url)) {
+      const lastUpdatedAt = Date.now();
       this.state = {
         ...this.state,
         message: 'Only http(s) image URLs can be captured as encrypted originals.',
         status: 'error',
-        lastUpdatedAt: Date.now(),
+        lastUpdatedAt,
       };
       this.render();
+      this.scheduleFiniteCaptureErrorReset(lastUpdatedAt, 'status');
       return;
     }
     this.state = reducePanelAction(this.state, { name: 'capture/start' });
@@ -2949,6 +2976,9 @@ export class ImageTrailPanel {
     const result = await this.captureStore.requestCapture(url, sourceType, sourceRecordId);
     this.state = reducePanelAction(this.state, { name: 'capture/complete', result, sourceRecordId });
     let queueChanged = false;
+    const finiteCaptureResultError =
+      (result.status === 'failed' || result.status === 'remote-only') &&
+      (result.reason === 'encryption-locked' || result.reason === 'auth-required');
     if ((result.status === 'failed' || result.status === 'remote-only') && result.reason === 'encryption-locked') {
       await this.refreshBlobKeyStatus();
     }
@@ -3038,6 +3068,7 @@ export class ImageTrailPanel {
       }
     }
     await this.refreshStorageUsage();
+    if (finiteCaptureResultError) this.scheduleFiniteCaptureErrorReset(this.state.lastUpdatedAt, 'capture-result');
     if (queueChanged) {
       this.renderPanelAndRefreshRecall();
     } else {

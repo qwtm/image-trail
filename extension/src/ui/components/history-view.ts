@@ -1,5 +1,5 @@
 import { displayTitleForRecord, encryptedBlobIdForRecord, type ImageDisplayRecord } from '../../core/display-records.js';
-import { createPrivacyThumbnail, PRIVACY_RECORD_META, PRIVACY_RECORD_NAME, recordTitle } from './record-metadata.js';
+import { createPrivacyThumbnail, PRIVACY_RECORD_META, PRIVACY_RECORD_NAME, recordExtensionLabel, recordTitle } from './record-metadata.js';
 import { selectedRangeIds } from './selection-ranges.js';
 
 type HistoryAction =
@@ -130,22 +130,26 @@ export function createHistoryView(
       });
     }
     const visual = createRecordVisual(item, options);
-    const link = document.createElement('span');
-    link.className = 'image-trail-panel__record-link';
-    link.textContent = options?.privacyMode && item.privacyStatus !== 'locked' ? PRIVACY_RECORD_NAME : (item.label ?? item.url);
-    link.title = options?.privacyMode && item.privacyStatus !== 'locked' ? recordTitle(item, options) : displayTitleForRecord(item);
+    const label = document.createElement('div');
+    label.className = 'image-trail-panel__history-label';
+    const source = createHistoryExtensionIndicator(item);
+    const name = document.createElement('span');
+    name.className = 'image-trail-panel__bookmark-name';
+    name.textContent = options?.privacyMode && item.privacyStatus !== 'locked' ? PRIVACY_RECORD_NAME : (item.label ?? item.url);
+    name.title = options?.privacyMode && item.privacyStatus !== 'locked' ? recordTitle(item, options) : displayTitleForRecord(item);
+    label.append(source, name);
     if (options?.privacyMode && item.privacyStatus !== 'locked') {
       const meta = document.createElement('span');
       meta.className = 'image-trail-panel__record-row-meta';
       meta.textContent = statusText ? `${PRIVACY_RECORD_META} / ${statusText}` : PRIVACY_RECORD_META;
       meta.title = meta.textContent;
-      link.append(document.createElement('br'), meta);
+      label.append(meta);
     } else if (statusText) {
       const meta = document.createElement('span');
       meta.className = 'image-trail-panel__record-row-meta';
       meta.textContent = statusText;
       meta.title = meta.textContent;
-      link.append(document.createElement('br'), meta);
+      label.append(meta);
     }
 
     const actions = document.createElement('span');
@@ -166,10 +170,17 @@ export function createHistoryView(
     if (item.captureStatus === 'captured' && item.blobId && !keyMissing) {
       const deleteCapture = document.createElement('button');
       deleteCapture.type = 'button';
-      deleteCapture.textContent = 'Remove';
-      deleteCapture.title = 'Remove the stored original from this row.';
+      deleteCapture.className = 'image-trail-panel__delete-original';
+      deleteCapture.textContent = 'Delete';
+      deleteCapture.title = 'Delete Original + Pin';
       deleteCapture.addEventListener('click', (event) => {
         event.stopPropagation();
+        if (deleteCapture.dataset.confirming !== 'true') {
+          deleteCapture.dataset.confirming = 'true';
+          deleteCapture.textContent = 'Confirm Delete';
+          deleteCapture.title = 'Click again to Delete Original + Pin';
+          return;
+        }
         dispatch({ name: 'capture/delete', id: item.id, blobId: item.blobId! });
       });
       actions.append(deleteCapture);
@@ -196,7 +207,7 @@ export function createHistoryView(
       });
       actions.append(remove);
     }
-    entry.append(visual, link, actions);
+    entry.append(visual, label, actions);
     list.append(entry);
   }
 
@@ -250,8 +261,28 @@ function createRecordVisual(item: ImageDisplayRecord, options: { readonly privac
 
   const fallback = document.createElement('span');
   fallback.className = 'image-trail-panel__record-thumbnail image-trail-panel__record-thumbnail--empty';
-  fallback.textContent = 'IMG';
+  fallback.textContent = recordExtensionLabel(item).slice(0, 4);
   return fallback;
+}
+
+function createHistoryExtensionIndicator(item: ImageDisplayRecord): HTMLElement {
+  const wrapper = document.createElement('span');
+  wrapper.className = 'image-trail-panel__record-extension-wrap';
+
+  const source = document.createElement('span');
+  source.className = 'image-trail-panel__bookmark-source';
+  source.textContent = recordExtensionLabel(item);
+  source.title = source.textContent;
+  wrapper.append(source);
+
+  if (item.storedOriginal || item.captureStatus === 'captured') {
+    const dot = document.createElement('span');
+    dot.className = 'image-trail-panel__stored-original-dot';
+    dot.title = 'Original stored';
+    wrapper.append(dot);
+  }
+
+  return wrapper;
 }
 
 function isSelectionClick(event: MouseEvent): boolean {
