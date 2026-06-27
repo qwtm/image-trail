@@ -868,6 +868,10 @@
   content: 'Hide';
 }
 
+.image-trail-panel-root .image-trail-panel__settings-utility-section:not([open]) > :not(summary) {
+  display: none;
+}
+
 .image-trail-panel-root .image-trail-panel__settings-utility-body {
   display: grid;
   gap: 8px;
