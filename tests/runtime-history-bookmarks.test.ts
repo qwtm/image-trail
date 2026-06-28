@@ -372,6 +372,126 @@ test('capture/delete clears capture status and blobId from matching records', ()
   assert.equal(state.history[0].blobId, undefined);
 });
 
+test('capture/delete clears paired bookmark, recent, and recall original state by blob id', () => {
+  const storedOriginal = {
+    blobId: 'blob-paired',
+    mimeType: 'image/jpeg',
+    byteLength: 2048,
+    capturedAt: '2026-06-28T01:00:00.000Z',
+  };
+  const capturedRecord = {
+    id: 'bookmark-paired',
+    url: 'https://example.test/paired.jpg',
+    title: 'Paired',
+    timestamp: '2026-06-28T00:59:00.000Z',
+    source: 'bookmark' as const,
+    captureStatus: 'captured' as const,
+    blobId: 'blob-paired',
+    capturedAt: storedOriginal.capturedAt,
+    storedOriginal,
+  };
+  const state: PanelState = {
+    ...createInitialPanelState(0),
+    history: [
+      {
+        ...capturedRecord,
+        id: 'recent-paired',
+        source: 'history',
+        pinnedRecordId: 'bookmark-paired',
+        pinnedAt: '2026-06-28T00:59:00.000Z',
+      },
+    ],
+    bookmarks: [capturedRecord],
+    recall: {
+      ...createInitialPanelState(0).recall,
+      open: true,
+      candidates: [{ ...capturedRecord, id: 'recall-paired', envelopeCreatedAt: '2026-06-28T00:58:00.000Z' }],
+      selectedIds: ['recall-paired'],
+      total: 1,
+      nextOffset: 1,
+    },
+  };
+
+  const updated = reducePanelAction(state, { name: 'capture/delete', id: 'recent-paired', blobId: 'blob-paired' });
+
+  assert.equal(updated.history[0].captureStatus, undefined);
+  assert.equal(updated.history[0].blobId, undefined);
+  assert.equal(updated.history[0].capturedAt, undefined);
+  assert.equal(updated.history[0].storedOriginal, undefined);
+  assert.equal(updated.bookmarks[0].captureStatus, undefined);
+  assert.equal(updated.bookmarks[0].blobId, undefined);
+  assert.equal(updated.bookmarks[0].storedOriginal, undefined);
+  assert.equal(updated.recall.candidates[0]?.captureStatus, undefined);
+  assert.equal(updated.recall.candidates[0]?.blobId, undefined);
+  assert.equal(updated.recall.candidates[0]?.storedOriginal, undefined);
+});
+
+test('bookmark/remove unlinks pinned recent rows and clears stale original state', () => {
+  const state: PanelState = {
+    ...createInitialPanelState(0),
+    history: [
+      {
+        id: 'recent-linked',
+        url: 'https://example.test/linked.jpg',
+        timestamp: '2026-06-28T01:00:00.000Z',
+        source: 'history',
+        pinnedAt: '2026-06-28T01:00:01.000Z',
+        pinnedRecordId: 'bookmark-linked',
+        captureStatus: 'captured',
+        blobId: 'blob-linked',
+        capturedAt: '2026-06-28T01:00:02.000Z',
+        storedOriginal: {
+          blobId: 'blob-linked',
+          mimeType: 'image/png',
+          byteLength: 1024,
+          capturedAt: '2026-06-28T01:00:02.000Z',
+        },
+      },
+    ],
+    bookmarks: [
+      {
+        id: 'bookmark-linked',
+        url: 'https://example.test/linked.jpg',
+        title: 'Linked',
+        timestamp: '2026-06-28T01:00:01.000Z',
+        source: 'bookmark',
+        captureStatus: 'captured',
+        blobId: 'blob-linked',
+      },
+    ],
+    selectedBookmarkIds: ['bookmark-linked'],
+    recall: {
+      ...createInitialPanelState(0).recall,
+      open: true,
+      candidates: [
+        {
+          id: 'bookmark-linked',
+          url: 'https://example.test/linked.jpg',
+          title: 'Linked',
+          timestamp: '2026-06-28T01:00:01.000Z',
+          source: 'bookmark',
+          envelopeCreatedAt: '2026-06-28T00:59:00.000Z',
+        },
+      ],
+      selectedIds: ['bookmark-linked'],
+      total: 1,
+      nextOffset: 1,
+    },
+  };
+
+  const updated = reducePanelAction(state, { name: 'bookmark/remove', id: 'bookmark-linked' });
+
+  assert.deepEqual(updated.bookmarks, []);
+  assert.deepEqual(updated.selectedBookmarkIds, []);
+  assert.deepEqual(updated.recall.candidates, []);
+  assert.deepEqual(updated.recall.selectedIds, []);
+  assert.equal(updated.history[0].pinnedAt, undefined);
+  assert.equal(updated.history[0].pinnedRecordId, undefined);
+  assert.equal(updated.history[0].captureStatus, undefined);
+  assert.equal(updated.history[0].blobId, undefined);
+  assert.equal(updated.history[0].storedOriginal, undefined);
+});
+
 test('storage/update sets storage usage summary on panel state', () => {
   let state = createInitialPanelState(0);
   assert.equal(state.storageUsage, null);
