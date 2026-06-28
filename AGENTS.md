@@ -13,9 +13,16 @@ contributor guide it links: https://github.com/qwtm/image-trail/wiki/Contributin
 
 ## Before Changing Code
 
-Before editing, state in order (one short line each): problem, likely fix, why
-it may not work, confidence (low/medium/high), possible regressions. Then
-implement.
+- **New issue work:** investigate and root-cause (or confirm scope) before
+  editing. State your understanding — problem, cause or confirmed scope, and
+  intended changes — and ask if it is correct. Do not edit files until the user
+  confirms or explicitly tells you to proceed.
+- **After confirmation:** update the issue with the agreed problem, root cause
+  or scope, and plan (issue comment per wiki claim flow).
+- **During implementation:** post issue comments for each meaningful change
+  slice: what changed and why.
+- **Before editing:** state in one short line each: likely fix, why it may not
+  work, confidence (low/medium/high), possible regressions. Then implement.
 
 ## Product Model
 
@@ -51,7 +58,9 @@ implement.
 
 - Base work on latest `codex/dev`; do not use `main` as the base.
 - Check `git status` before changing anything and preserve unrelated user work.
-- For issue work, follow the wiki branch-link/claim-comment flow before implementation; do not add agent identity labels unless the user explicitly asks.
+- For issue work, follow the wiki branch-link/claim-comment flow; post progress
+  on the active issue as you implement. Do not add agent identity labels unless
+  the user explicitly asks.
 - Link the working branch/PR through the issue's GitHub Development sidebar; text comments alone do not power automatic issue close-out.
 - Open PRs with explicit close/fix references when the PR should complete an issue.
 - Review/issue feedback must get a visible reply before it is resolved or left open: say what commit/code fixed it, why no action was needed, or what linked follow-up owns it.
