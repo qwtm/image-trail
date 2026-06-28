@@ -33,6 +33,46 @@ test('sendRuntimeMessage returns null when the extension context is invalidated'
   }
 });
 
+test('sendRuntimeMessage returns null when an async response channel closes before delivery', async () => {
+  const originalChrome = globalThis.chrome;
+  globalThis.chrome = {
+    runtime: {
+      id: 'test-extension',
+      sendMessage: async () => {
+        throw new Error(
+          'A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received',
+        );
+      },
+    },
+  } as unknown as typeof chrome;
+
+  try {
+    const response = await sendRuntimeMessage({ type: 'imageTrail.listPCloudBackups' });
+    assert.equal(response, null);
+  } finally {
+    globalThis.chrome = originalChrome;
+  }
+});
+
+test('sendRuntimeMessage returns null when no runtime receiver exists', async () => {
+  const originalChrome = globalThis.chrome;
+  globalThis.chrome = {
+    runtime: {
+      id: 'test-extension',
+      sendMessage: async () => {
+        throw new Error('Could not establish connection. Receiving end does not exist.');
+      },
+    },
+  } as unknown as typeof chrome;
+
+  try {
+    const response = await sendRuntimeMessage({ type: 'imageTrail.downloadPCloudBackup' });
+    assert.equal(response, null);
+  } finally {
+    globalThis.chrome = originalChrome;
+  }
+});
+
 test('sendRuntimeMessage rethrows unexpected runtime errors', async () => {
   const originalChrome = globalThis.chrome;
   globalThis.chrome = {
