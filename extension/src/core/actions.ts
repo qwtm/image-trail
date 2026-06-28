@@ -468,10 +468,8 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
           : removeItem(state.manuallyExcludedFieldIds, action.id),
         lastUpdatedAt: Date.now(),
       };
-    case 'field-split/apply':
-      return state;
-    case 'field-split/clear':
-      return clearFieldSplitSpecFromState(state, action.baseFieldId);
+    case 'field/transform':
+      return action.transformId === 'split-clear' ? clearFieldSplitSpecFromState(state, action.fieldId) : state;
     case 'pin/current':
     case 'bookmark/current':
       if (!state.target.selectedUrl) return state;
