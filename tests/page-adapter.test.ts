@@ -105,17 +105,22 @@ function toCamelCase(name: string): string {
   return name.replace(/-([a-z])/gu, (_, letter: string) => letter.toUpperCase());
 }
 
-function installFakeDom(image: FakeImageElement): () => void {
+function installFakeDom(image: FakeImageElement, options: { readonly standaloneImageDocument?: boolean } = {}): () => void {
   const originalDocument = globalThis.document;
   const originalHtmlImageElement = globalThis.HTMLImageElement;
   const originalWindow = globalThis.window;
+  const body = {
+    childElementCount: options.standaloneImageDocument ? 1 : 2,
+    firstElementChild: options.standaloneImageDocument ? image : { tagName: 'MAIN' },
+    style: createPageStyle(),
+  };
 
   class TestHtmlImageElement extends FakeImageElement {}
   Object.setPrototypeOf(image, TestHtmlImageElement.prototype);
   globalThis.HTMLImageElement = TestHtmlImageElement as unknown as typeof HTMLImageElement;
   globalThis.document = {
     baseURI: 'https://example.test/page',
-    body: { style: createPageStyle() },
+    body,
     documentElement: { style: createPageStyle() },
     createElement() {
       return { getContext: () => null };
@@ -145,7 +150,7 @@ test('standalone image backdrop is prepared before selection or resize styling',
   const image = new FakeImageElement();
   image.style.background = 'rgb(230, 230, 230)';
   image.style.backgroundColor = 'rgb(230, 230, 230)';
-  const restoreDom = installFakeDom(image);
+  const restoreDom = installFakeDom(image, { standaloneImageDocument: true });
   const adapter = new PageAdapter();
 
   try {
@@ -157,6 +162,23 @@ test('standalone image backdrop is prepared before selection or resize styling',
     assert.equal(image.style.height, '');
     assert.equal(image.style.width, '');
     assert.equal(image.style.position, '');
+  } finally {
+    restoreDom();
+  }
+});
+
+test('normal one-image pages are not treated as standalone image documents', () => {
+  const image = new FakeImageElement();
+  image.style.background = 'transparent';
+  image.style.backgroundColor = 'transparent';
+  const restoreDom = installFakeDom(image);
+  const adapter = new PageAdapter();
+
+  try {
+    adapter.prepareStandaloneImageBackdrop();
+
+    assert.equal(image.style.background, 'transparent');
+    assert.equal(image.style.backgroundColor, 'transparent');
   } finally {
     restoreDom();
   }
