@@ -1068,7 +1068,7 @@ test('clearing split specs collapses fields and clears related markers', () => {
     fieldDigitWidthSpecs: [{ fieldId: 'q:0:2', width: 4 }],
   };
 
-  const next = reducePanelAction(state, { name: 'field-split/clear', baseFieldId: 'q:0:0' });
+  const next = reducePanelAction(state, { name: 'field/transform', fieldId: 'q:0:0', transformId: 'split-clear' });
 
   assert.equal(next.activeFieldId, null);
   assert.equal(next.failedFieldId, null);

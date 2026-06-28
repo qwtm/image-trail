@@ -4,6 +4,7 @@ import type { CaptureResult, StorageUsageSummary } from './image/capture-result.
 import type { ImageDisplayRecord } from './display-records.js';
 import type { GrabSourcePattern, UrlTemplateMatchMode, UrlTemplateRecord } from './url/templates.js';
 import type { UrlTemplateGrabStrategy } from './url/grab-strategies.js';
+import type { FieldTransformId } from './url/field-transforms.js';
 import type { UrlFieldDigitWidthSpec, UrlFieldSplitSpec } from './url/types.js';
 import type { ObjectFitMode } from './preview-style.js';
 
@@ -284,10 +285,7 @@ export type PanelActionName =
   | 'history-selection/clear'
   | 'active-field/set'
   | 'field-unlock/toggle'
-  | 'field-split/apply'
-  | 'field-split/clear'
-  | 'field-value-change'
-  | 'field-value-bump'
+  | 'field/transform'
   | 'selected-url/apply'
   | 'pin/current'
   | 'bookmark/current'
@@ -382,6 +380,33 @@ export type PanelActionName =
   | 'navigate-previous'
   | 'stop-all';
 
+export type FieldTransformPanelAction =
+  | {
+      readonly name: 'field/transform';
+      readonly fieldId: string;
+      readonly transformId: Extract<FieldTransformId, 'set-value'>;
+      readonly value: string;
+    }
+  | {
+      readonly name: 'field/transform';
+      readonly fieldId: string;
+      readonly transformId: Extract<FieldTransformId, 'step'>;
+      readonly delta: 1 | -1;
+    }
+  | {
+      readonly name: 'field/transform';
+      readonly fieldId: string;
+      readonly transformId: Extract<FieldTransformId, 'digit-width'>;
+      readonly value: string;
+    }
+  | {
+      readonly name: 'field/transform';
+      readonly fieldId: string;
+      readonly transformId: Extract<FieldTransformId, 'split-apply'>;
+      readonly pattern: string;
+    }
+  | { readonly name: 'field/transform'; readonly fieldId: string; readonly transformId: Extract<FieldTransformId, 'split-clear'> };
+
 export type PanelAction =
   | {
       readonly name: Exclude<
@@ -396,17 +421,13 @@ export type PanelAction =
         | 'history-selection/toggle'
         | 'history-selection/select'
         | 'history-selection/clear'
-        | 'field-value-change'
-        | 'field-value-bump'
+        | 'field/transform'
         | 'selected-url/apply'
         | 'target/fill-screen'
         | 'target/set-object-fit'
         | 'panel/secondary-controls-open'
         | 'active-field/set'
         | 'field-unlock/toggle'
-        | 'field-split/apply'
-        | 'field-split/clear'
-        | 'field-digit-width/change'
         | 'bookmark/load'
         | 'bookmark/remove'
         | 'bookmark-selection/toggle'
@@ -558,11 +579,7 @@ export type PanelAction =
   | { readonly name: 'target/fill-screen'; readonly enabled: boolean }
   | { readonly name: 'target/set-object-fit'; readonly mode: ObjectFitMode }
   | { readonly name: 'field-unlock/toggle'; readonly id: string }
-  | { readonly name: 'field-split/apply'; readonly id: string; readonly pattern: string }
-  | { readonly name: 'field-split/clear'; readonly baseFieldId: string }
-  | { readonly name: 'field-digit-width/change'; readonly id: string; readonly value: string }
-  | { readonly name: 'field-value-change'; readonly id: string; readonly value: string }
-  | { readonly name: 'field-value-bump'; readonly id: string; readonly delta: 1 | -1 }
+  | FieldTransformPanelAction
   | { readonly name: 'selected-url/apply'; readonly url: string }
   | { readonly name: 'capture/request'; readonly url: string; readonly sourceType: CaptureSourceType; readonly sourceRecordId?: string }
   | { readonly name: 'capture/start' }

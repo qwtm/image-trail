@@ -69,6 +69,7 @@ import {
   applyFieldSplitTransform,
   applySetFieldValueTransform,
   applyStepFieldValueTransform,
+  clearFieldSplitTransform,
 } from '../core/url/field-transforms.js';
 import { parseUrl } from '../core/url/parse-url.js';
 import {
@@ -1380,30 +1381,8 @@ export class ImageTrailPanel {
       return;
     }
 
-    if (action.name === 'field-value-change') {
-      void this.updateFieldValue(action.id, action.value);
-      return;
-    }
-
-    if (action.name === 'field-value-bump') {
-      void this.bumpFieldValue(action.id, action.delta);
-      return;
-    }
-
-    if (action.name === 'field-digit-width/change') {
-      void this.updateFieldDigitWidth(action.id, action.value);
-      return;
-    }
-
-    if (action.name === 'field-split/apply') {
-      this.applyFieldSplitPattern(action.id, action.pattern);
-      return;
-    }
-
-    if (action.name === 'field-split/clear') {
-      this.state = reducePanelAction(this.state, action);
-      void this.saveParsedFieldState();
-      this.render();
+    if (action.name === 'field/transform') {
+      void this.applyFieldTransform(action);
       return;
     }
 
@@ -1738,29 +1717,85 @@ export class ImageTrailPanel {
     return selectedUrl?.startsWith('data:') ? 'data:' : (selectedUrl ?? null);
   }
 
-  private applyFieldSplitPattern(fieldId: string, pattern: string): void {
+  private async applyFieldTransform(action: Extract<PanelAction, { readonly name: 'field/transform' }>): Promise<void> {
+    if (action.transformId === 'digit-width') {
+      const transform = applyFieldDigitWidthTransform(
+        this.currentUrlModelWithoutDigitWidthSpecs(),
+        action.fieldId,
+        action.value,
+        this.state.fieldDigitWidthSpecs,
+      );
+      if (!transform.ok) {
+        this.state = { ...this.state, status: 'error', message: transform.message, lastUpdatedAt: Date.now() };
+        this.render();
+        return;
+      }
+
+      this.state = {
+        ...this.state,
+        activeFieldId: action.fieldId,
+        fieldDigitWidthSpecs: transform.fieldDigitWidthSpecs,
+        lastUpdatedAt: Date.now(),
+      };
+
+      if (transform.url === this.currentRawUrl()) {
+        void this.saveParsedFieldState();
+        this.render();
+        return;
+      }
+
+      const loaded = await this.applySelectedUrl(transform.url, transform.attemptedFieldIds);
+      if (loaded && this.state.unlockedFieldIds.length > 0) await this.saveUrlTemplateFromCurrentFields();
+      return;
+    }
+
+    if (action.transformId === 'split-clear') {
+      const transform = clearFieldSplitTransform(action.fieldId);
+      if (!transform.ok) return;
+      this.state = reducePanelAction(this.state, action);
+      void this.saveParsedFieldState();
+      this.render();
+      return;
+    }
+
     let model: ParsedUrlModel;
     try {
       model = this.currentUrlModel();
     } catch {
+      if (action.transformId !== 'split-apply') return;
       this.state = { ...this.state, status: 'error', message: 'Current URL could not be parsed for splitting.', lastUpdatedAt: Date.now() };
       this.render();
       return;
     }
 
-    const field = collectUrlFields(model).find((item) => item.id === fieldId);
+    const field = collectUrlFields(model).find((item) => item.id === action.fieldId);
     if (!field) return;
 
-    const transform = applyFieldSplitTransform(field, pattern);
-    if (!transform.ok) {
-      this.state = { ...this.state, status: 'error', message: transform.message, lastUpdatedAt: Date.now() };
+    if (action.transformId === 'split-apply') {
+      const transform = applyFieldSplitTransform(field, action.pattern);
+      if (!transform.ok) {
+        this.state = { ...this.state, status: 'error', message: transform.message, lastUpdatedAt: Date.now() };
+        this.render();
+        return;
+      }
+
+      this.state = applyFieldSplitSpecToState(this.state, transform.splitSpec);
+      void this.saveParsedFieldState();
       this.render();
       return;
     }
 
-    this.state = applyFieldSplitSpecToState(this.state, transform.splitSpec);
-    void this.saveParsedFieldState();
-    this.render();
+    const transform =
+      action.transformId === 'set-value'
+        ? applySetFieldValueTransform(model, field, action.value)
+        : applyStepFieldValueTransform(model, field, action.delta);
+
+    if (action.transformId === 'step') {
+      this.state = reducePanelAction(this.state, { name: 'active-field/set', id: action.fieldId });
+    }
+
+    const loaded = await this.applySelectedUrl(transform.url, transform.attemptedFieldIds);
+    if (loaded && (action.transformId === 'step' || this.state.unlockedFieldIds.length > 0)) await this.saveUrlTemplateFromCurrentFields();
   }
 
   private navigateBy(delta: 1 | -1): void {
@@ -2235,60 +2270,6 @@ export class ImageTrailPanel {
       (url) => this.neighborPreloadCache.get(url)?.status ?? 'unknown',
     );
     return navigationCandidate?.url ?? null;
-  }
-
-  private async updateFieldValue(fieldId: string, nextValue: string): Promise<void> {
-    const model = this.currentUrlModel();
-    const fields = collectUrlFields(model);
-    const field = fields.find((item) => item.id === fieldId);
-    if (!field) return;
-
-    const transform = applySetFieldValueTransform(model, field, nextValue);
-    const loaded = await this.applySelectedUrl(transform.url, transform.attemptedFieldIds);
-    if (loaded && this.state.unlockedFieldIds.length > 0) await this.saveUrlTemplateFromCurrentFields();
-  }
-
-  private async updateFieldDigitWidth(fieldId: string, value: string): Promise<void> {
-    const transform = applyFieldDigitWidthTransform(
-      this.currentUrlModelWithoutDigitWidthSpecs(),
-      fieldId,
-      value,
-      this.state.fieldDigitWidthSpecs,
-    );
-    if (!transform.ok) {
-      this.state = { ...this.state, status: 'error', message: transform.message, lastUpdatedAt: Date.now() };
-      this.render();
-      return;
-    }
-
-    this.state = {
-      ...this.state,
-      activeFieldId: fieldId,
-      fieldDigitWidthSpecs: transform.fieldDigitWidthSpecs,
-      lastUpdatedAt: Date.now(),
-    };
-
-    const nextUrl = transform.url;
-    if (nextUrl === this.currentRawUrl()) {
-      void this.saveParsedFieldState();
-      this.render();
-      return;
-    }
-
-    const loaded = await this.applySelectedUrl(nextUrl, transform.attemptedFieldIds);
-    if (loaded && this.state.unlockedFieldIds.length > 0) await this.saveUrlTemplateFromCurrentFields();
-  }
-
-  private async bumpFieldValue(fieldId: string, delta: 1 | -1): Promise<void> {
-    const model = this.currentUrlModel();
-    const fields = collectUrlFields(model);
-    const field = fields.find((item) => item.id === fieldId);
-    if (!field) return;
-
-    const transform = applyStepFieldValueTransform(model, field, delta);
-    this.state = reducePanelAction(this.state, { name: 'active-field/set', id: fieldId });
-    const loaded = await this.applySelectedUrl(transform.url, transform.attemptedFieldIds);
-    if (loaded) await this.saveUrlTemplateFromCurrentFields();
   }
 
   private async applySelectedUrl(

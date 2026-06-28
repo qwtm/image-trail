@@ -524,22 +524,22 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState, option
           target.dispatch({ name: 'active-field/set', id: fieldId });
         },
         onValueChange: (fieldId, value) => {
-          target.dispatch({ name: 'field-value-change', id: fieldId, value });
+          target.dispatch({ name: 'field/transform', fieldId, transformId: 'set-value', value });
         },
         onStep: (fieldId, delta) => {
-          target.dispatch({ name: 'field-value-bump', id: fieldId, delta });
+          target.dispatch({ name: 'field/transform', fieldId, transformId: 'step', delta });
         },
         onDigitWidthChange: (fieldId, value) => {
-          target.dispatch({ name: 'field-digit-width/change', id: fieldId, value });
+          target.dispatch({ name: 'field/transform', fieldId, transformId: 'digit-width', value });
         },
         onToggleUnlock: (fieldId) => {
           target.dispatch({ name: 'field-unlock/toggle', id: fieldId });
         },
         onApplySplit: (fieldId, pattern) => {
-          target.dispatch({ name: 'field-split/apply', id: fieldId, pattern });
+          target.dispatch({ name: 'field/transform', fieldId, transformId: 'split-apply', pattern });
         },
         onClearSplit: (baseFieldId) => {
-          target.dispatch({ name: 'field-split/clear', baseFieldId });
+          target.dispatch({ name: 'field/transform', fieldId: baseFieldId, transformId: 'split-clear' });
         },
         onOpenChange: (open, blockSize) => {
           target.layoutState.fieldsPanelOpen = open;
