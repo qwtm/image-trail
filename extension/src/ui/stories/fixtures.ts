@@ -54,6 +54,24 @@ export const capturedRecord = record({
   },
 });
 
+export const originalDeletedQueueRecord = record({
+  id: 'queue-original-deleted',
+  url: 'https://cdn.example.test/originals/deleted-original.png',
+  label: 'deleted-original.png',
+  thumbnail: THUMBNAILS.purple,
+  source: 'bookmark',
+  pinnedAt: BASE_TIME,
+});
+
+export const originalDeletedRecentRecord = record({
+  id: 'recent-original-deleted',
+  url: originalDeletedQueueRecord.url,
+  label: originalDeletedQueueRecord.label,
+  thumbnail: originalDeletedQueueRecord.thumbnail,
+  pinnedAt: BASE_TIME,
+  pinnedRecordId: originalDeletedQueueRecord.id,
+});
+
 export const pinnedRecentRecord = record({
   id: 'recent-pinned',
   url: 'https://images.example.test/gallery/pinned-ridge.jpeg',

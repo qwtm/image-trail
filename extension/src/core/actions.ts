@@ -78,8 +78,61 @@ function syncHistoryWithBookmarks(
   });
 }
 
-function clearRecordCapture(records: readonly ImageDisplayRecord[], id: string): readonly ImageDisplayRecord[] {
-  return records.map((r) => (r.id === id ? { ...r, captureStatus: undefined, blobId: undefined, storedOriginal: undefined } : r));
+function captureMatchesRecord(record: ImageDisplayRecord, id: string, blobId?: string): boolean {
+  return (
+    record.id === id ||
+    (blobId !== undefined &&
+      (record.blobId === blobId || record.storedOriginal?.blobId === blobId || record.protectedPin?.storedOriginalBlobId === blobId))
+  );
+}
+
+function clearRecordCapture<T extends ImageDisplayRecord>(records: readonly T[], id: string, blobId?: string): readonly T[] {
+  return records.map((record) => {
+    if (!captureMatchesRecord(record, id, blobId)) return record;
+    const protectedPin = record.protectedPin
+      ? { ...record.protectedPin, storedOriginalBlobId: undefined, hasStoredOriginal: false }
+      : undefined;
+    return {
+      ...record,
+      captureStatus: undefined,
+      blobId: undefined,
+      capturedAt: undefined,
+      storedOriginal: undefined,
+      protectedPin,
+    } as T;
+  });
+}
+
+function clearRecallCandidateCapture(state: PanelState['recall'], id: string, blobId?: string): PanelState['recall'] {
+  return {
+    ...state,
+    candidates: clearRecordCapture(state.candidates, id, blobId),
+  };
+}
+
+function unlinkHistoryFromBookmark(history: readonly ImageDisplayRecord[], bookmarkId: string): readonly ImageDisplayRecord[] {
+  return history.map((record) => {
+    if (record.pinnedRecordId !== bookmarkId) return record;
+    return {
+      ...record,
+      pinnedAt: undefined,
+      pinnedRecordId: undefined,
+      captureStatus: undefined,
+      blobId: undefined,
+      capturedAt: undefined,
+      storedOriginal: undefined,
+    };
+  });
+}
+
+function removeRecallCandidate(state: PanelState['recall'], id: string): PanelState['recall'] {
+  const candidates = state.candidates.filter((candidate) => candidate.id !== id);
+  if (candidates.length === state.candidates.length) return state;
+  return {
+    ...state,
+    candidates,
+    selectedIds: removeItem(state.selectedIds, id),
+  };
 }
 
 function toggleItem(items: readonly string[], item: string): readonly string[] {
@@ -445,6 +498,8 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
       return {
         ...state,
         bookmarks: state.bookmarks.filter((item) => item.id !== action.id),
+        history: unlinkHistoryFromBookmark(state.history, action.id),
+        recall: removeRecallCandidate(state.recall, action.id),
         selectedBookmarkIds: removeItem(state.selectedBookmarkIds, action.id),
         lastUpdatedAt: Date.now(),
       };
@@ -452,6 +507,8 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
       return {
         ...state,
         bookmarks: state.bookmarks.filter((item) => item.id !== action.id),
+        history: unlinkHistoryFromBookmark(state.history, action.id),
+        recall: removeRecallCandidate(state.recall, action.id),
         selectedBookmarkIds: removeItem(state.selectedBookmarkIds, action.id),
         lastUpdatedAt: Date.now(),
       };
@@ -669,8 +726,9 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
     case 'capture/delete':
       return {
         ...state,
-        history: clearRecordCapture(state.history, action.id),
-        bookmarks: clearRecordCapture(state.bookmarks, action.id),
+        history: clearRecordCapture(state.history, action.id, action.blobId),
+        bookmarks: clearRecordCapture(state.bookmarks, action.id, action.blobId),
+        recall: clearRecallCandidateCapture(state.recall, action.id, action.blobId),
         lastUpdatedAt: Date.now(),
       };
     case 'blob-key/status':

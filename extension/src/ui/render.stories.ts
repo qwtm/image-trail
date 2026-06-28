@@ -2,7 +2,13 @@ import type { Meta, StoryObj } from '@storybook/html-vite';
 
 import type { PanelState } from '../core/types.js';
 import { renderPanel, type PanelLayoutState } from './render.js';
-import { bookmarkFixtures, recallState, recentFixtures } from './stories/fixtures.js';
+import {
+  bookmarkFixtures,
+  originalDeletedQueueRecord,
+  originalDeletedRecentRecord,
+  recallState,
+  recentFixtures,
+} from './stories/fixtures.js';
 import { mockDispatch } from './stories/story-host.js';
 
 const meta = {
@@ -39,6 +45,21 @@ export const ParsedFieldFailedLoad: Story = {
       successfulFieldIds: ['q:1:0'],
       unchangedFieldIds: [],
       unlockedFieldIds: ['q:1:0'],
+    }),
+};
+
+export const DeleteOriginalSynced: Story = {
+  render: () =>
+    panelLayoutStory({
+      message: 'Original deleted. Queue and recent rows are synced.',
+      history: [originalDeletedRecentRecord],
+      bookmarks: [originalDeletedQueueRecord],
+      bookmarkTotal: 1,
+      recall: recallState({
+        candidates: [{ ...originalDeletedQueueRecord, id: 'recall-original-deleted', envelopeCreatedAt: '2026-06-25T15:29:00.000Z' }],
+        total: 1,
+        nextOffset: 1,
+      }),
     }),
 };
 
