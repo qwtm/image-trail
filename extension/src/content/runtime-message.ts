@@ -11,5 +11,9 @@ export async function sendRuntimeMessage(message: unknown): Promise<unknown | nu
 
 function isExtensionContextUnavailableError(error: unknown): boolean {
   if (!(error instanceof Error)) return false;
-  return error.message.includes('Extension context invalidated');
+  return (
+    error.message.includes('Extension context invalidated') ||
+    error.message.includes('message channel closed before a response was received') ||
+    error.message.includes('Could not establish connection. Receiving end does not exist')
+  );
 }
