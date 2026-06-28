@@ -159,6 +159,21 @@ async function fetchPCloudJson(
   return requestPCloudJson(apiHost, method, new URLSearchParams({ access_token: accessToken, ...params }));
 }
 
+async function fetchPCloudJsonWithReferer(
+  apiHost: PCloudApiHost,
+  method: string,
+  accessToken: string,
+  params: Record<string, string> = {},
+): Promise<Record<string, unknown>> {
+  const url = `https://${apiHost}/${method}`;
+  const removeRule = await installPCloudRefererRule(url);
+  try {
+    return await requestPCloudJson(apiHost, method, new URLSearchParams({ access_token: accessToken, ...params }));
+  } finally {
+    await removeRule();
+  }
+}
+
 async function loadValidatedStatus(record: PCloudConnectionRecord): Promise<PCloudProviderStatus> {
   const userInfo = await fetchPCloudJson(record.apiHost, 'userinfo', record.accessToken);
   const refreshed: PCloudConnectionRecord = {
@@ -275,7 +290,7 @@ function validateDownloadHost(host: string): string {
 }
 
 async function downloadPCloudFile(record: PCloudConnectionRecord, fileId: number): Promise<Uint8Array> {
-  const data = await fetchPCloudJson(record.apiHost, 'getfilelink', record.accessToken, {
+  const data = await fetchPCloudJsonWithReferer(record.apiHost, 'getfilelink', record.accessToken, {
     fileid: String(fileId),
     forcedownload: '1',
     skipfilename: '1',
@@ -297,7 +312,7 @@ async function downloadPCloudFile(record: PCloudConnectionRecord, fileId: number
 }
 
 async function fetchPCloudDownloadUrl(url: string): Promise<Response> {
-  const removeRule = await installPCloudDownloadRefererRule(url);
+  const removeRule = await installPCloudRefererRule(url);
   try {
     return await fetch(url, {
       referrer: PCLOUD_DOWNLOAD_REFERRER,
@@ -308,7 +323,7 @@ async function fetchPCloudDownloadUrl(url: string): Promise<Response> {
   }
 }
 
-async function installPCloudDownloadRefererRule(url: string): Promise<() => Promise<void>> {
+async function installPCloudRefererRule(url: string): Promise<() => Promise<void>> {
   if (typeof chrome === 'undefined' || !chrome.declarativeNetRequest?.updateSessionRules) return async () => {};
   const regexFilter = `^${escapeRegExp(url)}$`;
   await chrome.declarativeNetRequest.updateSessionRules({

@@ -356,6 +356,7 @@ test('downloadPCloudBackup downloads encrypted JSON and reports local SHA-256 wi
     if (url.endsWith('/getfilelink')) {
       const params = init?.body as URLSearchParams;
       assert.equal(params.get('fileid'), '402');
+      assert.equal(JSON.stringify(dnrCalls).includes('getfilelink'), true);
       return jsonResponse({ result: 0, hosts: ['c123.pcloud.com'], path: '/restore-backup' });
     }
     if (url === 'https://c123.pcloud.com/restore-backup') {
@@ -405,6 +406,7 @@ test('downloadPCloudBackup retries alternate pCloud hosts after direct-link refe
     if (url.endsWith('/getfilelink')) {
       const params = init?.body as URLSearchParams;
       assert.equal(params.get('fileid'), '402');
+      assert.equal(JSON.stringify(dnrCalls).includes('getfilelink'), true);
       return jsonResponse({ result: 0, hosts: ['blocked.pcloud.com', 'c123.pcloud.com'], path: '/restore-backup' });
     }
     if (url === 'https://blocked.pcloud.com/restore-backup') {
