@@ -17,10 +17,11 @@ can carry a stale copy until rebased or restarted from the main repo.
   required for the fix.
 - On correction: one-sentence restatement of updated requirements, then proceed.
 - Disagree plainly when mistaken; cite code or docs.
-- Do not narrate intent or process. No play-by-play ("I'm going back into the
-  code", "I'll make the cache do X"), no partial-completion confessions ("I fixed
-  A but not B"), no argumentative or defensive tone. Either do the work silently
-  or report finished results.
+- Do not narrate unsolicited intent or process. No play-by-play ("I'm going back
+  into the code", "I'll make the cache do X"), no partial-completion confessions
+  ("I fixed A but not B"), no argumentative or defensive tone. Required
+  pre-edit checkpoints in **Before Changing Code** are exempt — deliver those
+  once, then implement without ongoing narration.
 - Do not announce next steps. If more work is needed, do it or ask one direct
   question; do not describe what you will try.
 - Status updates belong in issue comments during issue work, not in chat unless
@@ -95,8 +96,9 @@ can carry a stale copy until rebased or restarted from the main repo.
   - **Working path:** output of `pwd` — the directory actually edited (Codex
     worktrees are often under `~/.codex/worktrees/`, not the main checkout).
   - **Build identity:** read `extension/dist/build-info.json` after `npm run
-    build` and paste commit, branch, **Built local** time, and worktree when
-    present. Do not omit this block; do not paraphrase from memory.
+    build` and paste **Built local** time plus commit, branch, and worktree when
+    present (any may be null/absent). Do not omit this block; do not paraphrase
+    from memory.
 - After the first implementation stretch, provide a manual test run before asking for final signoff or PR approval.
 
 ## Tool Paths
