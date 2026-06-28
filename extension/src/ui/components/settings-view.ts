@@ -1,5 +1,5 @@
 import type { StorageUsageSummary } from '../../core/image/capture-result.js';
-import type { BuildIdentity } from '../../core/build-info.js';
+import { buildIdentityRows, type BuildIdentity } from '../../core/build-info.js';
 import type { PanelAction, PinSaveStoragePreference, RecentHistoryOverflowBehavior } from '../../core/types.js';
 import type { GrabSourcePattern, UrlTemplateMatchMode, UrlTemplateRecord } from '../../core/url/templates.js';
 import {
@@ -671,44 +671,6 @@ export function createBuildIdentitySettingsView(buildIdentity: BuildIdentity | n
 
   wrapper.append(heading, list);
   return wrapper;
-}
-
-export function buildIdentityRows(buildIdentity: BuildIdentity): readonly { readonly label: string; readonly value: string }[] {
-  const rows: { readonly label: string; readonly value: string }[] = [{ label: 'Version', value: buildIdentity.version }];
-  if (buildIdentity.commit) rows.push({ label: 'Commit', value: buildIdentity.commit });
-  if (buildIdentity.branch) rows.push({ label: 'Branch', value: buildIdentity.branch });
-  if (buildIdentity.worktree) rows.push({ label: 'Worktree', value: buildIdentity.worktree });
-  rows.push({ label: 'Built local', value: formatBuildIdentityLocalTimestamp(buildIdentity.builtAt, buildIdentity.timezone) });
-  rows.push({ label: 'Built UTC', value: formatBuildIdentityTimestamp(buildIdentity.builtAt) });
-  return rows;
-}
-
-export function formatBuildIdentityLocalTimestamp(value: string, timezone?: string | null): string {
-  const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return value;
-  try {
-    return new Intl.DateTimeFormat('en-US', {
-      timeZone: timezone ?? undefined,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      timeZoneName: 'short',
-    }).format(new Date(timestamp));
-  } catch {
-    return value;
-  }
-}
-
-export function formatBuildIdentityTimestamp(value: string): string {
-  const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return value;
-  return new Date(timestamp)
-    .toISOString()
-    .replace('T', ' ')
-    .replace(/\.\d{3}Z$/u, ' UTC');
 }
 
 export function createStorageHealthSettingsView(storageUsage: StorageUsageSummary | null): HTMLElement {

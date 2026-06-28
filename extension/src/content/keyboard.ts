@@ -10,6 +10,14 @@ export interface KeyBinding {
 
 export type KeyActionHandler = (action: string) => void;
 
+export interface KeyCodeShortcut {
+  readonly code: string;
+  readonly shift?: boolean;
+  readonly ctrl?: boolean;
+  readonly alt?: boolean;
+  readonly meta?: boolean;
+}
+
 export const DEFAULT_BINDINGS: KeyBinding[] = [
   { key: 'ArrowRight', action: 'next' },
   { key: 'ArrowLeft', action: 'previous' },
@@ -52,6 +60,15 @@ export function shouldRouteKeyboardShortcut(target: KeyTarget, action: string): 
       action === 'next' || action === 'previous' || action === 'download' || action === 'download-save-as' || action === 'grab-mode-toggle'
     );
   }
+  return true;
+}
+
+export function matchesKeyCodeShortcut(event: KeyboardEvent, shortcut: KeyCodeShortcut): boolean {
+  if (event.code !== shortcut.code) return false;
+  if ((shortcut.shift ?? false) !== (event.shiftKey === true)) return false;
+  if ((shortcut.ctrl ?? false) !== (event.ctrlKey === true)) return false;
+  if ((shortcut.alt ?? false) !== (event.altKey === true)) return false;
+  if ((shortcut.meta ?? false) !== (event.metaKey === true)) return false;
   return true;
 }
 
