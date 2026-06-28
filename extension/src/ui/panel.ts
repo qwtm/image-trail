@@ -1637,7 +1637,7 @@ export class ImageTrailPanel {
       this.cleanupMountedElements();
       return;
     }
-    this.pageAdapter.prepareStandaloneImageBackdrop();
+    this.pageAdapter.prepareStandaloneImageBackdrop({ allowHtmlDocument: true });
     this.mount();
     this.keyboard.enable();
     this.pageAdapter.enableBookmarkShortcut();
