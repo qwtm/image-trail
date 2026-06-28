@@ -21,7 +21,12 @@ import {
   type ImageRecordUrlValidation,
 } from '../core/display-records.js';
 import type { ImageDisplayRecord } from '../core/display-records.js';
-import { applyFieldLoadFailureToState, applyFieldSplitSpecToState, reducePanelAction } from '../core/actions.js';
+import {
+  applyFieldLoadFailureToState,
+  applyFieldSplitSpecToState,
+  pruneInvalidFieldSplitSpecsFromState,
+  reducePanelAction,
+} from '../core/actions.js';
 import { Retry404 } from '../core/automation/retry-404.js';
 import { Slideshow } from '../core/automation/slideshow.js';
 import type { BuildIdentity } from '../core/build-info.js';
@@ -1693,6 +1698,31 @@ export class ImageTrailPanel {
     return this.applyCurrentFieldDigitWidthSpecs(applyFieldSplitSpecs(parseUrl(url), this.state.fieldSplitSpecs));
   }
 
+  private pruneInvalidFieldSplitSpecsForCurrentUrl(): boolean {
+    const nextState = this.pruneInvalidFieldSplitSpecsForUrl(this.state, this.currentRawUrl());
+    if (nextState === this.state) return false;
+    this.state = nextState;
+    void this.saveParsedFieldState();
+    return true;
+  }
+
+  private pruneInvalidFieldSplitSpecsForUrl(
+    state: PanelState,
+    url: string,
+    options: { readonly preserveMessage?: boolean } = {},
+  ): PanelState {
+    if (state.fieldSplitSpecs.length === 0) return state;
+    let model: ParsedUrlModel;
+    try {
+      model = parseUrl(url);
+    } catch {
+      return state;
+    }
+    const pruned = pruneInvalidFieldSplitSpecsFromState(state, model);
+    if (pruned === state || options.preserveMessage !== true) return pruned;
+    return { ...pruned, status: state.status, message: state.message, lastUpdatedAt: state.lastUpdatedAt };
+  }
+
   private applyCurrentFieldDigitWidthSpecs(model: ParsedUrlModel): ParsedUrlModel {
     return applyFieldDigitWidthSpecs(model, this.state.fieldDigitWidthSpecs);
   }
@@ -1761,13 +1791,15 @@ export class ImageTrailPanel {
   }
 
   private async applyFieldTransform(action: Extract<PanelAction, { readonly name: 'field/transform' }>): Promise<void> {
+    const prunedInvalidSplitSpecs = action.transformId !== 'split-clear' && this.pruneInvalidFieldSplitSpecsForCurrentUrl();
+
     if (action.transformId === 'digit-width') {
-      const transform = applyFieldDigitWidthTransform(
-        this.currentUrlModelWithoutDigitWidthSpecs(),
-        action.fieldId,
-        action.value,
-        this.state.fieldDigitWidthSpecs,
-      );
+      const baseModel = this.currentUrlModelWithoutDigitWidthSpecs();
+      if (!collectUrlFields(baseModel).some((field) => field.id === action.fieldId)) {
+        if (prunedInvalidSplitSpecs) this.render();
+        return;
+      }
+      const transform = applyFieldDigitWidthTransform(baseModel, action.fieldId, action.value, this.state.fieldDigitWidthSpecs);
       if (!transform.ok) {
         this.state = { ...this.state, status: 'error', message: transform.message, lastUpdatedAt: Date.now() };
         this.render();
@@ -1812,7 +1844,10 @@ export class ImageTrailPanel {
     }
 
     const field = collectUrlFields(model).find((item) => item.id === action.fieldId);
-    if (!field) return;
+    if (!field) {
+      if (prunedInvalidSplitSpecs) this.render();
+      return;
+    }
 
     if (action.transformId === 'split-apply') {
       const transform = applyFieldSplitTransform(field, action.pattern);
@@ -2337,7 +2372,11 @@ export class ImageTrailPanel {
         this.rememberNeighborPreloadFailure(nextUrl, preload.message);
       }
       this.projections.update(session, { status: 'failed' });
-      this.state = applyFieldLoadFailureToState(this.state, { draftUrl: nextUrl, attemptedFieldIds, message: preload.message });
+      this.state = this.pruneInvalidFieldSplitSpecsForUrl(
+        applyFieldLoadFailureToState(this.state, { draftUrl: nextUrl, attemptedFieldIds, message: preload.message }),
+        nextUrl,
+        { preserveMessage: true },
+      );
       this.scheduleFiniteCaptureErrorReset(this.state.lastUpdatedAt, 'status');
       void this.saveUrlReviewStatus('failed', nextUrl, attemptedFieldIds, preload.message);
       void this.saveParsedFieldState();
@@ -2350,11 +2389,15 @@ export class ImageTrailPanel {
     const reviewStatus = urlReviewStatusForLoadResult(preload.sha256, baselineFingerprint);
     if (attemptedFieldIds.length > 0 && reviewStatus === 'unchanged') {
       this.projections.update(session, { status: 'loaded', displayUrl: preload.displayUrl });
-      this.state = this.applyFieldLoadResult(
-        { ...this.state, draftUrl: nextUrl, message: 'Image loaded but did not change.', status: 'ready', lastUpdatedAt: Date.now() },
-        attemptedFieldIds,
-        preload.sha256,
-        baselineFingerprint,
+      this.state = this.pruneInvalidFieldSplitSpecsForUrl(
+        this.applyFieldLoadResult(
+          { ...this.state, draftUrl: nextUrl, message: 'Image loaded but did not change.', status: 'ready', lastUpdatedAt: Date.now() },
+          attemptedFieldIds,
+          preload.sha256,
+          baselineFingerprint,
+        ),
+        nextUrl,
+        { preserveMessage: true },
       );
       void this.saveUrlReviewStatus('unchanged', nextUrl, attemptedFieldIds, 'Image loaded but did not change.');
       void this.saveParsedFieldState();
@@ -2369,7 +2412,11 @@ export class ImageTrailPanel {
       if (!this.isCurrentProjectionSession(session)) return false;
       this.state = { ...setTargetState(this.state, toTargetState(nextSnapshot)), draftUrl: null };
     }
-    this.state = this.applyFieldLoadResult(this.state, attemptedFieldIds, preload.sha256, baselineFingerprint);
+    this.state = this.pruneInvalidFieldSplitSpecsForUrl(
+      this.applyFieldLoadResult(this.state, attemptedFieldIds, preload.sha256, baselineFingerprint),
+      nextUrl,
+      { preserveMessage: true },
+    );
     if (reviewStatus === 'passed') void this.saveUrlReviewStatus(reviewStatus, nextUrl, attemptedFieldIds);
     if (options.pushVisibleUrl && pushVisibleUrlWhenSameOrigin(nextUrl)) this.extensionProjectedPageUrl = window.location.href;
     void this.saveParsedFieldState();
