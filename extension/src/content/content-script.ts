@@ -6,8 +6,9 @@ import {
   isExtensionRequest,
   MessageType,
 } from '../background/messages.js';
-import type { BuildIdentity } from '../core/build-info.js';
+import { isNonProductionBuildIdentity, type BuildIdentity } from '../core/build-info.js';
 import { PageAdapter } from './page-adapter.js';
+import { BuildIdentityOverlay } from './build-identity-overlay.js';
 import { ExtensionBookmarkStore } from './extension-bookmark-store.js';
 import { CaptureController } from './capture-controller.js';
 import { RecentHistoryStore } from './recent-history-store.js';
@@ -19,6 +20,7 @@ import { ExtensionUrlTemplateStore } from './url-template-store.js';
 import { ExtensionUrlReviewStatusStore } from './url-review-status-store.js';
 import { ImageTrailPanel } from '../ui/panel.js';
 import { sendRuntimeMessage } from './runtime-message.js';
+import { classifyTarget, matchesKeyCodeShortcut, shouldRouteKeyboardShortcut } from './keyboard.js';
 
 interface ImageTrailContentController {
   readonly panel: ImageTrailPanel;
@@ -33,6 +35,10 @@ declare global {
 
 function hasRuntimeMessaging(): boolean {
   return typeof chrome !== 'undefined' && !!chrome.runtime?.onMessage && typeof chrome.runtime.getURL === 'function';
+}
+
+function isBuildIdentityOverlayShortcut(event: KeyboardEvent): boolean {
+  return matchesKeyCodeShortcut(event, { code: 'KeyB', shift: true, alt: true });
 }
 
 async function loadBuildIdentity(): Promise<BuildIdentity | null> {
@@ -62,8 +68,15 @@ function createController(): ImageTrailContentController {
     new ExtensionParsedFieldStateStore(),
     new ExtensionUrlReviewStatusStore(),
   );
-  void loadBuildIdentity().then((identity) => {
+  const buildOverlay = new BuildIdentityOverlay();
+  let buildIdentity: BuildIdentity | null = null;
+  let buildIdentityLoaded = false;
+  const buildIdentityRequest = loadBuildIdentity().then((identity) => {
+    buildIdentity = identity;
+    buildIdentityLoaded = true;
     if (identity) panel.setBuildIdentity(identity);
+    buildOverlay.show(identity);
+    return identity;
   });
 
   const handleMessage = (message: unknown, _sender: chrome.runtime.MessageSender, sendResponse: (response: unknown) => void): boolean => {
@@ -86,14 +99,29 @@ function createController(): ImageTrailContentController {
     }
   };
 
+  const handleKeyDown = (event: KeyboardEvent): void => {
+    if (!isBuildIdentityOverlayShortcut(event)) return;
+    if (!shouldRouteKeyboardShortcut(classifyTarget(event), 'build-data-overlay-toggle')) return;
+    if (buildIdentityLoaded && !isNonProductionBuildIdentity(buildIdentity)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    void buildIdentityRequest.then((identity) => {
+      buildOverlay.toggle(identity ?? buildIdentity);
+    });
+  };
+
   const destroy = (): void => {
     if (hasRuntimeMessaging()) chrome.runtime.onMessage.removeListener(handleMessage);
+    document.removeEventListener('keydown', handleKeyDown, true);
+    buildOverlay.hide();
     panel.disconnect();
     delete window.__imageTrailContentController;
   };
 
   chrome.runtime.onMessage.addListener(handleMessage);
+  document.addEventListener('keydown', handleKeyDown, true);
   window.addEventListener('pagehide', (event) => {
+    buildOverlay.hide();
     if (event.persisted) {
       panel.destroy();
       return;

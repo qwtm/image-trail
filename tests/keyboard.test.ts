@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_BINDINGS, classifyTarget, shouldRouteKeyboardShortcut } from '../extension/src/content/keyboard.js';
+import {
+  DEFAULT_BINDINGS,
+  classifyTarget,
+  matchesKeyCodeShortcut,
+  shouldRouteKeyboardShortcut,
+} from '../extension/src/content/keyboard.js';
 
 function fakeEvent(overrides: Record<string, unknown> = {}): KeyboardEvent {
   return { target: null, ...overrides } as unknown as KeyboardEvent;
@@ -63,6 +68,21 @@ test('default keyboard bindings map d to download and shifted shortcuts to save-
   assert.ok(DEFAULT_BINDINGS.some((binding) => binding.key === 'D' && binding.shift === true && binding.action === 'download-save-as'));
   assert.ok(DEFAULT_BINDINGS.some((binding) => binding.key === 'G' && binding.shift === true && binding.action === 'grab-mode-toggle'));
   assert.ok(DEFAULT_BINDINGS.some((binding) => binding.key === 'Enter' && binding.shift === true && binding.action === 'download-save-as'));
+});
+
+test('key code shortcuts survive Option-modified Mac key values', () => {
+  assert.equal(
+    matchesKeyCodeShortcut(fakeEvent({ key: '∫', code: 'KeyB', shiftKey: true, altKey: true }), { code: 'KeyB', shift: true, alt: true }),
+    true,
+  );
+  assert.equal(
+    matchesKeyCodeShortcut(fakeEvent({ key: 'B', code: 'KeyB', shiftKey: true, altKey: true, metaKey: true }), {
+      code: 'KeyB',
+      shift: true,
+      alt: true,
+    }),
+    false,
+  );
 });
 
 test('keyboard shortcuts route from panel controls but not typing targets', () => {
