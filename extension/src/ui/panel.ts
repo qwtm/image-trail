@@ -200,6 +200,10 @@ export function urlReviewStatusForLoadResult(nextFingerprint: string | null, pre
   return nextFingerprint === previousFingerprint ? 'unchanged' : 'passed';
 }
 
+export function isUnsupportedUrlEditorInput(url: string): boolean {
+  return url.trim().toLowerCase().startsWith('data:');
+}
+
 function toTargetState(snapshot: TargetSelectionSnapshot): TargetState {
   const selectedUrl = snapshot.selected?.url ?? null;
   return {
@@ -1735,6 +1739,18 @@ export class ImageTrailPanel {
   }
 
   private async applyUrlEditorUrl(url: string): Promise<void> {
+    if (isUnsupportedUrlEditorInput(url)) {
+      this.state = {
+        ...this.state,
+        status: 'error',
+        message: 'URL editor cannot apply data URLs. Paste an http or https image URL.',
+        lastUpdatedAt: Date.now(),
+      };
+      this.scheduleFiniteCaptureErrorReset(this.state.lastUpdatedAt, 'status');
+      this.render();
+      return;
+    }
+
     await this.applySelectedUrl(url, [], { pushVisibleUrl: true, resetFieldState: url !== this.currentRawUrl() });
   }
 

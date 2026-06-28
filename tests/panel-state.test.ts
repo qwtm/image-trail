@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { applyFieldLoadFailureToState, reducePanelAction } from '../extension/src/core/actions.js';
 import { createInitialPanelState, setTargetState } from '../extension/src/core/state.js';
 import {
+  isUnsupportedUrlEditorInput,
   isLockedPrivatePin,
   nextParsedFieldStatePageKey,
   originalBlobIdsForFullBackup,
@@ -226,6 +227,13 @@ test('successful same target projection can explicitly clear edited draft URL', 
 
   assert.equal(projected.target.selectedUrl, 'https://example.test/image-3.jpg');
   assert.equal(projected.draftUrl, null);
+});
+
+test('URL editor blocks pasted data URLs before projection', () => {
+  assert.equal(isUnsupportedUrlEditorInput('data:image/png;base64,abc'), true);
+  assert.equal(isUnsupportedUrlEditorInput('  data:image/jpeg;base64,abc'), true);
+  assert.equal(isUnsupportedUrlEditorInput('DATA:image/webp;base64,abc'), true);
+  assert.equal(isUnsupportedUrlEditorInput('https://example.test/image.jpg'), false);
 });
 
 test('Grab Mode actions expose sticky page-image grab status', () => {
