@@ -524,14 +524,15 @@ test('key-backup: imported blob key decrypts payloads created before export', as
 
 test('full-backup: exports bookmarks with encrypted original blob records', async () => {
   const keyReference = createKeyReference('blob', 'full-backup-key');
+  const ciphertext = Uint8Array.from({ length: 96_937 }, (_, index) => index % 251);
   const blobRecord: StoredBlobRecord = {
     id: 'blob-full-backup',
     kind: 'original',
     schemaVersion: 1,
     algorithm: 'AES-GCM',
     iv: 'iv-value',
-    ciphertext: Uint8Array.from([1, 2, 3, 4]).buffer,
-    encryptedByteLength: 4,
+    ciphertext: ciphertext.buffer,
+    encryptedByteLength: ciphertext.byteLength,
     createdAt: '2026-06-28T00:00:00.000Z',
     key: keyReference,
     referenceCount: 1,
@@ -560,6 +561,7 @@ test('full-backup: exports bookmarks with encrypted original blob records', asyn
 
   assert.ok(exported.status.ok, exported.status.message);
   assert.equal(exported.originalBlobCount, 1);
+  assert.ok(exported.fileContent!.length > ciphertext.byteLength, 'full backup file should include encrypted original bytes');
   const envelope = parseExportFile(exported.fileContent!);
   assert.equal(envelope.header.payloadType, 'mixed');
   assert.equal(envelope.header.recordCount, 1);
@@ -574,7 +576,8 @@ test('full-backup: exports bookmarks with encrypted original blob records', asyn
   const restored = storedBlobRecordFromPortable(portable);
   assert.equal(restored.id, blobRecord.id);
   assert.equal(restored.key.reference, 'blob:full-backup-key');
-  assert.deepEqual(Array.from(new Uint8Array(restored.ciphertext)), [1, 2, 3, 4]);
+  assert.equal(restored.ciphertext.byteLength, ciphertext.byteLength);
+  assert.deepEqual(Array.from(new Uint8Array(restored.ciphertext).slice(0, 4)), [0, 1, 2, 3]);
 });
 
 test('encrypted-image: exports and imports bytes with the blob key', async () => {

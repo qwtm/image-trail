@@ -111,6 +111,7 @@ import {
   importBookmarks as importBookmarkRecords,
   importEncryptedHistory,
   importUrlReviewStatus as importUrlReviewStatusFile,
+  storedBlobRecordFromPortable,
   type LocalSettingsStore,
   type PlaintextLocalSettings,
   type DurableBookmarkPayloadV1,
@@ -3435,9 +3436,10 @@ export class ImageTrailPanel {
       this.render();
       return;
     }
+    const originalBlobRecords = originalBlobResult.records.map(storedBlobRecordFromPortable);
 
     const blobKeyBackup =
-      originalBlobResult.records.length > 0 && this.captureStore
+      originalBlobRecords.length > 0 && this.captureStore
         ? await this.captureStore.exportBlobKeyBackup(password, this.state.blobKeyReference ?? undefined)
         : null;
     if (blobKeyBackup && !blobKeyBackup.ok) {
@@ -3449,7 +3451,7 @@ export class ImageTrailPanel {
     const now = new Date().toISOString();
     const exportResult = await exportEncryptedFullBackup({
       bookmarks: bookmarks.map(bookmarkRecordToExportEntry),
-      originalBlobs: originalBlobResult.records,
+      originalBlobs: originalBlobRecords,
       blobKeyBackups: blobKeyBackup?.ok ? [{ keyReference: blobKeyBackup.keyReference, fileContent: blobKeyBackup.fileContent }] : [],
       missingOriginalBlobIds: originalBlobResult.missingBlobIds,
       password,
@@ -3477,7 +3479,7 @@ export class ImageTrailPanel {
       this.render();
       return;
     }
-    const originalBytes = originalBlobResult.records.reduce((total, record) => total + record.encryptedByteLength, 0);
+    const originalBytes = originalBlobRecords.reduce((total, record) => total + record.encryptedByteLength, 0);
     this.state = reducePanelAction(this.state, {
       name: 'pcloud-backup/upload-complete',
       fileName: upload.fileName,
@@ -3485,13 +3487,13 @@ export class ImageTrailPanel {
       apiHost: upload.apiHost,
       sizeBytes: upload.sizeBytes,
       sha256: upload.sha256,
-      originalCount: originalBlobResult.records.length,
+      originalCount: originalBlobRecords.length,
       originalBytes,
       missingOriginalCount: originalBlobResult.missingBlobIds.length,
       uploadedAt: upload.uploadedAt,
       message: pcloudBackupUploadMessage(
         upload.message,
-        originalBlobResult.records.length,
+        originalBlobRecords.length,
         originalBytes,
         originalBlobResult.missingBlobIds.length,
       ),

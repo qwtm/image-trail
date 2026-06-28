@@ -566,10 +566,25 @@ test('creates encrypted original blob export messages', () => {
 
   const result = createExportOriginalBlobsResultMessage({
     ok: true,
-    records: [],
+    records: [
+      {
+        id: 'blob-1',
+        kind: 'original',
+        schemaVersion: 1,
+        algorithm: 'AES-GCM',
+        iv: 'iv-value',
+        ciphertext: 'AQIDBA==',
+        encryptedByteLength: 4,
+        createdAt: '2026-06-28T00:00:00.000Z',
+        key: { kind: 'blob', uuid: 'key-1', reference: 'blob:key-1' },
+        referenceCount: 1,
+      },
+    ],
     missingBlobIds: ['blob-2'],
   });
   assert.equal(result.type, MessageType.ExportOriginalBlobsResult);
+  assert.equal(result.payload.ok ? result.payload.records[0]?.ciphertext : '', 'AQIDBA==');
+  assert.equal(JSON.parse(JSON.stringify(result)).payload.records[0].ciphertext, 'AQIDBA==');
   assert.equal(isExtensionResponse(result), true);
   assert.equal(isExportOriginalBlobsResultMessage(result), true);
 });

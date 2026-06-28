@@ -12,6 +12,7 @@ import { getActiveBlobKey, lockBlobKey } from '../data/crypto/blob-keyring.js';
 import { activateWrappedBlobKey, createAndActivateWrappedBlobKey } from '../data/crypto/blob-keyring.js';
 import { openBlobPayload, sealBlobPayload } from '../data/crypto/binary-envelope.js';
 import { createEncryptedImageFile, openEncryptedImageFile, parseEncryptedImageFileHeader } from '../data/import-export/encrypted-image.js';
+import { portableStoredBlobRecord, type PortableStoredBlobRecord } from '../data/import-export/full-backup.js';
 import { exportStoredKeyBackupWithPassword, importStoredKeyBackupWithPassword } from '../data/import-export/key-backup.js';
 import { openImageTrailDb } from '../data/db.js';
 import { BlobsRepository } from '../data/repositories/blobs-repository.js';
@@ -373,12 +374,12 @@ async function handleExportOriginalBlobs(
   const db = await getDb();
   if (!db) return { ok: false, reason: 'db-unavailable', message: 'Database unavailable.' };
   const blobs = new BlobsRepository(db);
-  const records: StoredBlobRecord[] = [];
+  const records: PortableStoredBlobRecord[] = [];
   const missingBlobIds: string[] = [];
   for (const blobId of [...new Set(message.payload.blobIds)]) {
     const record = await blobs.get(blobId);
     if (record?.kind === 'original') {
-      records.push(record);
+      records.push(portableStoredBlobRecord(record));
     } else {
       missingBlobIds.push(blobId);
     }
