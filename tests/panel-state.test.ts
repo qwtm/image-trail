@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { applyFieldLoadFailureToState, reducePanelAction } from '../extension/src/core/actions.js';
+import { applyFieldLoadFailureToState, pruneInvalidFieldSplitSpecsFromState, reducePanelAction } from '../extension/src/core/actions.js';
 import { createInitialPanelState, setTargetState } from '../extension/src/core/state.js';
+import { parseUrl } from '../extension/src/core/url/parse-url.js';
 import { isUnsupportedUrlEditorInput } from '../extension/src/ui/components/url-editor-view.js';
 import {
   isLockedPrivatePin,
@@ -1077,6 +1078,39 @@ test('clearing split specs collapses fields and clears related markers', () => {
   };
 
   const next = reducePanelAction(state, { name: 'field/transform', fieldId: 'q:0:0', transformId: 'split-clear' });
+
+  assert.equal(next.activeFieldId, null);
+  assert.equal(next.failedFieldId, null);
+  assert.deepEqual(next.successfulFieldIds, ['q:1:0']);
+  assert.deepEqual(next.unchangedFieldIds, []);
+  assert.deepEqual(next.unlockedFieldIds, []);
+  assert.deepEqual(next.manuallyExcludedFieldIds, []);
+  assert.deepEqual(next.fieldSplitSpecs, []);
+  assert.deepEqual(next.fieldDigitWidthSpecs, []);
+});
+
+test('pruning stale split specs clears related markers after split collapse', () => {
+  const splitSpec: UrlFieldSplitSpec = {
+    baseFieldId: 'q:0:0',
+    location: 'query',
+    queryIndex: 0,
+    tokenIndex: 0,
+    lengths: [2, 2, 4],
+    pattern: '2-2-4',
+  };
+  const state = {
+    ...createInitialPanelState(),
+    activeFieldId: 'q:0:2',
+    failedFieldId: 'q:0:1',
+    successfulFieldIds: ['q:0:0', 'q:0:2', 'q:1:0'],
+    unchangedFieldIds: ['q:0:1'],
+    unlockedFieldIds: ['q:0:0', 'q:0:2'],
+    manuallyExcludedFieldIds: ['q:0:1'],
+    fieldSplitSpecs: [splitSpec],
+    fieldDigitWidthSpecs: [{ fieldId: 'q:0:2', width: 4 }],
+  };
+
+  const next = pruneInvalidFieldSplitSpecsFromState(state, parseUrl('https://example.test/image?date=112001'));
 
   assert.equal(next.activeFieldId, null);
   assert.equal(next.failedFieldId, null);

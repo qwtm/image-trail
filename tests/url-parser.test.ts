@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseUrl } from '../extension/src/core/url/parse-url.js';
-import { applyFieldSplitSpecs, createFieldSplitSpec, parseFieldSplitPattern } from '../extension/src/core/url/field-splits.js';
+import {
+  applyFieldSplitSpecs,
+  createFieldSplitSpec,
+  parseFieldSplitPattern,
+  validFieldSplitSpecsForModel,
+} from '../extension/src/core/url/field-splits.js';
 import { applyFieldDigitWidthSpecs } from '../extension/src/core/url/field-widths.js';
 import { bumpUrlField, rebuildUrl } from '../extension/src/core/url/rebuild-url.js';
 import { collectUrlFields, selectDefaultField } from '../extension/src/core/url/tokenize-fields.js';
@@ -85,6 +90,17 @@ test('splits a URL token by length pattern without changing rebuilt URL', () => 
     ['01', '01', '2001'],
   );
   assert.equal(rebuildUrl(splitModel), 'https://example.test/image?date=01012001');
+});
+
+test('stale split specs are invalid when the source token length changes', () => {
+  const model = parseUrl('https://example.test/image?date=01012001');
+  const field = collectUrlFields(model).find((candidate) => candidate.label === 'query date');
+  assert.ok(field);
+  const spec = createFieldSplitSpec(field, '2-2-4');
+  assert.ok(!('ok' in spec));
+
+  assert.deepEqual(validFieldSplitSpecsForModel(model, [spec]), [spec]);
+  assert.deepEqual(validFieldSplitSpecsForModel(parseUrl('https://example.test/image?date=112001'), [spec]), []);
 });
 
 test('bumps split URL token parts while preserving contiguous URL format', () => {

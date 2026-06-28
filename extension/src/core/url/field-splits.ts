@@ -63,6 +63,25 @@ export function applyFieldSplitSpecs(model: ParsedUrlModel, specs: readonly UrlF
   };
 }
 
+export function validFieldSplitSpecsForModel(model: ParsedUrlModel, specs: readonly UrlFieldSplitSpec[]): readonly UrlFieldSplitSpec[] {
+  if (specs.length === 0) return specs;
+  return specs.filter((spec) => fieldSplitSpecMatchesModel(model, spec));
+}
+
+function fieldSplitSpecMatchesModel(model: ParsedUrlModel, spec: UrlFieldSplitSpec): boolean {
+  let token: UrlToken | undefined;
+  if (spec.location === 'path' && spec.partIndex !== undefined) {
+    const part = model.pathParts[spec.partIndex];
+    token = part?.type === 'segment' ? part.tokens[spec.tokenIndex] : undefined;
+  }
+  if (spec.location === 'query' && spec.queryIndex !== undefined) {
+    token = model.queryFields.find((field) => field.index === spec.queryIndex)?.valueTokens[spec.tokenIndex];
+  }
+  if (!token) return false;
+  const expectedLength = spec.lengths.reduce((sum, length) => sum + length, 0);
+  return tokenValue(token).length === expectedLength;
+}
+
 function applyPathSplitSpecs(part: PathPart, partIndex: number, specs: readonly UrlFieldSplitSpec[]): PathPart {
   if (part.type !== 'segment') return part;
   const matchingSpecs = specs.filter((spec) => spec.location === 'path' && spec.partIndex === partIndex);

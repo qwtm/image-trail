@@ -4,8 +4,9 @@ import type { CaptureResult } from './image/capture-result.js';
 import { isCapturedResult } from './image/capture-result.js';
 import { closePanel, EMPTY_AUTOMATION_STATE, showPanel } from './state.js';
 import type { PanelAction, PanelState } from './types.js';
+import { validFieldSplitSpecsForModel } from './url/field-splits.js';
 import { updateGrabSourcePatternSettings, updateTemplateSettings } from './url/templates.js';
-import type { UrlFieldSplitSpec } from './url/types.js';
+import type { ParsedUrlModel, UrlFieldSplitSpec } from './url/types.js';
 
 function updateRecordCapture(
   records: readonly ImageDisplayRecord[],
@@ -228,6 +229,22 @@ export function clearFieldSplitSpecFromState(state: PanelState, baseFieldId: str
     fieldSplitSpecs: state.fieldSplitSpecs.filter((spec) => spec.baseFieldId !== baseFieldId),
     message: existing ? 'Split pattern cleared.' : state.message,
     status: existing ? 'ready' : state.status,
+    lastUpdatedAt: Date.now(),
+  };
+}
+
+export function pruneInvalidFieldSplitSpecsFromState(state: PanelState, model: ParsedUrlModel): PanelState {
+  const validSpecs = validFieldSplitSpecsForModel(model, state.fieldSplitSpecs);
+  if (validSpecs.length === state.fieldSplitSpecs.length) return state;
+
+  const validBaseIds = new Set(validSpecs.map((spec) => spec.baseFieldId));
+  const removedSpecs = state.fieldSplitSpecs.filter((spec) => !validBaseIds.has(spec.baseFieldId));
+  const marked = clearFieldMarkers(state, affectedSplitFieldIds(removedSpecs));
+  return {
+    ...marked,
+    fieldSplitSpecs: validSpecs,
+    message: removedSpecs.length === 1 ? 'Cleared stale split pattern.' : `Cleared ${removedSpecs.length} stale split patterns.`,
+    status: 'ready',
     lastUpdatedAt: Date.now(),
   };
 }
