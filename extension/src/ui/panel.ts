@@ -1152,6 +1152,7 @@ export class ImageTrailPanel {
     }
 
     if (action.name === 'panel/secondary-controls-open') {
+      if (this.state.secondaryControlsOpen === action.open) return;
       this.state = reducePanelAction(this.state, action);
       this.saveLocalSettings({ ...this.localSettings, secondaryControlsOpen: action.open });
       this.render();

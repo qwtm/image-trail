@@ -58,10 +58,12 @@ test('secondary manual controls disclosure state is panel state', () => {
 
   const opened = reducePanelAction(initial, { name: 'panel/secondary-controls-open', open: true });
   const closed = reducePanelAction(opened, { name: 'panel/secondary-controls-open', open: false });
+  const unchanged = reducePanelAction(initial, { name: 'panel/secondary-controls-open', open: false });
 
   assert.equal(initial.secondaryControlsOpen, false);
   assert.equal(opened.secondaryControlsOpen, true);
   assert.equal(closed.secondaryControlsOpen, false);
+  assert.equal(unchanged, initial);
 });
 
 test('target changes clear failed field markers', () => {

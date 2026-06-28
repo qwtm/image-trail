@@ -98,6 +98,7 @@ function createSecondaryControlsGroup(
   heading.textContent = 'Manual controls';
   summary.append(heading);
   group.addEventListener('toggle', () => {
+    if (group.open === state.secondaryControlsOpen) return;
     target.dispatch({ name: 'panel/secondary-controls-open', open: group.open });
   });
 
