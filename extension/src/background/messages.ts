@@ -286,7 +286,7 @@ export interface ExportOriginalBlobsResultMessage {
   readonly payload:
     | {
         readonly ok: true;
-        readonly records: readonly import('../data/types.js').StoredBlobRecord[];
+        readonly records: readonly import('../data/import-export/full-backup.js').PortableStoredBlobRecord[];
         readonly missingBlobIds: readonly string[];
       }
     | { readonly ok: false; readonly reason: string; readonly message: string };

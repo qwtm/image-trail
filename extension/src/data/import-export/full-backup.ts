@@ -115,13 +115,17 @@ function fullBackupExportMessage(bookmarkCount: number, originalBlobCount: numbe
 }
 
 export function portableStoredBlobRecord(record: StoredBlobRecord): PortableStoredBlobRecord {
+  const ciphertext = storedBlobCiphertextBytes(record);
+  if (ciphertext.byteLength !== record.encryptedByteLength) {
+    throw new Error('Encrypted original bytes did not match recorded byte length.');
+  }
   return {
     id: record.id,
     kind: record.kind,
     schemaVersion: record.schemaVersion,
     algorithm: record.algorithm,
     iv: record.iv,
-    ciphertext: toBase64(new Uint8Array(record.ciphertext)),
+    ciphertext: toBase64(ciphertext),
     encryptedByteLength: record.encryptedByteLength,
     createdAt: record.createdAt,
     key: record.key,
@@ -131,12 +135,22 @@ export function portableStoredBlobRecord(record: StoredBlobRecord): PortableStor
 
 export function storedBlobRecordFromPortable(record: PortableStoredBlobRecord): StoredBlobRecord {
   const ciphertext = fromBase64(record.ciphertext);
+  if (ciphertext.byteLength !== record.encryptedByteLength) {
+    throw new Error('Encrypted original backup bytes did not match recorded byte length.');
+  }
   const copiedCiphertext = new ArrayBuffer(ciphertext.byteLength);
   new Uint8Array(copiedCiphertext).set(ciphertext);
   return {
     ...record,
     ciphertext: copiedCiphertext,
   };
+}
+
+function storedBlobCiphertextBytes(record: StoredBlobRecord): Uint8Array {
+  const ciphertext = (record as { readonly ciphertext: unknown }).ciphertext;
+  if (ciphertext instanceof ArrayBuffer) return new Uint8Array(ciphertext);
+  if (ArrayBuffer.isView(ciphertext)) return new Uint8Array(ciphertext.buffer, ciphertext.byteOffset, ciphertext.byteLength);
+  throw new Error('Encrypted original bytes were not available for backup.');
 }
 
 export function bookmarksFromFullBackupPayload(value: unknown): readonly FullBackupBookmarkEntry[] | null {
