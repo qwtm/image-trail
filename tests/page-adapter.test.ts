@@ -183,6 +183,23 @@ test('normal one-image pages are not repainted by standalone backdrop prep', () 
   }
 });
 
+test('panel-open standalone backdrop prep can cover chrome image pages reported as html', () => {
+  const image = new FakeImageElement();
+  image.style.background = 'rgb(230, 230, 230)';
+  image.style.backgroundColor = 'rgb(230, 230, 230)';
+  const restoreDom = installFakeDom(image, { bodyChildElementCount: 2, contentType: 'text/html' });
+  const adapter = new PageAdapter();
+
+  try {
+    adapter.prepareStandaloneImageBackdrop({ allowHtmlDocument: true });
+
+    assert.equal(image.style.background, '#000');
+    assert.equal(image.style.backgroundColor, '#000');
+  } finally {
+    restoreDom();
+  }
+});
+
 test('selected image error emits failed projection snapshot', () => {
   const image = new FakeImageElement();
   const restoreDom = installFakeDom(image);
