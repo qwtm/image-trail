@@ -22,6 +22,15 @@ export function upsertFieldDigitWidthSpec(
   return width === null ? rest : [...rest, digitWidthSpec(fieldId, width, existing?.sourceWidth ?? sourceWidth)];
 }
 
+export function fieldDigitWidthSpecsEqual(left: readonly UrlFieldDigitWidthSpec[], right: readonly UrlFieldDigitWidthSpec[]): boolean {
+  if (left.length !== right.length) return false;
+  const rightByFieldId = new Map(right.map((spec) => [spec.fieldId, spec]));
+  return left.every((spec) => {
+    const other = rightByFieldId.get(spec.fieldId);
+    return other !== undefined && spec.width === other.width && spec.sourceWidth === other.sourceWidth;
+  });
+}
+
 export function clearFieldDigitWidthSpec(model: ParsedUrlModel, spec: UrlFieldDigitWidthSpec | undefined, fieldId: string): ParsedUrlModel {
   if (!spec) return model;
 
