@@ -9,6 +9,7 @@ import {
   clearFieldSplitTransform,
   fieldTransformDefinition,
 } from '../extension/src/core/url/field-transforms.js';
+import { fieldDigitWidthSpecsEqual } from '../extension/src/core/url/field-widths.js';
 import { parseUrl } from '../extension/src/core/url/parse-url.js';
 import { collectUrlFields } from '../extension/src/core/url/tokenize-fields.js';
 
@@ -128,6 +129,23 @@ test('digit-width transform can shrink a previous width override after projectio
   assert.equal(shrunk.ok, true);
   assert.deepEqual(shrunk.fieldDigitWidthSpecs, [{ fieldId: field.id, width: 3 }]);
   assert.equal(shrunk.url, 'https://example.test/images/image-123.jpg');
+});
+
+test('digit-width spec equality ignores storage order', () => {
+  assert.equal(
+    fieldDigitWidthSpecsEqual(
+      [
+        { fieldId: 'q:0:0', width: 3, sourceWidth: 1 },
+        { fieldId: 'q:1:0', width: 4 },
+      ],
+      [
+        { fieldId: 'q:1:0', width: 4 },
+        { fieldId: 'q:0:0', width: 3, sourceWidth: 1 },
+      ],
+    ),
+    true,
+  );
+  assert.equal(fieldDigitWidthSpecsEqual([{ fieldId: 'q:0:0', width: 3 }], [{ fieldId: 'q:0:0', width: 4 }]), false);
 });
 
 test('split transforms adapt current split apply and clear behavior', () => {

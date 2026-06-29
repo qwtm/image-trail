@@ -69,7 +69,7 @@ import {
   VISIBLE_BOOKMARK_SOFT_MAX_LIMITS,
 } from '../core/settings.js';
 import { applyFieldSplitSpecs } from '../core/url/field-splits.js';
-import { applyFieldDigitWidthSpecs } from '../core/url/field-widths.js';
+import { applyFieldDigitWidthSpecs, fieldDigitWidthSpecsEqual } from '../core/url/field-widths.js';
 import {
   applyFieldDigitWidthTransform,
   applyFieldSplitTransform,
@@ -105,7 +105,7 @@ import {
   upsertGrabSourcePattern,
   type UrlTemplateRecord,
 } from '../core/url/templates.js';
-import type { ParsedUrlModel, UrlField, UrlFieldDigitWidthSpec } from '../core/url/types.js';
+import type { ParsedUrlModel, UrlField } from '../core/url/types.js';
 import {
   createThumbnailDataUrlFromDataUrl,
   createThumbnailDataUrlFromImage,
@@ -166,18 +166,8 @@ type FieldEditorEffect =
       readonly state?: PanelState;
       readonly url: string;
       readonly attemptedFieldIds: readonly string[];
-      readonly saveTemplateOnLoad: boolean;
+      readonly saveTemplateOnLoad: 'always' | 'when-unlocked';
     };
-
-function fieldDigitWidthSpecsEqual(left: readonly UrlFieldDigitWidthSpec[], right: readonly UrlFieldDigitWidthSpec[]): boolean {
-  return (
-    left.length === right.length &&
-    left.every((spec, index) => {
-      const other = right[index];
-      return spec.fieldId === other?.fieldId && spec.width === other.width && spec.sourceWidth === other.sourceWidth;
-    })
-  );
-}
 
 interface BufferedNavigationRequest {
   readonly runId: number;
@@ -1869,7 +1859,7 @@ export class ImageTrailPanel {
         state,
         url: transform.url,
         attemptedFieldIds: transform.attemptedFieldIds,
-        saveTemplateOnLoad: this.state.unlockedFieldIds.length > 0,
+        saveTemplateOnLoad: 'when-unlocked',
       };
     }
 
@@ -1924,7 +1914,7 @@ export class ImageTrailPanel {
       state,
       url: transform.url,
       attemptedFieldIds: transform.attemptedFieldIds,
-      saveTemplateOnLoad: action.transformId === 'step' || this.state.unlockedFieldIds.length > 0,
+      saveTemplateOnLoad: action.transformId === 'step' ? 'always' : 'when-unlocked',
     };
   }
 
@@ -1938,7 +1928,9 @@ export class ImageTrailPanel {
     }
     if (effect.state) this.applyPanelState(effect.state);
     const loaded = await this.applySelectedUrl(effect.url, effect.attemptedFieldIds);
-    if (loaded && effect.saveTemplateOnLoad) await this.saveUrlTemplateFromCurrentFields();
+    if (loaded && (effect.saveTemplateOnLoad === 'always' || this.state.unlockedFieldIds.length > 0)) {
+      await this.saveUrlTemplateFromCurrentFields();
+    }
     return loaded;
   }
 
