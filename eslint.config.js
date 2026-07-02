@@ -114,4 +114,12 @@ export default tseslint.config(
     },
   },
   ...Object.values(layerBoundaryRules),
+  {
+    // Size tripwire for the decomposed panel collaborators so they can never regrow toward the
+    // 5k-line ImageTrailPanel god object they were extracted from (epic #265).
+    files: ['extension/src/ui/panel/**/*.ts'],
+    rules: {
+      'max-lines': ['error', { max: 800, skipBlankLines: true, skipComments: true }],
+    },
+  },
 );
