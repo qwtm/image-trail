@@ -110,6 +110,12 @@ export class PanelMount {
     this.stylesReady = false;
     this.stylesReadyPromise = new Promise<void>((resolve) => {
       const reveal = (): void => {
+        // Ignore stale callbacks (a load/error event or the fallback timer) left over from a
+        // previous mount: on a fast teardown + remount they would otherwise flip the shared
+        // styles-ready flag, unhide the detached old root, and starve the live mount's reveal —
+        // leaving the current panel stuck at visibility: hidden. Only act while this reveal's
+        // root is still the mounted one.
+        if (this.rootEl !== root) return;
         if (this.stylesReady) return;
         this.stylesReady = true;
         root.style.visibility = '';

@@ -134,6 +134,31 @@ test('mount() is a no-op when already mounted', () => {
   assert.equal(doc.createdByTag('aside').length, 1, 'a second aside is not created');
 });
 
+test('a stale reveal from a previous mount does not starve the live mount after a fast remount', async () => {
+  const harness = createHarness();
+  harness.mount.mount();
+  const staleRoot = harness.mount.root;
+  harness.mount.teardown();
+  harness.mount.mount();
+
+  // Fire the leftover load event from the first (now detached) mount.
+  const staleLink = harness.doc.createdByTag('link')[0];
+  staleLink.fire('load');
+
+  assert.equal(harness.mount.panelStylesReady, false, 'stale reveal does not mark the live mount ready');
+  assert.equal(staleRoot!.style.visibility, 'hidden', 'stale reveal does not touch the detached root');
+  assert.equal(harness.mount.root!.style.visibility, 'hidden', 'the live root is still hidden');
+  assert.equal(harness.onStylesReadyCalls, 0, 'stale reveal does not run onStylesReady');
+
+  // The live mount's own reveal still works.
+  const liveLink = harness.doc.createdByTag('link')[1];
+  liveLink.fire('load');
+  await harness.mount.whenStylesReady();
+  assert.equal(harness.mount.panelStylesReady, true, 'the live mount becomes ready on its own reveal');
+  assert.equal(harness.mount.root!.style.visibility, '', 'the live root is unhidden');
+  assert.equal(harness.onStylesReadyCalls, 1, 'onStylesReady runs once for the live mount');
+});
+
 test('styles-ready reveal shows the root, resolves the promise, and runs onStylesReady when visible', async () => {
   const harness = createHarness();
   harness.mount.mount();
