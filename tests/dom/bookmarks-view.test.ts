@@ -1,0 +1,109 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+
+import { createBookmarksView } from '../../extension/src/ui/components/bookmarks-view.js';
+import type { ImageDisplayRecord } from '../../extension/src/core/display-records.js';
+
+const record: ImageDisplayRecord = {
+  id: 'row-1',
+  url: 'https://images.example.test/albums/1024/photo_0042.jpg',
+  timestamp: '2026-06-25T15:30:00.000Z',
+  source: 'bookmark',
+};
+
+function buildBookmarksView(
+  actions: unknown[],
+  overrides: { readonly items?: readonly ImageDisplayRecord[]; readonly total?: number } = {},
+): HTMLElement {
+  const items = overrides.items ?? [record];
+  return createBookmarksView(
+    'https://images.example.test/current.jpg',
+    items,
+    [],
+    false,
+    true,
+    true,
+    'global',
+    { offset: 0, limit: Math.max(items.length, 1), total: overrides.total ?? items.length, hasOlder: false, hasNewer: false },
+    { recallOpen: false },
+    {},
+    (action) => actions.push(action),
+  );
+}
+
+function rowFor(view: HTMLElement, id: string): HTMLElement {
+  const row = view.querySelector(`[data-image-trail-scroll-anchor="bookmark:${id}"]`);
+  assert.ok(row instanceof HTMLElement, `expected a queue row for record "${id}"`);
+  return row;
+}
+
+function buttonByText(view: HTMLElement, text: string): HTMLButtonElement {
+  const button = Array.from(view.querySelectorAll('button')).find((candidate) => candidate.textContent === text);
+  assert.ok(button, `expected a button labelled "${text}"`);
+  return button;
+}
+
+test('a plain click selects the row and previews it', () => {
+  const actions: unknown[] = [];
+  const view = buildBookmarksView(actions);
+  const row = rowFor(view, 'row-1');
+
+  assert.equal(row.getAttribute('role'), 'button');
+  assert.equal(row.tabIndex, 0);
+
+  row.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+  assert.deepEqual(actions, [
+    { name: 'bookmark-selection/single', id: 'row-1' },
+    { name: 'capture/preview', url: record.url, blobId: undefined, scrollAnchorId: 'bookmark:row-1' },
+  ]);
+});
+
+test('a ctrl-click toggles selection without previewing', () => {
+  const actions: unknown[] = [];
+  const view = buildBookmarksView(actions);
+  const row = rowFor(view, 'row-1');
+
+  row.dispatchEvent(new MouseEvent('click', { ctrlKey: true, bubbles: true, cancelable: true }));
+
+  assert.deepEqual(actions, [{ name: 'bookmark-selection/toggle', id: 'row-1' }]);
+});
+
+test('Enter on a focused row mirrors a plain click', () => {
+  const actions: unknown[] = [];
+  const view = buildBookmarksView(actions);
+  const row = rowFor(view, 'row-1');
+
+  const enter = new KeyboardEvent('keydown', { key: 'Enter', cancelable: true, bubbles: true });
+  row.dispatchEvent(enter);
+
+  assert.equal(enter.defaultPrevented, true);
+  assert.deepEqual(actions, [
+    { name: 'bookmark-selection/single', id: 'row-1' },
+    { name: 'capture/preview', url: record.url, blobId: undefined, scrollAnchorId: 'bookmark:row-1' },
+  ]);
+});
+
+test('Pin current dispatches pin/current', () => {
+  const actions: unknown[] = [];
+  const view = buildBookmarksView(actions);
+
+  buttonByText(view, 'Pin current').click();
+
+  assert.deepEqual(actions, [{ name: 'pin/current' }]);
+});
+
+test('pager buttons are disabled when there are no other pages', () => {
+  const actions: unknown[] = [];
+  const view = buildBookmarksView(actions);
+
+  assert.equal(buttonByText(view, 'Older').disabled, true);
+  assert.equal(buttonByText(view, 'Newer').disabled, true);
+});
+
+test('Recall is disabled when the queue is empty', () => {
+  const actions: unknown[] = [];
+  const view = buildBookmarksView(actions, { items: [], total: 0 });
+
+  assert.equal(buttonByText(view, 'Recall').disabled, true);
+});

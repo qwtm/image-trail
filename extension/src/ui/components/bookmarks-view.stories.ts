@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/html-vite';
+import { expect, fireEvent, fn, userEvent } from 'storybook/test';
 
 import { createBookmarksView } from './bookmarks-view.js';
 import { bookmarkFixtures, capturedRecord, lockedPrivateRecord, longOverflowRecord } from '../stories/fixtures.js';
@@ -39,10 +40,31 @@ export const Narrow: Story = {
   render: () => bookmarksStory(bookmarkFixtures, ['queue-normal'], { width: 300 }),
 };
 
+const dispatchSpy = fn();
+
+export const SelectsAndPreviewsRow: Story = {
+  render: () => bookmarksStory(bookmarkFixtures, [], {}, dispatchSpy),
+  play: async ({ canvasElement }) => {
+    dispatchSpy.mockClear();
+    const row = canvasElement.querySelector('[data-image-trail-scroll-anchor="bookmark:queue-normal"]');
+    if (!(row instanceof HTMLElement)) throw new Error('expected the queue-normal row to render');
+    await userEvent.click(row);
+    await expect(dispatchSpy).toHaveBeenCalledWith({ name: 'bookmark-selection/single', id: 'queue-normal' });
+    await expect(dispatchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'capture/preview', scrollAnchorId: 'bookmark:queue-normal' }),
+    );
+    dispatchSpy.mockClear();
+    await fireEvent.click(row, { ctrlKey: true });
+    await expect(dispatchSpy).toHaveBeenCalledWith({ name: 'bookmark-selection/toggle', id: 'queue-normal' });
+    await expect(dispatchSpy).toHaveBeenCalledTimes(1);
+  },
+};
+
 function bookmarksStory(
   items: Parameters<typeof createBookmarksView>[1],
   selectedIds: readonly string[],
   options: { readonly width?: number } = {},
+  dispatch: Parameters<typeof createBookmarksView>[10] = mockDispatch(),
 ) {
   return panelStory(
     createBookmarksView(
@@ -62,7 +84,7 @@ function bookmarksStory(
       },
       { recallOpen: false },
       { privacyMode: false },
-      mockDispatch(),
+      dispatch,
     ),
     options,
   );

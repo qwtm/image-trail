@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/html-vite';
+import { expect, fn, userEvent, within } from 'storybook/test';
 
 import type { FieldsViewCallbacks, FieldsViewOptions } from './fields-view.js';
 import { createFieldsView } from './fields-view.js';
@@ -79,6 +80,25 @@ export const Narrow: Story = {
     ),
 };
 
+const valueChangeSpy = fn();
+const stepSpy = fn();
+
+export const EditsField: Story = {
+  render: () => fieldsStory({ callbacks: { onValueChange: valueChangeSpy, onStep: stepSpy } }),
+  play: async ({ canvasElement }) => {
+    valueChangeSpy.mockClear();
+    stepSpy.mockClear();
+    const canvas = within(canvasElement);
+    const input = canvas.getByLabelText('Edit page');
+    await userEvent.clear(input);
+    await userEvent.type(input, '18{Enter}');
+    await expect(valueChangeSpy).toHaveBeenCalledWith('query-page', '18');
+    await expect(valueChangeSpy).toHaveBeenCalledTimes(1);
+    await userEvent.click(canvas.getByLabelText('Increment page'));
+    await expect(stepSpy).toHaveBeenCalledWith('query-page', 1);
+  },
+};
+
 export const AutoDigitWidthNarrow: Story = {
   render: () =>
     fieldsStory(
@@ -101,10 +121,11 @@ function fieldsStory(
     readonly unchangedFieldIds?: readonly string[];
     readonly unlockedFieldIds?: readonly string[];
     readonly options?: Partial<FieldsViewOptions>;
+    readonly callbacks?: Partial<FieldsViewCallbacks>;
   } = {},
   storyOptions: { readonly width?: number } = {},
 ) {
-  const callbacks = mockFieldsCallbacks();
+  const callbacks = { ...mockFieldsCallbacks(), ...overrides.callbacks };
   return panelStory(
     createFieldsView(
       overrides.fields ?? parsedFieldFixtures,
