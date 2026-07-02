@@ -150,6 +150,22 @@ import {
   loadPCloudProviderStatus,
   uploadPCloudBackup,
 } from './pcloud-provider.js';
+import { defineMessage, dispatchRequest, type MessageDef } from './message-dispatch.js';
+import type { ExtensionRequest, ExtensionResponse } from './messages.js';
+import type {
+  BlobKeyStatusMessage,
+  CleanupOrphanedBlobsMessage,
+  ClearBlobKeyMessage,
+  ConnectPCloudProviderMessage,
+  CreateDataUrlPreviewMessage,
+  DisconnectPCloudProviderMessage,
+  ListPCloudBackupsMessage,
+  LoadBuildIdentityMessage,
+  LoadLocalSettingsMessage,
+  LoadParsedFieldStateBySourceMessage,
+  PCloudProviderStatusMessage,
+  StorageUsageRequestMessage,
+} from './messages.js';
 
 const CONTENT_SCRIPT_FILE = 'src/content/content-script.js';
 const SUPPORTED_PAGE_PATTERN = /^https?:\/\//u;
@@ -1200,487 +1216,361 @@ async function handleLoadBuildIdentity(): Promise<ReturnType<typeof createLoadBu
   }
 }
 
+type DispatchedRequestType = Exclude<ExtensionRequest['type'], typeof MessageType.TogglePanel | typeof MessageType.Ping>;
+
+/**
+ * Message registry: the single source of truth for background request dispatch.
+ * `satisfies Record<DispatchedRequestType, ...>` enforces completeness at compile
+ * time -- every request type (except TogglePanel/Ping, handled by the content
+ * script) must have exactly one entry, so adding a request without wiring it is a
+ * type error. Each entry replaces one `case` of the former ~475-line switch:
+ * `handle` runs the work, `respond` wraps the result into a response envelope, and
+ * `fallback` supplies the reply used when the handler rejects. `requestSchema` is
+ * reserved for schema validation (#271) and is not populated yet.
+ */
+const messageRegistry = {
+  [MessageType.LoadBuildIdentity]: defineMessage({
+    handle: (_message: LoadBuildIdentityMessage) => handleLoadBuildIdentity(),
+    respond: (result) => createLoadBuildIdentityResultMessage(result),
+    fallback: () => createLoadBuildIdentityResultMessage({ ok: false, identity: null, message: 'Build identity could not be loaded.' }),
+  }),
+  [MessageType.CaptureImage]: defineMessage({
+    handle: (message: CaptureImageMessage) => handleCaptureImage(message),
+    respond: (result) => createCaptureResultMessage(result),
+    fallback: () => createCaptureResultMessage({ status: 'failed', reason: 'unknown', message: 'Internal capture error.' }),
+  }),
+  [MessageType.DownloadImage]: defineMessage({
+    handle: (message: DownloadImageMessage) => handleDownloadImage(message),
+    respond: (result) => createDownloadImageResultMessage(result),
+    fallback: () => createDownloadImageResultMessage({ ok: false, message: 'Image download could not be started.' }),
+  }),
+  [MessageType.ExportEncryptedImage]: defineMessage({
+    handle: (message: ExportEncryptedImageMessage) => handleExportEncryptedImage(message),
+    respond: (result) => createExportEncryptedImageResultMessage(result),
+    fallback: () => createExportEncryptedImageResultMessage({ ok: false, reason: 'unknown', message: 'Encrypted image export failed.' }),
+  }),
+  [MessageType.ImportEncryptedImage]: defineMessage({
+    handle: (message: ImportEncryptedImageMessage) => handleImportEncryptedImage(message),
+    respond: (result) => createImportEncryptedImageResultMessage(result),
+    fallback: () => createImportEncryptedImageResultMessage({ ok: false, reason: 'unknown', message: 'Encrypted image import failed.' }),
+  }),
+  [MessageType.StorageUsageRequest]: defineMessage({
+    handle: (_message: StorageUsageRequestMessage) => handleStorageUsage(),
+    respond: (result) => createStorageUsageResponseMessage(result),
+    fallback: () => createStorageUsageResponseMessage({ totalBytes: 0, blobCount: 0 }),
+  }),
+  [MessageType.LoadBookmarks]: defineMessage({
+    handle: (message: LoadBookmarksMessage) => handleLoadBookmarks(message),
+    respond: (result) => createLoadBookmarksResultMessage(result),
+    fallback: (message) =>
+      createLoadBookmarksResultMessage({
+        items: [],
+        offset: message.payload.offset,
+        limit: message.payload.limit,
+        total: 0,
+        hasOlder: false,
+        hasNewer: false,
+      }),
+  }),
+  [MessageType.LoadRecentHistory]: defineMessage({
+    handle: (message: LoadRecentHistoryMessage) => handleLoadRecentHistory(message),
+    respond: (result) => createLoadRecentHistoryResultMessage(result.items),
+    fallback: () => createLoadRecentHistoryResultMessage([]),
+  }),
+  [MessageType.LoadBookmarksByIds]: defineMessage({
+    handle: (message: LoadBookmarksByIdsMessage) => handleLoadBookmarksByIds(message),
+    respond: (result) => createLoadBookmarksByIdsResultMessage(result),
+    fallback: () => createLoadBookmarksByIdsResultMessage({ items: [] }),
+  }),
+  [MessageType.AddRecentHistory]: defineMessage({
+    handle: (message: AddRecentHistoryMessage) => handleAddRecentHistory(message),
+    respond: (result) => createAddRecentHistoryResultMessage(result.items),
+    fallback: (message) => createAddRecentHistoryResultMessage([message.payload.item]),
+  }),
+  [MessageType.RemoveRecentHistory]: defineMessage({
+    handle: (message: RemoveRecentHistoryMessage) => handleRemoveRecentHistory(message),
+    respond: (result) => createRemoveRecentHistoryResultMessage(result.items),
+    fallback: () => createRemoveRecentHistoryResultMessage([]),
+  }),
+  [MessageType.LoadRecallCandidates]: defineMessage({
+    handle: (message: LoadRecallCandidatesMessage) => handleLoadRecallCandidates(message),
+    respond: (result) => createLoadRecallCandidatesResultMessage(result),
+    fallback: () =>
+      createLoadRecallCandidatesResultMessage({ ok: false, reason: 'unknown', message: 'Recall records could not be loaded.' }),
+  }),
+  [MessageType.RecallRecords]: defineMessage({
+    handle: (message: RecallRecordsMessage) => handleRecallRecords(message),
+    respond: (result) => createRecallRecordsResultMessage(result),
+    fallback: () => createRecallRecordsResultMessage({ ok: false, reason: 'unknown', message: 'Selected records could not be recalled.' }),
+  }),
+  [MessageType.SaveBookmark]: defineMessage({
+    handle: (message: SaveBookmarkMessage) => handleSaveBookmark(message),
+    respond: (result) => createSaveBookmarkResultMessage(result),
+    fallback: () => createSaveBookmarkResultMessage({ ok: false, message: 'Bookmark save failed.' }),
+  }),
+  [MessageType.RemoveBookmark]: defineMessage({
+    handle: (message: RemoveBookmarkMessage) => handleRemoveBookmark(message),
+    respond: (result) => createRemoveBookmarkResultMessage(result),
+    fallback: () => createRemoveBookmarkResultMessage({ ok: false }),
+  }),
+  [MessageType.RemoveBookmarks]: defineMessage({
+    handle: (message: RemoveBookmarksMessage) => handleRemoveBookmarks(message),
+    respond: (result) => createRemoveBookmarksResultMessage(result),
+    fallback: () => createRemoveBookmarksResultMessage({ ok: false, removedCount: 0 }),
+  }),
+  [MessageType.RemoveRecallBookmarks]: defineMessage({
+    handle: (message: RemoveRecallBookmarksMessage) => handleRemoveRecallBookmarks(message),
+    respond: (result) => createRemoveRecallBookmarksResultMessage(result),
+    fallback: () => createRemoveRecallBookmarksResultMessage({ ok: false, removedCount: 0 }),
+  }),
+  [MessageType.LoadPanelPosition]: defineMessage({
+    handle: (message: LoadPanelPositionMessage) => handleLoadPanelPosition(message),
+    respond: (result) => createLoadPanelPositionResultMessage(result),
+    fallback: () => createLoadPanelPositionResultMessage({ ok: false, message: 'Panel position could not be loaded.' }),
+  }),
+  [MessageType.SavePanelPosition]: defineMessage({
+    handle: (message: SavePanelPositionMessage) => handleSavePanelPosition(message),
+    respond: (result) => createSavePanelPositionResultMessage(result),
+    fallback: () => createSavePanelPositionResultMessage({ ok: false }),
+  }),
+  [MessageType.DeletePanelPosition]: defineMessage({
+    handle: (message: DeletePanelPositionMessage) => handleDeletePanelPosition(message),
+    respond: (result) => createDeletePanelPositionResultMessage(result),
+    fallback: () => createDeletePanelPositionResultMessage({ ok: false }),
+  }),
+  [MessageType.LoadParsedFieldState]: defineMessage({
+    handle: (message: LoadParsedFieldStateMessage) => handleLoadParsedFieldState(message),
+    respond: (result) => createLoadParsedFieldStateResultMessage(result),
+    fallback: () => createLoadParsedFieldStateResultMessage({ ok: false, message: 'Parsed field state could not be loaded.' }),
+  }),
+  [MessageType.LoadParsedFieldStateBySource]: defineMessage({
+    handle: (message: LoadParsedFieldStateBySourceMessage) => handleLoadParsedFieldStateBySource(message),
+    respond: (result) => createLoadParsedFieldStateBySourceResultMessage(result),
+    fallback: () => createLoadParsedFieldStateBySourceResultMessage({ ok: false, message: 'Parsed field state could not be loaded.' }),
+  }),
+  [MessageType.SaveParsedFieldState]: defineMessage({
+    handle: (message: SaveParsedFieldStateMessage) => handleSaveParsedFieldState(message),
+    respond: (result) => createSaveParsedFieldStateResultMessage(result),
+    fallback: () => createSaveParsedFieldStateResultMessage({ ok: false }),
+  }),
+  [MessageType.ListUrlReviewStatus]: defineMessage({
+    handle: (message: ListUrlReviewStatusMessage) => handleListUrlReviewStatus(message),
+    respond: (result) => createListUrlReviewStatusResultMessage(result),
+    fallback: () => createListUrlReviewStatusResultMessage({ ok: false, message: 'URL review status could not be loaded.' }),
+  }),
+  [MessageType.SaveUrlReviewStatus]: defineMessage({
+    handle: (message: SaveUrlReviewStatusMessage) => handleSaveUrlReviewStatus(message),
+    respond: (result) => createSaveUrlReviewStatusResultMessage(result),
+    fallback: () => createSaveUrlReviewStatusResultMessage({ ok: false }),
+  }),
+  [MessageType.ImportUrlReviewStatus]: defineMessage({
+    handle: (message: ImportUrlReviewStatusMessage) => handleImportUrlReviewStatus(message),
+    respond: (result) => createImportUrlReviewStatusResultMessage(result),
+    fallback: () => createImportUrlReviewStatusResultMessage({ ok: false, message: 'URL review status could not be imported.' }),
+  }),
+  [MessageType.ClearUrlReviewStatus]: defineMessage({
+    handle: (message: ClearUrlReviewStatusMessage) => handleClearUrlReviewStatus(message),
+    respond: (result) => createClearUrlReviewStatusResultMessage(result),
+    fallback: () => createClearUrlReviewStatusResultMessage({ ok: false, message: 'URL review status could not be cleared.' }),
+  }),
+  [MessageType.ListUrlTemplates]: defineMessage({
+    handle: (message: ListUrlTemplatesMessage) => handleListUrlTemplates(message),
+    respond: (result) => createListUrlTemplatesResultMessage(result),
+    fallback: () => createListUrlTemplatesResultMessage({ ok: false, message: 'URL templates could not be loaded.' }),
+  }),
+  [MessageType.SaveUrlTemplate]: defineMessage({
+    handle: (message: SaveUrlTemplateMessage) => handleSaveUrlTemplate(message),
+    respond: (result) => createSaveUrlTemplateResultMessage(result),
+    fallback: () => createSaveUrlTemplateResultMessage({ ok: false }),
+  }),
+  [MessageType.DeleteUrlTemplate]: defineMessage({
+    handle: (message: DeleteUrlTemplateMessage) => handleDeleteUrlTemplate(message),
+    respond: (result) => createDeleteUrlTemplateResultMessage(result),
+    fallback: () => createDeleteUrlTemplateResultMessage({ ok: false }),
+  }),
+  [MessageType.ListGrabSourcePatterns]: defineMessage({
+    handle: (message: ListGrabSourcePatternsMessage) => handleListGrabSourcePatterns(message),
+    respond: (result) => createListGrabSourcePatternsResultMessage(result),
+    fallback: () => createListGrabSourcePatternsResultMessage({ ok: false, message: 'Grab source patterns could not be loaded.' }),
+  }),
+  [MessageType.SaveGrabSourcePattern]: defineMessage({
+    handle: (message: SaveGrabSourcePatternMessage) => handleSaveGrabSourcePattern(message),
+    respond: (result) => createSaveGrabSourcePatternResultMessage(result),
+    fallback: () => createSaveGrabSourcePatternResultMessage({ ok: false }),
+  }),
+  [MessageType.DeleteGrabSourcePattern]: defineMessage({
+    handle: (message: DeleteGrabSourcePatternMessage) => handleDeleteGrabSourcePattern(message),
+    respond: (result) => createDeleteGrabSourcePatternResultMessage(result),
+    fallback: () => createDeleteGrabSourcePatternResultMessage({ ok: false }),
+  }),
+  [MessageType.LoadLocalSettings]: defineMessage({
+    handle: (_message: LoadLocalSettingsMessage) => handleLoadLocalSettings(),
+    respond: (result) => createLoadLocalSettingsResultMessage(result),
+    fallback: () => createLoadLocalSettingsResultMessage({ ok: false, message: 'Local settings could not be loaded.' }),
+  }),
+  [MessageType.SaveLocalSettings]: defineMessage({
+    handle: (message: SaveLocalSettingsMessage) => handleSaveLocalSettings(message),
+    respond: (result) => createSaveLocalSettingsResultMessage(result),
+    fallback: () => createSaveLocalSettingsResultMessage({ ok: false }),
+  }),
+  [MessageType.PCloudProviderStatus]: defineMessage({
+    handle: (_message: PCloudProviderStatusMessage) => loadPCloudProviderStatus(),
+    respond: (result) => createPCloudProviderStatusResultMessage(result),
+    fallback: () => createPCloudProviderStatusResultMessage({ connected: false, message: 'pCloud status could not be loaded.' }),
+  }),
+  [MessageType.ConnectPCloudProvider]: defineMessage({
+    handle: (_message: ConnectPCloudProviderMessage) => connectPCloudProvider(),
+    respond: (result) => createConnectPCloudProviderResultMessage(result),
+    fallback: () =>
+      createConnectPCloudProviderResultMessage({
+        ok: false,
+        status: { connected: false, message: 'pCloud connection failed.' },
+        message: 'pCloud connection failed.',
+      }),
+  }),
+  [MessageType.DisconnectPCloudProvider]: defineMessage({
+    handle: (_message: DisconnectPCloudProviderMessage) => disconnectPCloudProvider(),
+    respond: (result) => createDisconnectPCloudProviderResultMessage(result),
+    fallback: () =>
+      createDisconnectPCloudProviderResultMessage({
+        ok: false,
+        status: { connected: false, message: 'pCloud disconnect failed.' },
+        message: 'pCloud disconnect failed.',
+      }),
+  }),
+  [MessageType.UploadPCloudBackup]: defineMessage({
+    handle: (message: UploadPCloudBackupMessage) => uploadPCloudBackup(message.payload),
+    respond: (result) => createUploadPCloudBackupResultMessage(result),
+    fallback: () =>
+      createUploadPCloudBackupResultMessage({
+        ok: false,
+        status: { connected: false, message: 'pCloud backup upload failed.', messageIsError: true },
+        reason: 'upload-failed',
+        message: 'pCloud backup upload failed.',
+      }),
+  }),
+  [MessageType.ListPCloudBackups]: defineMessage({
+    handle: (_message: ListPCloudBackupsMessage) => listPCloudBackups(),
+    respond: (result) => createListPCloudBackupsResultMessage(result),
+    fallback: () =>
+      createListPCloudBackupsResultMessage({
+        ok: false,
+        status: { connected: false, message: 'pCloud backups could not be listed.', messageIsError: true },
+        reason: 'list-failed',
+        message: 'pCloud backups could not be listed.',
+      }),
+  }),
+  [MessageType.DownloadPCloudBackup]: defineMessage({
+    handle: (message: DownloadPCloudBackupMessage) => downloadPCloudBackup(message.payload),
+    respond: (result) => createDownloadPCloudBackupResultMessage(result),
+    fallback: () =>
+      createDownloadPCloudBackupResultMessage({
+        ok: false,
+        status: { connected: false, message: 'pCloud backup could not be downloaded.', messageIsError: true },
+        reason: 'download-failed',
+        message: 'pCloud backup could not be downloaded.',
+      }),
+  }),
+  [MessageType.DeleteBlob]: defineMessage({
+    handle: (message: DeleteBlobMessage) => handleDeleteBlob(message),
+    respond: (result) => createDeleteBlobResultMessage(result.deleted, result.usage),
+    fallback: () => createDeleteBlobResultMessage(false, { totalBytes: 0, blobCount: 0 }),
+  }),
+  [MessageType.CleanupOrphanedBlobs]: defineMessage({
+    handle: (_message: CleanupOrphanedBlobsMessage) => handleCleanupOrphanedBlobs(),
+    respond: (result) => createCleanupOrphanedBlobsResultMessage(result),
+    fallback: () => createCleanupOrphanedBlobsResultMessage({ deletedCount: 0, usage: { totalBytes: 0, blobCount: 0 } }),
+  }),
+  [MessageType.RetrieveBlob]: defineMessage({
+    handle: (message: RetrieveBlobMessage) => handleRetrieveBlob(message),
+    respond: (result) => createRetrieveBlobResultMessage(result),
+    fallback: () => createRetrieveBlobResultMessage({ ok: false, reason: 'unknown', message: 'Blob retrieval failed.' }),
+  }),
+  [MessageType.ExportOriginalBlobs]: defineMessage({
+    handle: (message: ExportOriginalBlobsMessage) => handleExportOriginalBlobs(message),
+    respond: (result) => createExportOriginalBlobsResultMessage(result),
+    fallback: () => createExportOriginalBlobsResultMessage({ ok: false, reason: 'unknown', message: 'Encrypted originals export failed.' }),
+  }),
+  [MessageType.ImportOriginalBlobs]: defineMessage({
+    handle: (message: ImportOriginalBlobsMessage) => handleImportOriginalBlobs(message),
+    respond: (result) => createImportOriginalBlobsResultMessage(result),
+    fallback: () => createImportOriginalBlobsResultMessage({ ok: false, reason: 'unknown', message: 'Encrypted originals import failed.' }),
+  }),
+  [MessageType.CreateBlobPreview]: defineMessage({
+    handle: (message: CreateBlobPreviewMessage) => handleCreateBlobPreview(message),
+    respond: (result) => createCreateBlobPreviewResultMessage(result),
+    fallback: () => createCreateBlobPreviewResultMessage({ ok: false, reason: 'unknown', message: 'Preview creation failed.' }),
+  }),
+  [MessageType.CreateDataUrlPreview]: defineMessage({
+    handle: (message: CreateDataUrlPreviewMessage) => createPreviewForDataUrl(message.payload.dataUrl),
+    respond: (result) => createCreateBlobPreviewResultMessage(result),
+    fallback: () => createCreateBlobPreviewResultMessage({ ok: false, reason: 'unknown', message: 'Preview creation failed.' }),
+  }),
+  [MessageType.FetchThumbnailSource]: defineMessage({
+    handle: (message: FetchThumbnailSourceMessage) => handleFetchThumbnailSource(message),
+    respond: (result) => createFetchThumbnailSourceResultMessage(result),
+    fallback: () => createFetchThumbnailSourceResultMessage({ ok: false, reason: 'unknown', message: 'Thumbnail source fetch failed.' }),
+  }),
+  [MessageType.ProbeImageSource]: defineMessage({
+    handle: (message: ProbeImageSourceMessage) => handleProbeImageSource(message),
+    respond: (result) => createProbeImageSourceResultMessage(result),
+    fallback: () => createProbeImageSourceResultMessage({ ok: false, reason: 'unknown', message: 'Image probe failed.' }),
+  }),
+  [MessageType.FetchBufferedImageSource]: defineMessage({
+    handle: (message: FetchBufferedImageSourceMessage) => handleFetchBufferedImageSource(message),
+    respond: (result) => createFetchBufferedImageSourceResultMessage(result),
+    fallback: () => createFetchBufferedImageSourceResultMessage({ ok: false, reason: 'unknown', message: 'Buffered image fetch failed.' }),
+  }),
+  [MessageType.CheckImageRequestPolicy]: defineMessage({
+    handle: (message: CheckImageRequestPolicyMessage) => handleCheckImageRequestPolicy(message),
+    respond: (result) => createCheckImageRequestPolicyResultMessage(result),
+    fallback: () => createCheckImageRequestPolicyResultMessage({ status: 'unknown' }),
+  }),
+  [MessageType.FetchLinkedPage]: defineMessage({
+    handle: (message: FetchLinkedPageMessage) => handleFetchLinkedPage(message),
+    respond: (result) => createFetchLinkedPageResultMessage(result),
+    fallback: () => createFetchLinkedPageResultMessage({ ok: false, reason: 'unknown', message: 'Linked page fetch failed.' }),
+  }),
+  [MessageType.BlobKeyStatus]: defineMessage({
+    handle: (_message: BlobKeyStatusMessage) => handleBlobKeyStatus(),
+    respond: (result) => createBlobKeyStatusResultMessage(result),
+    fallback: () => createBlobKeyStatusResultMessage({ unlocked: false, keyReference: null, hasKey: false }),
+  }),
+  [MessageType.SetupBlobKey]: defineMessage({
+    handle: (message: SetupBlobKeyMessage) => handleSetupBlobKey(message),
+    respond: (result) => createBlobKeyResultMessage(result),
+    fallback: () => createBlobKeyResultMessage({ ok: false, reason: 'unknown', message: 'Blob key setup failed.' }),
+  }),
+  [MessageType.UnlockBlobKey]: defineMessage({
+    handle: (message: UnlockBlobKeyMessage) => handleUnlockBlobKey(message),
+    respond: (result) => createBlobKeyResultMessage(result),
+    fallback: () => createBlobKeyResultMessage({ ok: false, reason: 'unknown', message: 'Blob key unlock failed.' }),
+  }),
+  [MessageType.ClearBlobKey]: defineMessage({
+    handle: (_message: ClearBlobKeyMessage) => handleClearBlobKey(),
+    respond: (result) => createBlobKeyResultMessage(result),
+    fallback: () => createBlobKeyResultMessage({ ok: false, reason: 'unknown', message: 'Blob key clear failed.' }),
+  }),
+  [MessageType.ExportBlobKeyBackup]: defineMessage({
+    handle: (message: ExportBlobKeyBackupMessage) => handleExportBlobKeyBackup(message),
+    respond: (result) => createExportBlobKeyBackupResultMessage(result),
+    fallback: () => createExportBlobKeyBackupResultMessage({ ok: false, reason: 'unknown', message: 'Key backup export failed.' }),
+  }),
+  [MessageType.ImportBlobKeyBackup]: defineMessage({
+    handle: (message: ImportBlobKeyBackupMessage) => handleImportBlobKeyBackup(message),
+    respond: (result) => createImportBlobKeyBackupResultMessage(result),
+    fallback: () => createImportBlobKeyBackupResultMessage({ ok: false, reason: 'unknown', message: 'Key backup import failed.' }),
+  }),
+  [MessageType.GrantPermissionAndCapture]: defineMessage({
+    handle: (message: GrantPermissionAndCaptureMessage) => handleGrantPermissionAndCapture(message),
+    respond: (result) => createCaptureResultMessage(result),
+    fallback: () => createCaptureResultMessage({ status: 'failed', reason: 'unknown', message: 'Internal permission/capture error.' }),
+  }),
+} satisfies Record<DispatchedRequestType, MessageDef<ExtensionRequest, ExtensionResponse>>;
+
 chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
   if (!isExtensionRequest(message)) return false;
-
-  switch (message.type) {
-    case MessageType.LoadBuildIdentity:
-      handleLoadBuildIdentity()
-        .then((result) => sendResponse(createLoadBuildIdentityResultMessage(result)))
-        .catch(() =>
-          sendResponse(createLoadBuildIdentityResultMessage({ ok: false, identity: null, message: 'Build identity could not be loaded.' })),
-        );
-      return true;
-
-    case MessageType.CaptureImage:
-      handleCaptureImage(message)
-        .then((result) => sendResponse(createCaptureResultMessage(result)))
-        .catch(() => sendResponse(createCaptureResultMessage({ status: 'failed', reason: 'unknown', message: 'Internal capture error.' })));
-      return true;
-
-    case MessageType.DownloadImage:
-      handleDownloadImage(message)
-        .then((result) => sendResponse(createDownloadImageResultMessage(result)))
-        .catch(() => sendResponse(createDownloadImageResultMessage({ ok: false, message: 'Image download could not be started.' })));
-      return true;
-
-    case MessageType.ExportEncryptedImage:
-      handleExportEncryptedImage(message)
-        .then((result) => sendResponse(createExportEncryptedImageResultMessage(result)))
-        .catch(() =>
-          sendResponse(
-            createExportEncryptedImageResultMessage({ ok: false, reason: 'unknown', message: 'Encrypted image export failed.' }),
-          ),
-        );
-      return true;
-
-    case MessageType.ImportEncryptedImage:
-      handleImportEncryptedImage(message)
-        .then((result) => sendResponse(createImportEncryptedImageResultMessage(result)))
-        .catch(() =>
-          sendResponse(
-            createImportEncryptedImageResultMessage({ ok: false, reason: 'unknown', message: 'Encrypted image import failed.' }),
-          ),
-        );
-      return true;
-
-    case MessageType.StorageUsageRequest:
-      handleStorageUsage()
-        .then((usage) => sendResponse(createStorageUsageResponseMessage(usage)))
-        .catch(() => sendResponse(createStorageUsageResponseMessage({ totalBytes: 0, blobCount: 0 })));
-      return true;
-
-    case MessageType.LoadBookmarks:
-      handleLoadBookmarks(message)
-        .then((result) => sendResponse(createLoadBookmarksResultMessage(result)))
-        .catch(() =>
-          sendResponse(
-            createLoadBookmarksResultMessage({
-              items: [],
-              offset: message.payload.offset,
-              limit: message.payload.limit,
-              total: 0,
-              hasOlder: false,
-              hasNewer: false,
-            }),
-          ),
-        );
-      return true;
-
-    case MessageType.LoadRecentHistory:
-      handleLoadRecentHistory(message)
-        .then((result) => sendResponse(createLoadRecentHistoryResultMessage(result.items)))
-        .catch(() => sendResponse(createLoadRecentHistoryResultMessage([])));
-      return true;
-
-    case MessageType.LoadBookmarksByIds:
-      handleLoadBookmarksByIds(message)
-        .then((result) => sendResponse(createLoadBookmarksByIdsResultMessage(result)))
-        .catch(() => sendResponse(createLoadBookmarksByIdsResultMessage({ items: [] })));
-      return true;
-
-    case MessageType.AddRecentHistory:
-      handleAddRecentHistory(message)
-        .then((result) => sendResponse(createAddRecentHistoryResultMessage(result.items)))
-        .catch(() => sendResponse(createAddRecentHistoryResultMessage([message.payload.item])));
-      return true;
-
-    case MessageType.RemoveRecentHistory:
-      handleRemoveRecentHistory(message)
-        .then((result) => sendResponse(createRemoveRecentHistoryResultMessage(result.items)))
-        .catch(() => sendResponse(createRemoveRecentHistoryResultMessage([])));
-      return true;
-
-    case MessageType.LoadRecallCandidates:
-      handleLoadRecallCandidates(message)
-        .then((result) => sendResponse(createLoadRecallCandidatesResultMessage(result)))
-        .catch(() =>
-          sendResponse(
-            createLoadRecallCandidatesResultMessage({ ok: false, reason: 'unknown', message: 'Recall records could not be loaded.' }),
-          ),
-        );
-      return true;
-
-    case MessageType.RecallRecords:
-      handleRecallRecords(message)
-        .then((result) => sendResponse(createRecallRecordsResultMessage(result)))
-        .catch(() =>
-          sendResponse(
-            createRecallRecordsResultMessage({ ok: false, reason: 'unknown', message: 'Selected records could not be recalled.' }),
-          ),
-        );
-      return true;
-
-    case MessageType.SaveBookmark:
-      handleSaveBookmark(message)
-        .then((result) => sendResponse(createSaveBookmarkResultMessage(result)))
-        .catch(() => sendResponse(createSaveBookmarkResultMessage({ ok: false, message: 'Bookmark save failed.' })));
-      return true;
-
-    case MessageType.RemoveBookmark:
-      handleRemoveBookmark(message)
-        .then((result) => sendResponse(createRemoveBookmarkResultMessage(result)))
-        .catch(() => sendResponse(createRemoveBookmarkResultMessage({ ok: false })));
-      return true;
-
-    case MessageType.RemoveBookmarks:
-      handleRemoveBookmarks(message)
-        .then((result) => sendResponse(createRemoveBookmarksResultMessage(result)))
-        .catch(() => sendResponse(createRemoveBookmarksResultMessage({ ok: false, removedCount: 0 })));
-      return true;
-
-    case MessageType.RemoveRecallBookmarks:
-      handleRemoveRecallBookmarks(message)
-        .then((result) => sendResponse(createRemoveRecallBookmarksResultMessage(result)))
-        .catch(() => sendResponse(createRemoveRecallBookmarksResultMessage({ ok: false, removedCount: 0 })));
-      return true;
-
-    case MessageType.LoadPanelPosition:
-      handleLoadPanelPosition(message)
-        .then((result) => sendResponse(createLoadPanelPositionResultMessage(result)))
-        .catch(() => sendResponse(createLoadPanelPositionResultMessage({ ok: false, message: 'Panel position could not be loaded.' })));
-      return true;
-
-    case MessageType.SavePanelPosition:
-      handleSavePanelPosition(message)
-        .then((result) => sendResponse(createSavePanelPositionResultMessage(result)))
-        .catch(() => sendResponse(createSavePanelPositionResultMessage({ ok: false })));
-      return true;
-
-    case MessageType.DeletePanelPosition:
-      handleDeletePanelPosition(message)
-        .then((result) => sendResponse(createDeletePanelPositionResultMessage(result)))
-        .catch(() => sendResponse(createDeletePanelPositionResultMessage({ ok: false })));
-      return true;
-
-    case MessageType.LoadParsedFieldState:
-      handleLoadParsedFieldState(message)
-        .then((result) => sendResponse(createLoadParsedFieldStateResultMessage(result)))
-        .catch(() =>
-          sendResponse(createLoadParsedFieldStateResultMessage({ ok: false, message: 'Parsed field state could not be loaded.' })),
-        );
-      return true;
-
-    case MessageType.LoadParsedFieldStateBySource:
-      handleLoadParsedFieldStateBySource(message)
-        .then((result) => sendResponse(createLoadParsedFieldStateBySourceResultMessage(result)))
-        .catch(() =>
-          sendResponse(createLoadParsedFieldStateBySourceResultMessage({ ok: false, message: 'Parsed field state could not be loaded.' })),
-        );
-      return true;
-
-    case MessageType.SaveParsedFieldState:
-      handleSaveParsedFieldState(message)
-        .then((result) => sendResponse(createSaveParsedFieldStateResultMessage(result)))
-        .catch(() => sendResponse(createSaveParsedFieldStateResultMessage({ ok: false })));
-      return true;
-
-    case MessageType.ListUrlReviewStatus:
-      handleListUrlReviewStatus(message)
-        .then((result) => sendResponse(createListUrlReviewStatusResultMessage(result)))
-        .catch(() =>
-          sendResponse(createListUrlReviewStatusResultMessage({ ok: false, message: 'URL review status could not be loaded.' })),
-        );
-      return true;
-
-    case MessageType.SaveUrlReviewStatus:
-      handleSaveUrlReviewStatus(message)
-        .then((result) => sendResponse(createSaveUrlReviewStatusResultMessage(result)))
-        .catch(() => sendResponse(createSaveUrlReviewStatusResultMessage({ ok: false })));
-      return true;
-
-    case MessageType.ImportUrlReviewStatus:
-      handleImportUrlReviewStatus(message)
-        .then((result) => sendResponse(createImportUrlReviewStatusResultMessage(result)))
-        .catch(() =>
-          sendResponse(createImportUrlReviewStatusResultMessage({ ok: false, message: 'URL review status could not be imported.' })),
-        );
-      return true;
-
-    case MessageType.ClearUrlReviewStatus:
-      handleClearUrlReviewStatus(message)
-        .then((result) => sendResponse(createClearUrlReviewStatusResultMessage(result)))
-        .catch(() =>
-          sendResponse(createClearUrlReviewStatusResultMessage({ ok: false, message: 'URL review status could not be cleared.' })),
-        );
-      return true;
-
-    case MessageType.ListUrlTemplates:
-      handleListUrlTemplates(message)
-        .then((result) => sendResponse(createListUrlTemplatesResultMessage(result)))
-        .catch(() => sendResponse(createListUrlTemplatesResultMessage({ ok: false, message: 'URL templates could not be loaded.' })));
-      return true;
-
-    case MessageType.SaveUrlTemplate:
-      handleSaveUrlTemplate(message)
-        .then((result) => sendResponse(createSaveUrlTemplateResultMessage(result)))
-        .catch(() => sendResponse(createSaveUrlTemplateResultMessage({ ok: false })));
-      return true;
-
-    case MessageType.DeleteUrlTemplate:
-      handleDeleteUrlTemplate(message)
-        .then((result) => sendResponse(createDeleteUrlTemplateResultMessage(result)))
-        .catch(() => sendResponse(createDeleteUrlTemplateResultMessage({ ok: false })));
-      return true;
-
-    case MessageType.ListGrabSourcePatterns:
-      handleListGrabSourcePatterns(message)
-        .then((result) => sendResponse(createListGrabSourcePatternsResultMessage(result)))
-        .catch(() =>
-          sendResponse(createListGrabSourcePatternsResultMessage({ ok: false, message: 'Grab source patterns could not be loaded.' })),
-        );
-      return true;
-
-    case MessageType.SaveGrabSourcePattern:
-      handleSaveGrabSourcePattern(message)
-        .then((result) => sendResponse(createSaveGrabSourcePatternResultMessage(result)))
-        .catch(() => sendResponse(createSaveGrabSourcePatternResultMessage({ ok: false })));
-      return true;
-
-    case MessageType.DeleteGrabSourcePattern:
-      handleDeleteGrabSourcePattern(message)
-        .then((result) => sendResponse(createDeleteGrabSourcePatternResultMessage(result)))
-        .catch(() => sendResponse(createDeleteGrabSourcePatternResultMessage({ ok: false })));
-      return true;
-
-    case MessageType.LoadLocalSettings:
-      handleLoadLocalSettings()
-        .then((result) => sendResponse(createLoadLocalSettingsResultMessage(result)))
-        .catch(() => sendResponse(createLoadLocalSettingsResultMessage({ ok: false, message: 'Local settings could not be loaded.' })));
-      return true;
-
-    case MessageType.SaveLocalSettings:
-      handleSaveLocalSettings(message)
-        .then((result) => sendResponse(createSaveLocalSettingsResultMessage(result)))
-        .catch(() => sendResponse(createSaveLocalSettingsResultMessage({ ok: false })));
-      return true;
-
-    case MessageType.PCloudProviderStatus:
-      loadPCloudProviderStatus()
-        .then((result) => sendResponse(createPCloudProviderStatusResultMessage(result)))
-        .catch(() =>
-          sendResponse(createPCloudProviderStatusResultMessage({ connected: false, message: 'pCloud status could not be loaded.' })),
-        );
-      return true;
-
-    case MessageType.ConnectPCloudProvider:
-      connectPCloudProvider()
-        .then((result) => sendResponse(createConnectPCloudProviderResultMessage(result)))
-        .catch(() =>
-          sendResponse(
-            createConnectPCloudProviderResultMessage({
-              ok: false,
-              status: { connected: false, message: 'pCloud connection failed.' },
-              message: 'pCloud connection failed.',
-            }),
-          ),
-        );
-      return true;
-
-    case MessageType.DisconnectPCloudProvider:
-      disconnectPCloudProvider()
-        .then((result) => sendResponse(createDisconnectPCloudProviderResultMessage(result)))
-        .catch(() =>
-          sendResponse(
-            createDisconnectPCloudProviderResultMessage({
-              ok: false,
-              status: { connected: false, message: 'pCloud disconnect failed.' },
-              message: 'pCloud disconnect failed.',
-            }),
-          ),
-        );
-      return true;
-
-    case MessageType.UploadPCloudBackup:
-      uploadPCloudBackup((message as UploadPCloudBackupMessage).payload)
-        .then((result) => sendResponse(createUploadPCloudBackupResultMessage(result)))
-        .catch(() =>
-          sendResponse(
-            createUploadPCloudBackupResultMessage({
-              ok: false,
-              status: { connected: false, message: 'pCloud backup upload failed.', messageIsError: true },
-              reason: 'upload-failed',
-              message: 'pCloud backup upload failed.',
-            }),
-          ),
-        );
-      return true;
-
-    case MessageType.ListPCloudBackups:
-      listPCloudBackups()
-        .then((result) => sendResponse(createListPCloudBackupsResultMessage(result)))
-        .catch(() =>
-          sendResponse(
-            createListPCloudBackupsResultMessage({
-              ok: false,
-              status: { connected: false, message: 'pCloud backups could not be listed.', messageIsError: true },
-              reason: 'list-failed',
-              message: 'pCloud backups could not be listed.',
-            }),
-          ),
-        );
-      return true;
-
-    case MessageType.DownloadPCloudBackup:
-      downloadPCloudBackup((message as DownloadPCloudBackupMessage).payload)
-        .then((result) => sendResponse(createDownloadPCloudBackupResultMessage(result)))
-        .catch(() =>
-          sendResponse(
-            createDownloadPCloudBackupResultMessage({
-              ok: false,
-              status: { connected: false, message: 'pCloud backup could not be downloaded.', messageIsError: true },
-              reason: 'download-failed',
-              message: 'pCloud backup could not be downloaded.',
-            }),
-          ),
-        );
-      return true;
-
-    case MessageType.DeleteBlob:
-      handleDeleteBlob(message)
-        .then(({ deleted, usage }) => sendResponse(createDeleteBlobResultMessage(deleted, usage)))
-        .catch(() => sendResponse(createDeleteBlobResultMessage(false, { totalBytes: 0, blobCount: 0 })));
-      return true;
-
-    case MessageType.CleanupOrphanedBlobs:
-      handleCleanupOrphanedBlobs()
-        .then((result) => sendResponse(createCleanupOrphanedBlobsResultMessage(result)))
-        .catch(() => sendResponse(createCleanupOrphanedBlobsResultMessage({ deletedCount: 0, usage: { totalBytes: 0, blobCount: 0 } })));
-      return true;
-
-    case MessageType.RetrieveBlob:
-      handleRetrieveBlob(message)
-        .then((result) => sendResponse(createRetrieveBlobResultMessage(result)))
-        .catch(() => sendResponse(createRetrieveBlobResultMessage({ ok: false, reason: 'unknown', message: 'Blob retrieval failed.' })));
-      return true;
-
-    case MessageType.ExportOriginalBlobs:
-      handleExportOriginalBlobs(message)
-        .then((result) => sendResponse(createExportOriginalBlobsResultMessage(result)))
-        .catch(() =>
-          sendResponse(
-            createExportOriginalBlobsResultMessage({ ok: false, reason: 'unknown', message: 'Encrypted originals export failed.' }),
-          ),
-        );
-      return true;
-
-    case MessageType.ImportOriginalBlobs:
-      handleImportOriginalBlobs(message)
-        .then((result) => sendResponse(createImportOriginalBlobsResultMessage(result)))
-        .catch(() =>
-          sendResponse(
-            createImportOriginalBlobsResultMessage({ ok: false, reason: 'unknown', message: 'Encrypted originals import failed.' }),
-          ),
-        );
-      return true;
-
-    case MessageType.CreateBlobPreview:
-      handleCreateBlobPreview(message)
-        .then((result) => sendResponse(createCreateBlobPreviewResultMessage(result)))
-        .catch(() =>
-          sendResponse(createCreateBlobPreviewResultMessage({ ok: false, reason: 'unknown', message: 'Preview creation failed.' })),
-        );
-      return true;
-
-    case MessageType.CreateDataUrlPreview:
-      createPreviewForDataUrl(message.payload.dataUrl)
-        .then((result) => sendResponse(createCreateBlobPreviewResultMessage(result)))
-        .catch(() =>
-          sendResponse(createCreateBlobPreviewResultMessage({ ok: false, reason: 'unknown', message: 'Preview creation failed.' })),
-        );
-      return true;
-
-    case MessageType.FetchThumbnailSource:
-      handleFetchThumbnailSource(message)
-        .then((result) => sendResponse(createFetchThumbnailSourceResultMessage(result)))
-        .catch(() =>
-          sendResponse(
-            createFetchThumbnailSourceResultMessage({ ok: false, reason: 'unknown', message: 'Thumbnail source fetch failed.' }),
-          ),
-        );
-      return true;
-
-    case MessageType.ProbeImageSource:
-      handleProbeImageSource(message)
-        .then((result) => sendResponse(createProbeImageSourceResultMessage(result)))
-        .catch(() => sendResponse(createProbeImageSourceResultMessage({ ok: false, reason: 'unknown', message: 'Image probe failed.' })));
-      return true;
-
-    case MessageType.FetchBufferedImageSource:
-      handleFetchBufferedImageSource(message)
-        .then((result) => sendResponse(createFetchBufferedImageSourceResultMessage(result)))
-        .catch(() =>
-          sendResponse(
-            createFetchBufferedImageSourceResultMessage({ ok: false, reason: 'unknown', message: 'Buffered image fetch failed.' }),
-          ),
-        );
-      return true;
-
-    case MessageType.CheckImageRequestPolicy:
-      handleCheckImageRequestPolicy(message)
-        .then((result) => sendResponse(createCheckImageRequestPolicyResultMessage(result)))
-        .catch(() => sendResponse(createCheckImageRequestPolicyResultMessage({ status: 'unknown' })));
-      return true;
-
-    case MessageType.FetchLinkedPage:
-      handleFetchLinkedPage(message)
-        .then((result) => sendResponse(createFetchLinkedPageResultMessage(result)))
-        .catch(() =>
-          sendResponse(createFetchLinkedPageResultMessage({ ok: false, reason: 'unknown', message: 'Linked page fetch failed.' })),
-        );
-      return true;
-
-    case MessageType.BlobKeyStatus:
-      handleBlobKeyStatus()
-        .then((result) => sendResponse(createBlobKeyStatusResultMessage(result)))
-        .catch(() => sendResponse(createBlobKeyStatusResultMessage({ unlocked: false, keyReference: null, hasKey: false })));
-      return true;
-
-    case MessageType.SetupBlobKey:
-      handleSetupBlobKey(message)
-        .then((result) => sendResponse(createBlobKeyResultMessage(result)))
-        .catch(() => sendResponse(createBlobKeyResultMessage({ ok: false, reason: 'unknown', message: 'Blob key setup failed.' })));
-      return true;
-
-    case MessageType.UnlockBlobKey:
-      handleUnlockBlobKey(message)
-        .then((result) => sendResponse(createBlobKeyResultMessage(result)))
-        .catch(() => sendResponse(createBlobKeyResultMessage({ ok: false, reason: 'unknown', message: 'Blob key unlock failed.' })));
-      return true;
-
-    case MessageType.ClearBlobKey:
-      handleClearBlobKey()
-        .then((result) => sendResponse(createBlobKeyResultMessage(result)))
-        .catch(() => sendResponse(createBlobKeyResultMessage({ ok: false, reason: 'unknown', message: 'Blob key clear failed.' })));
-      return true;
-
-    case MessageType.ExportBlobKeyBackup:
-      handleExportBlobKeyBackup(message)
-        .then((result) => sendResponse(createExportBlobKeyBackupResultMessage(result)))
-        .catch(() =>
-          sendResponse(createExportBlobKeyBackupResultMessage({ ok: false, reason: 'unknown', message: 'Key backup export failed.' })),
-        );
-      return true;
-
-    case MessageType.ImportBlobKeyBackup:
-      handleImportBlobKeyBackup(message)
-        .then((result) => sendResponse(createImportBlobKeyBackupResultMessage(result)))
-        .catch(() =>
-          sendResponse(createImportBlobKeyBackupResultMessage({ ok: false, reason: 'unknown', message: 'Key backup import failed.' })),
-        );
-      return true;
-
-    case MessageType.GrantPermissionAndCapture:
-      handleGrantPermissionAndCapture(message)
-        .then((result) => sendResponse(createCaptureResultMessage(result)))
-        .catch(() =>
-          sendResponse(createCaptureResultMessage({ status: 'failed', reason: 'unknown', message: 'Internal permission/capture error.' })),
-        );
-      return true;
-
-    default:
-      return false;
-  }
+  return dispatchRequest(messageRegistry, message, sendResponse);
 });
 
 chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
