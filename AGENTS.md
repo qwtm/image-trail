@@ -92,6 +92,12 @@ can carry a stale copy until rebased or restarted from the main repo.
   `npm run format:check`, `npm test`, and `npm run build`. CI runs the same
   gates; do not skip them locally. Do not report a build you did not run; do
   not break the build.
+- `npm test` includes the happy-dom suite (`npm run test:dom`, files under
+  `tests/dom/`), which runs `node:test` with a real DOM registered via
+  `tests/dom/register.ts`. Storybook interaction (`play`) tests run with
+  `npm run test:stories` against a dev server on port 6006, or standalone with
+  `npm run test:stories:ci` (builds and serves a static Storybook); CI runs the
+  latter.
 - Every change summary (chat reply, issue comment, PR body) must end with:
   - **Working path:** output of `pwd` — the directory actually edited (Codex
     worktrees are often under `~/.codex/worktrees/`, not the main checkout).
