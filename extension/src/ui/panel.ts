@@ -159,6 +159,12 @@ type FieldEditorEffect =
 
 const PARSED_NAVIGATION_RETRY_MIN_DELAY_MS = 25;
 
+// Hard cap on how many neighbor candidates a single navigation drain will probe past (skipping
+// failed/unavailable URLs) before giving up. Bounds the "skip to next good image" auto-advance so a
+// run of bad URLs can never hammer the network indefinitely, regardless of how the navigation base
+// moves between steps.
+const MAX_PARSED_NAVIGATION_SKIP_ATTEMPTS = 50;
+
 type QueuedParsedNavigationStepResult = 'blocked' | 'loaded' | 'retry' | 'wait';
 
 type PendingRestoreImport =
@@ -326,12 +332,13 @@ export class ImageTrailPanel {
   private bufferedNavigationToastTimer: number | null = null;
   private queuedParsedNavigationDelta = 0;
   private parsedNavigationQueueRunning = false;
-  // Candidates that failed to load for the current navigation base. Guarantees the drain loop
-  // makes forward progress: a failed candidate is never re-selected while the base is unchanged,
-  // so a bad URL can't spin `runQueuedParsedNavigationStep` on an endless 'retry' (which would
-  // otherwise exhaust the request governor into a spurious throttled/capped state).
-  private navigationFailedCandidateBaseUrl: string | null = null;
-  private readonly navigationFailedCandidateUrls = new Set<string>();
+  // URLs skipped (failed to load) during the CURRENT navigation drain session. Scoped to the drain,
+  // not to the navigation base — the base can advance to a just-failed URL between steps (e.g. the
+  // manual "next" button with no stable selected target sets draftUrl to the failed URL), so a
+  // base-keyed guard would reset every step and never bound the walk. Combined with
+  // MAX_PARSED_NAVIGATION_SKIP_ATTEMPTS this guarantees a run of bad URLs terminates instead of
+  // hammering the network forever, while still letting navigation skip forward to the next good image.
+  private readonly navigationSessionSkippedUrls = new Set<string>();
   private readonly layoutState: PanelLayoutState = {
     fieldsPanelOpen: false,
     fieldsPanelBlockSize: null,
@@ -1947,6 +1954,7 @@ export class ImageTrailPanel {
   private async drainQueuedParsedNavigation(): Promise<void> {
     if (this.parsedNavigationQueueRunning) return;
     this.parsedNavigationQueueRunning = true;
+    this.navigationSessionSkippedUrls.clear();
     try {
       while (this.queuedParsedNavigationDelta !== 0) {
         const delta = this.queuedParsedNavigationDelta > 0 ? 1 : -1;
@@ -1994,10 +2002,14 @@ export class ImageTrailPanel {
     }
     const candidate = await this.nextParsedFieldNavigationCandidate(model, navigableFields, delta);
     if (!candidate) {
+      const skipped = this.navigationSessionSkippedUrls.size;
       this.state = {
         ...this.state,
         status: 'ready',
-        message: 'No non-failed parsed-field neighbor candidate found in that direction.',
+        message:
+          skipped > 0
+            ? `Stopped after skipping ${skipped} unavailable image${skipped === 1 ? '' : 's'}; no loadable image found in that direction.`
+            : 'No non-failed parsed-field neighbor candidate found in that direction.',
         lastUpdatedAt: Date.now(),
       };
       this.render();
@@ -2022,8 +2034,13 @@ export class ImageTrailPanel {
       navigableFields.map((field) => field.id),
       { preloadDirection: delta },
     );
-    if (loaded) void this.saveUrlTemplateFromCurrentFields();
-    else this.recordFailedNavigationCandidate(nextUrl);
+    if (loaded) {
+      void this.saveUrlTemplateFromCurrentFields();
+      // Progress made — the next segment of this drain gets a fresh skip budget.
+      this.navigationSessionSkippedUrls.clear();
+    } else {
+      this.navigationSessionSkippedUrls.add(nextUrl);
+    }
 
     this.state = setAutomationState(this.state, {
       governorStatus: 'ready',
@@ -2033,33 +2050,19 @@ export class ImageTrailPanel {
     return loaded ? 'loaded' : 'retry';
   }
 
-  // Tracks navigation candidates that failed (or loaded unchanged) for the current base URL, so
-  // `nextParsedFieldNavigationCandidate` skips them on subsequent scans. The set is reset whenever
-  // the base URL moves (a successful load), keeping it scoped to the in-progress traversal.
-  private recordFailedNavigationCandidate(url: string): void {
-    const baseUrl = this.currentNavigationBaseRawUrl();
-    if (this.navigationFailedCandidateBaseUrl !== baseUrl) {
-      this.navigationFailedCandidateBaseUrl = baseUrl;
-      this.navigationFailedCandidateUrls.clear();
-    }
-    this.navigationFailedCandidateUrls.add(url);
-  }
-
   private async nextParsedFieldNavigationCandidate(
     model: ParsedUrlModel,
     fields: readonly UrlField[],
     direction: NeighborPreloadDirection,
   ): Promise<AdjacentParsedFieldUrlCandidate | null> {
-    const baseUrl = this.currentNavigationBaseRawUrl();
-    if (this.navigationFailedCandidateBaseUrl !== baseUrl) {
-      this.navigationFailedCandidateBaseUrl = baseUrl;
-      this.navigationFailedCandidateUrls.clear();
-    }
+    // Give up once this drain has skipped past the cap of failed candidates, so a run of bad URLs
+    // stops instead of chasing the frontier forever (the base can advance to each failed URL).
+    if (this.navigationSessionSkippedUrls.size >= MAX_PARSED_NAVIGATION_SKIP_ATTEMPTS) return null;
     const candidates = adjacentParsedFieldUrlCandidates(model, fields, NEIGHBOR_PRELOAD_FILL_SCAN_LIMIT)
       .filter((candidate) => candidate.direction === direction)
       .sort((a, b) => a.distance - b.distance);
     for (const candidate of candidates) {
-      if (this.navigationFailedCandidateUrls.has(candidate.url)) continue;
+      if (this.navigationSessionSkippedUrls.has(candidate.url)) continue;
       const policy = await checkImageRequestPolicy(candidate.url, {
         intent: 'field-active-navigation',
         contextKey: this.parsedFieldRequestContextKey(
