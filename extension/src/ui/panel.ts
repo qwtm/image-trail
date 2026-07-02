@@ -108,6 +108,7 @@ import { checkImageRequestPolicy } from '../content/image-request-policy.js';
 import { BufferedNavigationController } from './panel/buffered-navigation-controller.js';
 import { NEIGHBOR_PRELOAD_FILL_SCAN_LIMIT, NeighborPreloadController } from './panel/neighbor-preload-controller.js';
 import { ParsedFieldStateSync } from './panel/parsed-field-state-sync.js';
+import { PanelMount } from './panel/panel-mount.js';
 import {
   DEFAULT_LOCAL_SETTINGS,
   exportEncryptedBookmarks,
@@ -130,8 +131,6 @@ import { renderPanel, renderRecallDrawer, type PanelLayoutState } from './render
 import { isUnsupportedUrlEditorInput } from './components/url-editor-view.js';
 import { clampPanelPosition, hostnameFromLocation } from './panel-position.js';
 
-const ROOT_ID = 'image-trail-panel-root';
-const STYLE_PATH = 'src/ui/styles/panel.css';
 const RECALL_DRAWER_OPEN_ANIMATION_MS = 190;
 const RECALL_SUCCESS_MESSAGE_MS = 1800;
 const FINITE_CAPTURE_ERROR_MS = 2400;
@@ -236,14 +235,24 @@ export function projectionSessionOwnsSelectedTarget(session: ProjectionSession, 
 }
 
 export class ImageTrailPanel {
-  private root: HTMLElement | null = null;
-  private recallRoot: HTMLElement | null = null;
-  private toastRoot: HTMLElement | null = null;
+  private readonly panelMount = new PanelMount({
+    isPanelVisible: () => this.state.visible,
+    isPanelMinimized: () => this.state.minimized,
+    onStylesReady: () => {
+      this.queuePanelPositionRestore();
+      this.applyRestoredPanelPosition();
+    },
+  });
+  private get root(): HTMLElement | null {
+    return this.panelMount.root;
+  }
+  private get recallRoot(): HTMLElement | null {
+    return this.panelMount.recallRoot;
+  }
+  private get toastRoot(): HTMLElement | null {
+    return this.panelMount.toastRoot;
+  }
   private state: PanelState = createInitialPanelState();
-  private unsubscribeFromTarget: (() => void) | null = null;
-  private unsubscribeFromLoads: (() => void) | null = null;
-  private unsubscribeFromBookmarkRequests: (() => void) | null = null;
-  private unsubscribeFromGrabSourcePatternRequests: (() => void) | null = null;
 
   private readonly governor = new RequestGovernor();
   private readonly projections = new ProjectionSessionController();
@@ -258,8 +267,9 @@ export class ImageTrailPanel {
   private panelPositionRestorePromise: Promise<void> | null = null;
   private panelPositionRestoreAttempt = 0;
   private restoredPanelPosition: PanelPosition | null = null;
-  private panelStylesReady = false;
-  private panelStylesReadyPromise: Promise<void> | null = null;
+  private get panelStylesReady(): boolean {
+    return this.panelMount.panelStylesReady;
+  }
   private recallOpeningUntil = 0;
   private recallMessageClearTimer: number | null = null;
   private finiteCaptureErrorTimer: number | null = null;
@@ -349,33 +359,35 @@ export class ImageTrailPanel {
     private readonly parsedFieldStateStore: ParsedFieldStateStore | null = null,
     private readonly urlReviewStatusStore: UrlReviewStatusStore | null = null,
   ) {
-    this.unsubscribeFromTarget = this.pageAdapter.subscribe((snapshot) => {
-      this.state = setTargetState(this.state, toTargetState(snapshot));
-      this.render();
-      void this.loadGrabSettings().then(() => this.fieldStateSync.restore());
-    });
-    this.unsubscribeFromLoads = this.pageAdapter.subscribeToSuccessfulLoads((target) => {
-      if (target.projectionId && !this.projections.isActive(target.projectionId)) return;
-      if (target.projectionId) this.projections.update(target.projectionId, { status: 'loaded' });
-      void this.addRecentHistory(target.url, target.thumbnail, {
-        trustLoadedImage: target.trustedLoadedImage,
-        width: target.width,
-        height: target.height,
-        projectionId: target.projectionId,
-      });
-    });
-    this.unsubscribeFromBookmarkRequests = this.pageAdapter.subscribeToBookmarkRequests((target) => {
-      this.enqueueBookmarkMutation(async () => {
-        const options = { trustLoadedImage: target.trustedLoadedImage, width: target.width, height: target.height };
-        const bookmarked = await this.bookmarkUrl(target.url, target.thumbnail, options);
-        if (bookmarked) {
-          await this.addRecentHistory(target.url, target.thumbnail, options);
-        }
-      });
-    });
-    this.unsubscribeFromGrabSourcePatternRequests = this.pageAdapter.subscribeToGrabSourcePatternRequests((url) => {
-      void this.learnGrabSourcePattern(url);
-    });
+    this.panelMount.registerSubscriptions([
+      this.pageAdapter.subscribe((snapshot) => {
+        this.state = setTargetState(this.state, toTargetState(snapshot));
+        this.render();
+        void this.loadGrabSettings().then(() => this.fieldStateSync.restore());
+      }),
+      this.pageAdapter.subscribeToSuccessfulLoads((target) => {
+        if (target.projectionId && !this.projections.isActive(target.projectionId)) return;
+        if (target.projectionId) this.projections.update(target.projectionId, { status: 'loaded' });
+        void this.addRecentHistory(target.url, target.thumbnail, {
+          trustLoadedImage: target.trustedLoadedImage,
+          width: target.width,
+          height: target.height,
+          projectionId: target.projectionId,
+        });
+      }),
+      this.pageAdapter.subscribeToBookmarkRequests((target) => {
+        this.enqueueBookmarkMutation(async () => {
+          const options = { trustLoadedImage: target.trustedLoadedImage, width: target.width, height: target.height };
+          const bookmarked = await this.bookmarkUrl(target.url, target.thumbnail, options);
+          if (bookmarked) {
+            await this.addRecentHistory(target.url, target.thumbnail, options);
+          }
+        });
+      }),
+      this.pageAdapter.subscribeToGrabSourcePatternRequests((url) => {
+        void this.learnGrabSourcePattern(url);
+      }),
+    ]);
     void this.loadSettingsBookmarksAndRecents();
     void this.loadGrabSettings().then(() => this.fieldStateSync.restore());
     void this.refreshStorageUsage();
@@ -438,30 +450,18 @@ export class ImageTrailPanel {
     } else {
       this.pageAdapter.suspend();
     }
-    document.getElementById(ROOT_ID)?.remove();
-    this.root = null;
-    this.recallRoot = null;
-    this.toastRoot = null;
+    this.panelMount.teardown();
     this.panelPositionRestoreAttempt += 1;
     this.panelPositionRestored = false;
     this.panelPositionRestorePromise = null;
     this.restoredPanelPosition = null;
-    this.panelStylesReady = false;
-    this.panelStylesReadyPromise = null;
     this.clearRecallMessageTimer();
     this.clearFiniteCaptureErrorTimer();
   }
 
   disconnect(): void {
     this.destroy();
-    this.unsubscribeFromTarget?.();
-    this.unsubscribeFromTarget = null;
-    this.unsubscribeFromLoads?.();
-    this.unsubscribeFromLoads = null;
-    this.unsubscribeFromBookmarkRequests?.();
-    this.unsubscribeFromBookmarkRequests = null;
-    this.unsubscribeFromGrabSourcePatternRequests?.();
-    this.unsubscribeFromGrabSourcePatternRequests = null;
+    this.panelMount.disposeSubscriptions();
   }
 
   private loadBookmarks = async (options: { readonly render?: boolean } = {}): Promise<void> => {
@@ -1265,7 +1265,7 @@ export class ImageTrailPanel {
     if (action.name === 'panel/minimize' || action.name === 'panel/expand') {
       if (action.name === 'panel/minimize') void this.fieldStateSync.save();
       this.state = reducePanelAction(this.state, action);
-      this.mount();
+      this.panelMount.mount();
       this.keyboard.enable();
       this.pageAdapter.enableBookmarkShortcut();
       this.render();
@@ -1614,7 +1614,7 @@ export class ImageTrailPanel {
       return;
     }
     this.pageAdapter.prepareStandaloneImageBackdrop();
-    this.mount();
+    this.panelMount.mount();
     this.keyboard.enable();
     this.pageAdapter.enableBookmarkShortcut();
     this.pageAdapter.autoSelectSingleImage();
@@ -3854,53 +3854,6 @@ export class ImageTrailPanel {
     this.state = reducePanelAction(this.state, { name: 'storage/update', usage });
   }
 
-  private mount(): void {
-    if (!this.root) {
-      const host = document.getElementById(ROOT_ID) ?? document.createElement('div');
-      host.id = ROOT_ID;
-      Object.assign(host.style, {
-        position: 'fixed',
-        top: '0',
-        left: '0',
-        width: '0',
-        height: '0',
-        overflow: 'visible',
-        zIndex: '2147483647',
-      });
-      const shadow = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = chrome.runtime.getURL(STYLE_PATH);
-      this.root = document.createElement('aside');
-      this.root.className = 'image-trail-panel-root image-trail-panel';
-      this.root.style.visibility = 'hidden';
-      this.root.setAttribute('role', 'dialog');
-      this.root.setAttribute('aria-label', 'Image Trail panel');
-      this.recallRoot = document.createElement('div');
-      this.recallRoot.className = 'image-trail-panel-recall-root';
-      this.toastRoot = document.createElement('div');
-      this.toastRoot.className = 'image-trail-panel-root image-trail-panel__toast-root';
-      this.panelStylesReady = false;
-      this.panelStylesReadyPromise = new Promise<void>((resolve) => {
-        const reveal = (): void => {
-          if (this.panelStylesReady) return;
-          this.panelStylesReady = true;
-          if (this.root) this.root.style.visibility = '';
-          resolve();
-          if (this.state.visible && !this.state.minimized) {
-            this.queuePanelPositionRestore();
-            this.applyRestoredPanelPosition();
-          }
-        };
-        link.addEventListener('load', reveal, { once: true });
-        link.addEventListener('error', reveal, { once: true });
-        window.setTimeout(reveal, 300);
-      });
-      shadow.replaceChildren(link, this.root, this.recallRoot, this.toastRoot);
-      (document.body ?? document.documentElement).append(host);
-    }
-  }
-
   private render(options: { readonly includeRecall?: boolean } = {}): void {
     if (this.root) {
       const focusedControl = this.captureFocusedPanelControl();
@@ -4125,7 +4078,7 @@ export class ImageTrailPanel {
   }
 
   private async waitForPanelLayout(): Promise<void> {
-    await this.panelStylesReadyPromise;
+    await this.panelMount.whenStylesReady();
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   }

@@ -1,0 +1,198 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { PanelMount, type PanelMountDeps, type PanelMountEnvironment } from '../extension/src/ui/panel/panel-mount.js';
+
+const ROOT_ID = 'image-trail-panel-root';
+
+class FakeShadowRoot {
+  children: FakeElement[] = [];
+  replaceChildren(...nodes: FakeElement[]): void {
+    this.children = nodes;
+  }
+}
+
+class FakeElement {
+  id = '';
+  className = '';
+  rel = '';
+  href = '';
+  removed = false;
+  readonly style: Record<string, string> = {};
+  readonly attributes: Record<string, string> = {};
+  readonly children: FakeElement[] = [];
+  shadowRoot: FakeShadowRoot | null = null;
+  private readonly listeners = new Map<string, Array<() => void>>();
+
+  constructor(readonly tagName: string) {}
+
+  setAttribute(name: string, value: string): void {
+    this.attributes[name] = value;
+  }
+
+  attachShadow(): FakeShadowRoot {
+    this.shadowRoot = new FakeShadowRoot();
+    return this.shadowRoot;
+  }
+
+  addEventListener(type: string, listener: () => void): void {
+    const existing = this.listeners.get(type) ?? [];
+    existing.push(listener);
+    this.listeners.set(type, existing);
+  }
+
+  append(child: FakeElement): void {
+    this.children.push(child);
+  }
+
+  remove(): void {
+    this.removed = true;
+  }
+
+  fire(type: string): void {
+    for (const listener of this.listeners.get(type) ?? []) listener();
+  }
+}
+
+class FakeDocument {
+  readonly body = new FakeElement('body');
+  readonly documentElement = new FakeElement('html');
+  readonly created: FakeElement[] = [];
+
+  getElementById(id: string): FakeElement | null {
+    return this.created.find((element) => element.id === id && !element.removed) ?? null;
+  }
+
+  createElement(tagName: string): FakeElement {
+    const element = new FakeElement(tagName);
+    this.created.push(element);
+    return element;
+  }
+
+  createdByTag(tagName: string): FakeElement[] {
+    return this.created.filter((element) => element.tagName === tagName);
+  }
+}
+
+interface Harness {
+  readonly mount: PanelMount;
+  readonly doc: FakeDocument;
+  readonly fireStylesReadyFallback: () => void;
+  onStylesReadyCalls: number;
+}
+
+function createHarness(overrides: Partial<PanelMountDeps> = {}): Harness {
+  const doc = new FakeDocument();
+  let fallbackReveal: (() => void) | null = null;
+  const harness: Harness = {
+    mount: undefined as unknown as PanelMount,
+    doc,
+    fireStylesReadyFallback: () => fallbackReveal?.(),
+    onStylesReadyCalls: 0,
+  };
+  const deps: PanelMountDeps = {
+    isPanelVisible: () => true,
+    isPanelMinimized: () => false,
+    onStylesReady: () => {
+      harness.onStylesReadyCalls += 1;
+    },
+    ...overrides,
+  };
+  const environment: PanelMountEnvironment = {
+    document: doc as unknown as Document,
+    resolveStyleUrl: (path) => `chrome-extension://test/${path}`,
+    scheduleStylesReadyFallback: (reveal) => {
+      fallbackReveal = reveal;
+    },
+  };
+  (harness as { mount: PanelMount }).mount = new PanelMount(deps, environment);
+  return harness;
+}
+
+test('mount() creates the three roots inside a scoped host appended to document.body', () => {
+  const { mount, doc } = createHarness();
+  mount.mount();
+
+  const host = doc.getElementById(ROOT_ID);
+  assert.ok(host, 'host element with the panel root id is created');
+  assert.equal(doc.body.children.includes(host!), true, 'host is appended to document.body');
+  assert.equal(doc.documentElement.children.length, 0, 'host is not appended to documentElement');
+
+  assert.ok(mount.root, 'root getter exposes the mounted aside');
+  assert.ok(mount.recallRoot, 'recallRoot getter exposes the recall root');
+  assert.ok(mount.toastRoot, 'toastRoot getter exposes the toast root');
+  assert.equal(mount.root!.tagName, 'aside');
+  assert.equal(host!.shadowRoot?.children.length, 4, 'shadow root holds link + three roots');
+  assert.equal(mount.root!.style.visibility, 'hidden', 'root starts hidden until styles are ready');
+});
+
+test('mount() is a no-op when already mounted', () => {
+  const { mount, doc } = createHarness();
+  mount.mount();
+  const firstRoot = mount.root;
+  mount.mount();
+  assert.equal(mount.root, firstRoot, 'root is unchanged on a second mount');
+  assert.equal(doc.createdByTag('aside').length, 1, 'a second aside is not created');
+});
+
+test('styles-ready reveal shows the root, resolves the promise, and runs onStylesReady when visible', async () => {
+  const harness = createHarness();
+  harness.mount.mount();
+  assert.equal(harness.mount.panelStylesReady, false);
+
+  const link = harness.doc.createdByTag('link')[0];
+  link.fire('load');
+
+  await harness.mount.whenStylesReady();
+  assert.equal(harness.mount.panelStylesReady, true);
+  assert.equal(harness.mount.root!.style.visibility, '', 'root becomes visible once styles are ready');
+  assert.equal(harness.onStylesReadyCalls, 1, 'onStylesReady runs once on reveal');
+});
+
+test('styles-ready reveal skips onStylesReady when the panel is minimized', async () => {
+  const harness = createHarness({ isPanelMinimized: () => true });
+  harness.mount.mount();
+  harness.fireStylesReadyFallback();
+  await harness.mount.whenStylesReady();
+  assert.equal(harness.mount.panelStylesReady, true);
+  assert.equal(harness.onStylesReadyCalls, 0, 'onStylesReady is skipped while minimized');
+});
+
+test('the reveal is idempotent across load, error, and the fallback timer', async () => {
+  const harness = createHarness();
+  harness.mount.mount();
+  const link = harness.doc.createdByTag('link')[0];
+  link.fire('load');
+  link.fire('error');
+  harness.fireStylesReadyFallback();
+  await harness.mount.whenStylesReady();
+  assert.equal(harness.onStylesReadyCalls, 1, 'onStylesReady runs at most once');
+});
+
+test('teardown() removes the host and clears root/styles-ready state', async () => {
+  const harness = createHarness();
+  harness.mount.mount();
+  const host = harness.doc.getElementById(ROOT_ID);
+  harness.doc.createdByTag('link')[0].fire('load');
+  await harness.mount.whenStylesReady();
+
+  harness.mount.teardown();
+
+  assert.equal(host!.removed, true, 'host is removed from the page');
+  assert.equal(harness.mount.root, null, 'root is cleared');
+  assert.equal(harness.mount.recallRoot, null, 'recallRoot is cleared');
+  assert.equal(harness.mount.toastRoot, null, 'toastRoot is cleared');
+  assert.equal(harness.mount.panelStylesReady, false, 'styles-ready flag is reset');
+  assert.equal(harness.mount.whenStylesReady(), null, 'styles-ready promise is cleared');
+});
+
+test('disposeSubscriptions() invokes every registered handle and is idempotent', () => {
+  const { mount } = createHarness();
+  const calls: string[] = [];
+  mount.registerSubscriptions([() => calls.push('a'), () => calls.push('b'), () => calls.push('c')]);
+
+  mount.disposeSubscriptions();
+  assert.deepEqual(calls, ['a', 'b', 'c'], 'all handles run once, in order');
+
+  mount.disposeSubscriptions();
+  assert.deepEqual(calls, ['a', 'b', 'c'], 'a second dispose does not re-invoke handles');
+});
