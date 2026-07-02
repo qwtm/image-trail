@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   MESSAGE_PROTOCOL_VERSION,
   MessageType,
+  MESSAGE_DIRECTION,
   createCaptureImageMessage,
   createCaptureResultMessage,
   createCheckImageRequestPolicyMessage,
@@ -1038,4 +1039,34 @@ test('creates retrieve blob request and result messages', () => {
   const failure = createRetrieveBlobResultMessage({ ok: false, reason: 'encryption-locked', message: 'Unlock first.' });
   assert.equal(failure.payload.ok, false);
   assert.equal(isRetrieveBlobResultMessage(failure), true);
+});
+
+test('MESSAGE_DIRECTION classifies every MessageType exactly once, with no extras', () => {
+  const types = Object.values(MessageType) as string[];
+  const keys = Object.keys(MESSAGE_DIRECTION);
+
+  // No message type is missing a direction, and every direction is a valid label.
+  for (const type of types) {
+    assert.ok(type in MESSAGE_DIRECTION, `missing direction for ${type}`);
+    const direction = MESSAGE_DIRECTION[type as MessageType];
+    assert.ok(direction === 'request' || direction === 'response', `invalid direction '${direction}' for ${type}`);
+  }
+
+  // No stray catalog keys, and exactly one entry per type.
+  for (const key of keys) {
+    assert.ok(types.includes(key), `unexpected catalog key ${key}`);
+  }
+  assert.equal(keys.length, types.length);
+});
+
+test('isExtensionRequest/isExtensionResponse agree with MESSAGE_DIRECTION for every type', () => {
+  // Proves the catalog-derived guards reproduce the former hand-written || chains
+  // across all message types: requests classify as requests, responses as responses,
+  // and the two are mutually exclusive.
+  for (const type of Object.values(MessageType)) {
+    const probe = { type, version: MESSAGE_PROTOCOL_VERSION, payload: {} };
+    const direction = MESSAGE_DIRECTION[type];
+    assert.equal(isExtensionRequest(probe), direction === 'request', `${type} request classification`);
+    assert.equal(isExtensionResponse(probe), direction === 'response', `${type} response classification`);
+  }
 });

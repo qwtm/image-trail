@@ -1127,6 +1127,136 @@ export type ExtensionResponse =
   | DeleteGrabSourcePatternResultMessage;
 export type ExtensionMessage = ExtensionRequest | ExtensionResponse;
 
+/**
+ * Single runtime source of truth for whether a message type is a request or a
+ * response. `satisfies Record<MessageType, …>` makes this exhaustive: adding a
+ * MessageType without a direction (or an extra/typo key) is a compile error. The
+ * request/response guards below derive from this map, replacing the two former
+ * 60-clause `||` chains that had to be hand-synced with every new message.
+ */
+export const MESSAGE_DIRECTION = {
+  [MessageType.TogglePanel]: 'request',
+  [MessageType.Ping]: 'request',
+  [MessageType.LoadBuildIdentity]: 'request',
+  [MessageType.LoadBuildIdentityResult]: 'response',
+  [MessageType.Status]: 'response',
+  [MessageType.Unknown]: 'response',
+  [MessageType.CaptureImage]: 'request',
+  [MessageType.CaptureResult]: 'response',
+  [MessageType.DownloadImage]: 'request',
+  [MessageType.DownloadImageResult]: 'response',
+  [MessageType.ExportEncryptedImage]: 'request',
+  [MessageType.ExportEncryptedImageResult]: 'response',
+  [MessageType.ImportEncryptedImage]: 'request',
+  [MessageType.ImportEncryptedImageResult]: 'response',
+  [MessageType.StorageUsageRequest]: 'request',
+  [MessageType.StorageUsageResponse]: 'response',
+  [MessageType.DeleteBlob]: 'request',
+  [MessageType.DeleteBlobResult]: 'response',
+  [MessageType.CleanupOrphanedBlobs]: 'request',
+  [MessageType.CleanupOrphanedBlobsResult]: 'response',
+  [MessageType.RetrieveBlob]: 'request',
+  [MessageType.RetrieveBlobResult]: 'response',
+  [MessageType.ExportOriginalBlobs]: 'request',
+  [MessageType.ExportOriginalBlobsResult]: 'response',
+  [MessageType.ImportOriginalBlobs]: 'request',
+  [MessageType.ImportOriginalBlobsResult]: 'response',
+  [MessageType.CreateBlobPreview]: 'request',
+  [MessageType.CreateDataUrlPreview]: 'request',
+  [MessageType.CreateBlobPreviewResult]: 'response',
+  [MessageType.FetchThumbnailSource]: 'request',
+  [MessageType.FetchThumbnailSourceResult]: 'response',
+  [MessageType.ProbeImageSource]: 'request',
+  [MessageType.ProbeImageSourceResult]: 'response',
+  [MessageType.FetchBufferedImageSource]: 'request',
+  [MessageType.FetchBufferedImageSourceResult]: 'response',
+  [MessageType.CheckImageRequestPolicy]: 'request',
+  [MessageType.CheckImageRequestPolicyResult]: 'response',
+  [MessageType.FetchLinkedPage]: 'request',
+  [MessageType.FetchLinkedPageResult]: 'response',
+  [MessageType.GrantPermissionAndCapture]: 'request',
+  [MessageType.BlobKeyStatus]: 'request',
+  [MessageType.BlobKeyStatusResult]: 'response',
+  [MessageType.SetupBlobKey]: 'request',
+  [MessageType.UnlockBlobKey]: 'request',
+  [MessageType.ClearBlobKey]: 'request',
+  [MessageType.ExportBlobKeyBackup]: 'request',
+  [MessageType.ExportBlobKeyBackupResult]: 'response',
+  [MessageType.ImportBlobKeyBackup]: 'request',
+  [MessageType.ImportBlobKeyBackupResult]: 'response',
+  [MessageType.BlobKeyResult]: 'response',
+  [MessageType.LoadBookmarks]: 'request',
+  [MessageType.LoadBookmarksResult]: 'response',
+  [MessageType.LoadBookmarksByIds]: 'request',
+  [MessageType.LoadBookmarksByIdsResult]: 'response',
+  [MessageType.SaveBookmark]: 'request',
+  [MessageType.SaveBookmarkResult]: 'response',
+  [MessageType.RemoveBookmark]: 'request',
+  [MessageType.RemoveBookmarkResult]: 'response',
+  [MessageType.RemoveBookmarks]: 'request',
+  [MessageType.RemoveBookmarksResult]: 'response',
+  [MessageType.RemoveRecallBookmarks]: 'request',
+  [MessageType.RemoveRecallBookmarksResult]: 'response',
+  [MessageType.LoadRecentHistory]: 'request',
+  [MessageType.LoadRecentHistoryResult]: 'response',
+  [MessageType.AddRecentHistory]: 'request',
+  [MessageType.AddRecentHistoryResult]: 'response',
+  [MessageType.RemoveRecentHistory]: 'request',
+  [MessageType.RemoveRecentHistoryResult]: 'response',
+  [MessageType.LoadRecallCandidates]: 'request',
+  [MessageType.LoadRecallCandidatesResult]: 'response',
+  [MessageType.RecallRecords]: 'request',
+  [MessageType.RecallRecordsResult]: 'response',
+  [MessageType.LoadPanelPosition]: 'request',
+  [MessageType.LoadPanelPositionResult]: 'response',
+  [MessageType.SavePanelPosition]: 'request',
+  [MessageType.SavePanelPositionResult]: 'response',
+  [MessageType.DeletePanelPosition]: 'request',
+  [MessageType.DeletePanelPositionResult]: 'response',
+  [MessageType.LoadParsedFieldState]: 'request',
+  [MessageType.LoadParsedFieldStateResult]: 'response',
+  [MessageType.LoadParsedFieldStateBySource]: 'request',
+  [MessageType.LoadParsedFieldStateBySourceResult]: 'response',
+  [MessageType.SaveParsedFieldState]: 'request',
+  [MessageType.SaveParsedFieldStateResult]: 'response',
+  [MessageType.ListUrlReviewStatus]: 'request',
+  [MessageType.ListUrlReviewStatusResult]: 'response',
+  [MessageType.SaveUrlReviewStatus]: 'request',
+  [MessageType.SaveUrlReviewStatusResult]: 'response',
+  [MessageType.ImportUrlReviewStatus]: 'request',
+  [MessageType.ImportUrlReviewStatusResult]: 'response',
+  [MessageType.ClearUrlReviewStatus]: 'request',
+  [MessageType.ClearUrlReviewStatusResult]: 'response',
+  [MessageType.LoadLocalSettings]: 'request',
+  [MessageType.LoadLocalSettingsResult]: 'response',
+  [MessageType.SaveLocalSettings]: 'request',
+  [MessageType.SaveLocalSettingsResult]: 'response',
+  [MessageType.PCloudProviderStatus]: 'request',
+  [MessageType.PCloudProviderStatusResult]: 'response',
+  [MessageType.ConnectPCloudProvider]: 'request',
+  [MessageType.ConnectPCloudProviderResult]: 'response',
+  [MessageType.DisconnectPCloudProvider]: 'request',
+  [MessageType.DisconnectPCloudProviderResult]: 'response',
+  [MessageType.UploadPCloudBackup]: 'request',
+  [MessageType.UploadPCloudBackupResult]: 'response',
+  [MessageType.ListPCloudBackups]: 'request',
+  [MessageType.ListPCloudBackupsResult]: 'response',
+  [MessageType.DownloadPCloudBackup]: 'request',
+  [MessageType.DownloadPCloudBackupResult]: 'response',
+  [MessageType.ListUrlTemplates]: 'request',
+  [MessageType.ListUrlTemplatesResult]: 'response',
+  [MessageType.SaveUrlTemplate]: 'request',
+  [MessageType.SaveUrlTemplateResult]: 'response',
+  [MessageType.DeleteUrlTemplate]: 'request',
+  [MessageType.DeleteUrlTemplateResult]: 'response',
+  [MessageType.ListGrabSourcePatterns]: 'request',
+  [MessageType.ListGrabSourcePatternsResult]: 'response',
+  [MessageType.SaveGrabSourcePattern]: 'request',
+  [MessageType.SaveGrabSourcePatternResult]: 'response',
+  [MessageType.DeleteGrabSourcePattern]: 'request',
+  [MessageType.DeleteGrabSourcePatternResult]: 'response',
+} as const satisfies Record<MessageType, 'request' | 'response'>;
+
 export function createTogglePanelMessage(): TogglePanelMessage {
   return { type: MessageType.TogglePanel, version: MESSAGE_PROTOCOL_VERSION, payload: { source: 'browserAction' } };
 }
@@ -1729,134 +1859,12 @@ function hasVersionedObjectShape(value: unknown): value is { type?: unknown; ver
 
 export function isExtensionRequest(value: unknown): value is ExtensionRequest {
   if (!hasVersionedObjectShape(value)) return false;
-  return (
-    value.type === MessageType.TogglePanel ||
-    value.type === MessageType.Ping ||
-    value.type === MessageType.LoadBuildIdentity ||
-    value.type === MessageType.CaptureImage ||
-    value.type === MessageType.DownloadImage ||
-    value.type === MessageType.ExportEncryptedImage ||
-    value.type === MessageType.ImportEncryptedImage ||
-    value.type === MessageType.StorageUsageRequest ||
-    value.type === MessageType.DeleteBlob ||
-    value.type === MessageType.CleanupOrphanedBlobs ||
-    value.type === MessageType.RetrieveBlob ||
-    value.type === MessageType.ExportOriginalBlobs ||
-    value.type === MessageType.ImportOriginalBlobs ||
-    value.type === MessageType.CreateBlobPreview ||
-    value.type === MessageType.CreateDataUrlPreview ||
-    value.type === MessageType.FetchThumbnailSource ||
-    value.type === MessageType.ProbeImageSource ||
-    value.type === MessageType.FetchBufferedImageSource ||
-    value.type === MessageType.CheckImageRequestPolicy ||
-    value.type === MessageType.FetchLinkedPage ||
-    value.type === MessageType.GrantPermissionAndCapture ||
-    value.type === MessageType.BlobKeyStatus ||
-    value.type === MessageType.SetupBlobKey ||
-    value.type === MessageType.UnlockBlobKey ||
-    value.type === MessageType.ClearBlobKey ||
-    value.type === MessageType.ExportBlobKeyBackup ||
-    value.type === MessageType.ImportBlobKeyBackup ||
-    value.type === MessageType.LoadBookmarks ||
-    value.type === MessageType.LoadBookmarksByIds ||
-    value.type === MessageType.SaveBookmark ||
-    value.type === MessageType.RemoveBookmark ||
-    value.type === MessageType.RemoveBookmarks ||
-    value.type === MessageType.RemoveRecallBookmarks ||
-    value.type === MessageType.LoadRecentHistory ||
-    value.type === MessageType.AddRecentHistory ||
-    value.type === MessageType.RemoveRecentHistory ||
-    value.type === MessageType.LoadRecallCandidates ||
-    value.type === MessageType.RecallRecords ||
-    value.type === MessageType.LoadPanelPosition ||
-    value.type === MessageType.SavePanelPosition ||
-    value.type === MessageType.DeletePanelPosition ||
-    value.type === MessageType.LoadParsedFieldState ||
-    value.type === MessageType.LoadParsedFieldStateBySource ||
-    value.type === MessageType.SaveParsedFieldState ||
-    value.type === MessageType.ListUrlReviewStatus ||
-    value.type === MessageType.SaveUrlReviewStatus ||
-    value.type === MessageType.ImportUrlReviewStatus ||
-    value.type === MessageType.ClearUrlReviewStatus ||
-    value.type === MessageType.LoadLocalSettings ||
-    value.type === MessageType.SaveLocalSettings ||
-    value.type === MessageType.PCloudProviderStatus ||
-    value.type === MessageType.ConnectPCloudProvider ||
-    value.type === MessageType.DisconnectPCloudProvider ||
-    value.type === MessageType.UploadPCloudBackup ||
-    value.type === MessageType.ListPCloudBackups ||
-    value.type === MessageType.DownloadPCloudBackup ||
-    value.type === MessageType.ListUrlTemplates ||
-    value.type === MessageType.SaveUrlTemplate ||
-    value.type === MessageType.DeleteUrlTemplate ||
-    value.type === MessageType.ListGrabSourcePatterns ||
-    value.type === MessageType.SaveGrabSourcePattern ||
-    value.type === MessageType.DeleteGrabSourcePattern
-  );
+  return MESSAGE_DIRECTION[value.type as MessageType] === 'request';
 }
 
 export function isExtensionResponse(value: unknown): value is ExtensionResponse {
   if (!hasVersionedObjectShape(value)) return false;
-  return (
-    value.type === MessageType.Status ||
-    value.type === MessageType.Unknown ||
-    value.type === MessageType.LoadBuildIdentityResult ||
-    value.type === MessageType.CaptureResult ||
-    value.type === MessageType.DownloadImageResult ||
-    value.type === MessageType.ExportEncryptedImageResult ||
-    value.type === MessageType.ImportEncryptedImageResult ||
-    value.type === MessageType.StorageUsageResponse ||
-    value.type === MessageType.DeleteBlobResult ||
-    value.type === MessageType.CleanupOrphanedBlobsResult ||
-    value.type === MessageType.RetrieveBlobResult ||
-    value.type === MessageType.ExportOriginalBlobsResult ||
-    value.type === MessageType.ImportOriginalBlobsResult ||
-    value.type === MessageType.CreateBlobPreviewResult ||
-    value.type === MessageType.FetchThumbnailSourceResult ||
-    value.type === MessageType.ProbeImageSourceResult ||
-    value.type === MessageType.FetchBufferedImageSourceResult ||
-    value.type === MessageType.CheckImageRequestPolicyResult ||
-    value.type === MessageType.FetchLinkedPageResult ||
-    value.type === MessageType.BlobKeyStatusResult ||
-    value.type === MessageType.BlobKeyResult ||
-    value.type === MessageType.ExportBlobKeyBackupResult ||
-    value.type === MessageType.ImportBlobKeyBackupResult ||
-    value.type === MessageType.LoadBookmarksResult ||
-    value.type === MessageType.LoadBookmarksByIdsResult ||
-    value.type === MessageType.SaveBookmarkResult ||
-    value.type === MessageType.RemoveBookmarkResult ||
-    value.type === MessageType.RemoveBookmarksResult ||
-    value.type === MessageType.RemoveRecallBookmarksResult ||
-    value.type === MessageType.LoadRecentHistoryResult ||
-    value.type === MessageType.AddRecentHistoryResult ||
-    value.type === MessageType.RemoveRecentHistoryResult ||
-    value.type === MessageType.LoadRecallCandidatesResult ||
-    value.type === MessageType.RecallRecordsResult ||
-    value.type === MessageType.LoadPanelPositionResult ||
-    value.type === MessageType.SavePanelPositionResult ||
-    value.type === MessageType.DeletePanelPositionResult ||
-    value.type === MessageType.LoadParsedFieldStateResult ||
-    value.type === MessageType.LoadParsedFieldStateBySourceResult ||
-    value.type === MessageType.SaveParsedFieldStateResult ||
-    value.type === MessageType.ListUrlReviewStatusResult ||
-    value.type === MessageType.SaveUrlReviewStatusResult ||
-    value.type === MessageType.ImportUrlReviewStatusResult ||
-    value.type === MessageType.ClearUrlReviewStatusResult ||
-    value.type === MessageType.LoadLocalSettingsResult ||
-    value.type === MessageType.SaveLocalSettingsResult ||
-    value.type === MessageType.PCloudProviderStatusResult ||
-    value.type === MessageType.ConnectPCloudProviderResult ||
-    value.type === MessageType.DisconnectPCloudProviderResult ||
-    value.type === MessageType.UploadPCloudBackupResult ||
-    value.type === MessageType.ListPCloudBackupsResult ||
-    value.type === MessageType.DownloadPCloudBackupResult ||
-    value.type === MessageType.ListUrlTemplatesResult ||
-    value.type === MessageType.SaveUrlTemplateResult ||
-    value.type === MessageType.DeleteUrlTemplateResult ||
-    value.type === MessageType.ListGrabSourcePatternsResult ||
-    value.type === MessageType.SaveGrabSourcePatternResult ||
-    value.type === MessageType.DeleteGrabSourcePatternResult
-  );
+  return MESSAGE_DIRECTION[value.type as MessageType] === 'response';
 }
 
 export function isBlobKeyResultMessage(value: unknown): value is BlobKeyResultMessage {
