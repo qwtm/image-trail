@@ -329,9 +329,10 @@ export class ImageTrailPanel {
       fieldDigitWidthSpecs: this.state.fieldDigitWidthSpecs,
       selectedHandleId: this.state.target.selectedHandleId,
     }),
-    // The projected navigation image shares the buffered/display byte budget so its load and the
-    // request-policy skip check use the same cache key (a failed candidate is actually skippable).
-    fetchThumbnail: (url, options) => fetchThumbnailSource(url, { ...options, sourceProfile: 'navigation' }),
+    // preload() decides the source profile per intent: the active parsed-field navigation display
+    // uses the 25 MB navigation budget (matching the skip-policy cache key), everything else keeps
+    // the thumbnail-source budget.
+    fetchThumbnail: (url, options) => fetchThumbnailSource(url, options),
   });
   private bufferedNavigationToastTimer: number | null = null;
   private queuedParsedNavigationDelta = 0;
