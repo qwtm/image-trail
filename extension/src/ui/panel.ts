@@ -1998,7 +1998,11 @@ export class ImageTrailPanel {
         this.render();
         return 'loaded';
       }
-      if (buffered === 'blocked') return 'blocked';
+      // buffered === 'blocked': the preloaded window held no landable image (failed/unknown
+      // neighbors). Fall through to the candidate scan below instead of stopping — it skips URLs
+      // already known to have failed (the buffered preload records them in the shared request-policy
+      // cache, so no re-probe) and advances to the next good image, giving preload-on navigation the
+      // same smooth skip-to-next-good behavior as the plain path.
     }
     const candidate = await this.nextParsedFieldNavigationCandidate(model, navigableFields, delta);
     if (!candidate) {
