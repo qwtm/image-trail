@@ -49,3 +49,9 @@ server, or `npm run test:stories:ci` (CI runs the latter).
 CI additionally runs `npm run test:cov` — a `c8` coverage gate over the unit +
 DOM suites that fails below the `.c8rc.json` thresholds (lines/branches) and
 writes `coverage/lcov.info`. Treat the thresholds as a ratchet: only raise them.
+
+Product invariants are enforced as executable checks: `tests/invariants.test.ts`
+(recents never persisted; queue order is `queueUpdatedAt`, not envelope `updatedAt`;
+Recall pages the queue producer, not the blob store) and the `no-restricted-syntax`
+envelope-sort rule in `eslint.config.js`. The `/check` command
+(`.claude/commands/check.md`) runs the gates plus these invariants and reports each.
