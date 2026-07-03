@@ -53,7 +53,7 @@ const e2eSpecPaths = new Set(await listE2eSpecs(path.join(rootDirectory, 'tests/
 const coveredE2eSpecPaths = new Set();
 
 for (const [entryIndex, entry] of coverageEntries.entries()) {
-  const entryLabel = typeof entry?.id === 'string' ? entry.id : `entries[${entryIndex}]`;
+  const entryLabel = typeof entry?.id === 'string' && entry.id.length > 0 ? entry.id : `entries[${entryIndex}]`;
   if (typeof entry?.id !== 'string' || entry.id.length === 0) {
     failures.push(`${entryLabel}: id is required.`);
   }
@@ -101,11 +101,11 @@ for (const [entryIndex, entry] of coverageEntries.entries()) {
       }
     }
 
-    if (coverage.type === 'manual' && typeof coverage.reason !== 'string') {
+    if (coverage.type === 'manual' && (typeof coverage.reason !== 'string' || coverage.reason.length === 0)) {
       failures.push(`${coverageLabel}: manual coverage requires a reason.`);
     }
-    if (coverage.type === 'deferred' && typeof coverage.issue !== 'number') {
-      failures.push(`${coverageLabel}: deferred coverage requires a numeric issue.`);
+    if (coverage.type === 'deferred' && (!Number.isInteger(coverage.issue) || coverage.issue <= 0)) {
+      failures.push(`${coverageLabel}: deferred coverage requires a positive integer issue.`);
     }
   }
 }
@@ -130,4 +130,8 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`Validated ${coverageEntries.length} E2E coverage-map entries and ${e2eSpecPaths.size} Playwright spec file.`);
+console.log(
+  `Validated ${coverageEntries.length} E2E coverage-map entries and ${e2eSpecPaths.size} Playwright spec ${
+    e2eSpecPaths.size === 1 ? 'file' : 'files'
+  }.`,
+);
