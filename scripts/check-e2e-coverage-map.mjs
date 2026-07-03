@@ -44,6 +44,7 @@ function asArray(value) {
 const coverageMap = JSON.parse(await readFile(coverageMapPath, 'utf8'));
 const failures = [];
 
+const coverageEntries = Array.isArray(coverageMap.entries) ? coverageMap.entries : [];
 if (!Array.isArray(coverageMap.entries)) {
   failures.push('coverage-map.json must contain an entries array.');
 }
@@ -51,7 +52,7 @@ if (!Array.isArray(coverageMap.entries)) {
 const e2eSpecPaths = new Set(await listE2eSpecs(path.join(rootDirectory, 'tests/e2e')));
 const coveredE2eSpecPaths = new Set();
 
-for (const [entryIndex, entry] of (coverageMap.entries ?? []).entries()) {
+for (const [entryIndex, entry] of coverageEntries.entries()) {
   const entryLabel = typeof entry?.id === 'string' ? entry.id : `entries[${entryIndex}]`;
   if (typeof entry?.id !== 'string' || entry.id.length === 0) {
     failures.push(`${entryLabel}: id is required.`);
@@ -66,7 +67,8 @@ for (const [entryIndex, entry] of (coverageMap.entries ?? []).entries()) {
     failures.push(`${entryLabel}: repoPath does not exist: ${entry.repoPath}`);
   }
 
-  for (const [coverageIndex, coverage] of (entry.coverage ?? []).entries()) {
+  const coverageItems = Array.isArray(entry?.coverage) ? entry.coverage : [];
+  for (const [coverageIndex, coverage] of coverageItems.entries()) {
     const coverageLabel = `${entryLabel}.coverage[${coverageIndex}]`;
     if (!allowedCoverageTypes.has(coverage?.type)) {
       failures.push(`${coverageLabel}: unsupported type "${coverage?.type}".`);
@@ -74,7 +76,20 @@ for (const [entryIndex, entry] of (coverageMap.entries ?? []).entries()) {
     }
 
     const paths = asArray(coverage.path ?? coverage.paths);
+    if (['playwright-e2e', 'storybook', 'unit-dom'].includes(coverage.type)) {
+      if (paths.length === 0) {
+        failures.push(`${coverageLabel}: ${coverage.type} coverage requires at least one path.`);
+      }
+      for (const coveredPath of paths) {
+        if (typeof coveredPath !== 'string' || coveredPath.length === 0) {
+          failures.push(`${coverageLabel}: paths must be non-empty strings.`);
+        }
+      }
+    }
     for (const coveredPath of paths) {
+      if (typeof coveredPath !== 'string' || coveredPath.length === 0) {
+        continue;
+      }
       if (!(await pathExists(coveredPath))) {
         failures.push(`${coverageLabel}: path does not exist: ${coveredPath}`);
       }
@@ -115,4 +130,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`Validated ${coverageMap.entries.length} E2E coverage-map entries and ${e2eSpecPaths.size} Playwright spec file.`);
+console.log(`Validated ${coverageEntries.length} E2E coverage-map entries and ${e2eSpecPaths.size} Playwright spec file.`);
