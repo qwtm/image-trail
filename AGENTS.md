@@ -86,8 +86,9 @@ can carry a stale copy until rebased or restarted from the main repo.
 ## Documentation And Validation
 
 - Wiki-first: long-lived docs, SOP, ADRs, acceptance tests, and agent pitfalls
-  belong in the wiki. Other repo markdown (except `AGENTS.md`, `CONTRIBUTING.md`,
-  root `README.md`) should be pointer stubs.
+  belong in the wiki. Other repo markdown should be pointer stubs, except agent
+  instruction files (`AGENTS.md`, `CLAUDE.md` files, `.github/copilot-instructions.md`),
+  `CONTRIBUTING.md`, and root `README.md`.
 - Before claiming done on any change (code, docs, or config), run `npm run lint`,
   `npm run format:check`, `npm test`, and `npm run build`. CI runs the same
   gates; do not skip them locally. Do not report a build you did not run; do
@@ -107,11 +108,13 @@ build` and paste **Built local** time plus commit, branch, and worktree when
     from memory.
 - After the first implementation stretch, provide a manual test run before asking for final signoff or PR approval.
 
-## Tool Paths
+## Tooling
 
-If a tool is missing from `PATH`, use:
-
-- `gh`: `/opt/homebrew/bin/gh`
-- `npm`: `/Users/chris/.nvm/versions/node/v20.10.0/bin/npm`
-- `node`: `/Users/chris/.nvm/versions/node/v20.10.0/bin/node`
-- `gpg`: `/opt/homebrew/bin/gpg`
+- Node version is pinned in `.nvmrc`; select it (`nvm use`, or an equivalent
+  version manager) so local builds match CI.
+- Install with `npm ci`, then run the gate commands from **Documentation And
+  Validation** (`npm run lint`, `npm run format:check`, `npm test`,
+  `npm run build`).
+- Invoke tools through `PATH` (or `npx` for project binaries). Do not hardcode
+  machine-specific absolute paths; `gh`, `gpg`, and other CLIs must resolve from
+  the environment.
