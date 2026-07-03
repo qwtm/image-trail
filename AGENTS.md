@@ -100,9 +100,15 @@ can carry a stale copy until rebased or restarted from the main repo.
   `npm run test:stories:ci` (builds and serves a static Storybook); CI runs the
   latter.
 - CI enforces a coverage gate: `npm run test:cov` runs the unit + DOM suites under
-  `c8` and fails below the ratcheting thresholds in `.c8rc.json` (currently lines 62 /
-  branches 80), writing `coverage/lcov.info` (uploaded as a CI artifact). Raise the
+  `c8` and fails below the ratcheting thresholds in `.c8rc.json` (currently lines 54 /
+  branches 79), writing `coverage/lcov.info` (uploaded as a CI artifact). Raise the
   floor over time as coverage improves; do not lower it to make a change pass.
+- The highest-stakes product invariants (Product Model / Storage Rules) are enforced as
+  executable checks: `tests/invariants.test.ts` (recents never persisted, queue order is
+  `queueUpdatedAt` not envelope `updatedAt`, Recall pages the queue producer not the blob
+  store) plus a `no-restricted-syntax` rule in `eslint.config.js` banning an
+  `envelope.updatedAt` sort. Run them together via the `/check` command
+  (`.claude/commands/check.md`), which wraps the gates above and reports each invariant.
 - Every change summary (chat reply, issue comment, PR body) must end with:
   - **Working path:** output of `pwd` — the directory actually edited (Codex
     worktrees are often under `~/.codex/worktrees/`, not the main checkout).
