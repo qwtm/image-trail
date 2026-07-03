@@ -203,12 +203,14 @@
   }
 
   function decodeHtmlEntities (value) {
+    // Decode &amp; last so an escaped entity (e.g. "&amp;lt;") is not
+    // re-decoded into its literal character ("<") by a later pass.
     return String(value || '')
-      .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
+      .replace(/&amp;/g, '&')
   }
 
   function safeDecodeURIComponent (value) {
@@ -2095,8 +2097,23 @@
           if (isCrossOrigin) {
             return downloadImageViaCanvas(url, filename).then(function (ok) {
               if (!ok) {
-                window.location.href = url
-                setStatus('opening image in tab (cross-origin)')
+                // Only navigate to real image schemes; never follow a
+                // javascript:/data: URL that could execute in this page.
+                // Assign the parsed URL that was scheme-checked (not the
+                // raw string) so the guard sanitizes the navigation target.
+                var safeTarget = null
+                try {
+                  var parsedTarget = new URL(url, location.href)
+                  if (parsedTarget.protocol === 'http:' || parsedTarget.protocol === 'https:') {
+                    safeTarget = parsedTarget.href
+                  }
+                } catch (e) {}
+                if (safeTarget) {
+                  window.location.href = safeTarget
+                  setStatus('opening image in tab (cross-origin)')
+                } else {
+                  setStatus('blocked: unsafe image url')
+                }
                 return false
               }
               if (!(app.settings.history || []).some(function (entry) { return entry.url === url })) addHistory(url)
