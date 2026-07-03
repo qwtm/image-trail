@@ -10,6 +10,16 @@ const noDocumentElementAppend = {
   message: 'Do not append directly to document.documentElement; append to a scoped extension container/root instead.',
 };
 
+// Queue order is queueUpdatedAt, never the encrypted envelope's updatedAt (AGENTS.md "Storage
+// Rules"). Reading `.envelope.updatedAt` to preserve a timestamp on reseal is fine; sorting a
+// queue by it is the footgun. Scope the ban to `.envelope.updatedAt` reached inside a `.sort(...)`
+// callback so legitimate preserve/backfill reads stay clean.
+const noEnvelopeUpdatedAtSort = {
+  selector:
+    'CallExpression[callee.property.name="sort"] MemberExpression[property.name="updatedAt"][object.property.name="envelope"]',
+  message: 'Queue order must use queueUpdatedAt, not envelope.updatedAt (AGENTS.md "Storage Rules").',
+};
+
 const layerBoundaryRules = {
   core: {
     files: ['extension/src/core/**/*.ts'],
@@ -110,7 +120,7 @@ export default tseslint.config(
           varsIgnorePattern: '^_',
         },
       ],
-      'no-restricted-syntax': ['error', noDocumentElementAppend],
+      'no-restricted-syntax': ['error', noDocumentElementAppend, noEnvelopeUpdatedAtSort],
     },
   },
   ...Object.values(layerBoundaryRules),
