@@ -1,6 +1,6 @@
 ---
-name: "source-command-check"
-description: "Run the full validation gates plus the product-invariant checks and report privacy, queue-order, and recents-persistence status explicitly."
+name: 'source-command-check'
+description: 'Run the full validation gates plus the product-invariant checks and report privacy, queue-order, and recents-persistence status explicitly.'
 ---
 
 # source-command-check
