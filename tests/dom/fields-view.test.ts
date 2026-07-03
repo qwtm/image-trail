@@ -91,7 +91,7 @@ test('Enter commits the edited value once and the follow-up change event is supp
   assert.deepEqual(calls, [{ name: 'onValueChange', args: ['query-page', '18'] }]);
 });
 
-test('an unchanged value does not commit on Enter or change', () => {
+test('an unchanged value does not commit on Enter', () => {
   const calls: CallbackCall[] = [];
   const view = buildFieldsView(calls);
   const input = inputByLabel(view, 'Edit page');
