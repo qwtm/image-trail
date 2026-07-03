@@ -2099,10 +2099,17 @@
               if (!ok) {
                 // Only navigate to real image schemes; never follow a
                 // javascript:/data: URL that could execute in this page.
-                var safeScheme = false
-                try { safeScheme = /^https?:$/.test(new URL(url, location.href).protocol) } catch (e) {}
-                if (safeScheme) {
-                  window.location.href = url
+                // Assign the parsed URL that was scheme-checked (not the
+                // raw string) so the guard sanitizes the navigation target.
+                var safeTarget = null
+                try {
+                  var parsedTarget = new URL(url, location.href)
+                  if (parsedTarget.protocol === 'http:' || parsedTarget.protocol === 'https:') {
+                    safeTarget = parsedTarget.href
+                  }
+                } catch (e) {}
+                if (safeTarget) {
+                  window.location.href = safeTarget
                   setStatus('opening image in tab (cross-origin)')
                 } else {
                   setStatus('blocked: unsafe image url')
