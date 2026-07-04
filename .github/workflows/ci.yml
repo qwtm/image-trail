@@ -20,7 +20,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          # Single source of truth: CI uses the exact Node version pinned in .nvmrc, so a green
+          # local `npm run ci` matches CI. Bump .nvmrc to move both together.
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
