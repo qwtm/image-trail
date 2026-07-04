@@ -109,21 +109,24 @@ async function clearAllUrlReviewStatus(page: Page): Promise<void> {
 }
 
 async function ensureQueryFieldIncluded(page: Page, fieldName: string): Promise<void> {
-  const include = page.getByRole('button', { name: new RegExp(`Include .*${fieldName}`, 'u') });
+  // Escape regex metacharacters and require word boundaries so e.g. "set" cannot match "asset".
+  const escaped = fieldName.replace(/[.*+?^${}()|[\]\\]/gu, String.raw`\$&`);
+  const include = page.getByRole('button', { name: new RegExp(String.raw`Include .*\b${escaped}\b`, 'u') });
   if ((await include.count()) > 0) await include.click();
-  await expect(page.getByRole('button', { name: new RegExp(`Exclude .*${fieldName}`, 'u') })).toBeVisible();
+  await expect(page.getByRole('button', { name: new RegExp(String.raw`Exclude .*\b${escaped}\b`, 'u') })).toBeVisible();
 }
 
 async function ensureQueryFrameIncluded(page: Page): Promise<void> {
   await ensureQueryFieldIncluded(page, 'frame');
 }
 
-// Serves any /dynamic-image.svg?... URL (multiple query params), rendering from the frame param.
+// Serves any /dynamic-image.svg?... URL, rendering distinct content from the combined set + frame
+// params so each combined-step URL yields a visibly different image.
 async function installMultiParamImageRoute(page: Page): Promise<void> {
   await page.context().route(/\/dynamic-image\.svg\?/u, async (route) => {
     const params = new URL(route.request().url()).searchParams;
-    const frame = `${params.get('set') ?? ''}-${params.get('frame') ?? ''}`;
-    await route.fulfill({ status: 200, contentType: 'image/svg+xml', body: dynamicSvg(frame.replace(/\D/gu, '') || '0') });
+    const combined = `${params.get('set') ?? ''}-${params.get('frame') ?? ''}`;
+    await route.fulfill({ status: 200, contentType: 'image/svg+xml', body: dynamicSvg(combined.replace(/\D/gu, '') || '0') });
   });
 }
 
