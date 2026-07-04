@@ -15,6 +15,10 @@
 <!-- List the exact commands you ran locally, for example: `npm test`. -->
 <!-- Once the workflow is added, CI independently verifies `npm ci`, lint, format check, tests, and build. -->
 
+<!-- Coverage travels with the change — see the wiki Testing Strategy page. -->
+
+- [ ] **Considered acceptance-flow impact.** If this PR adds or changes a user-facing flow, I updated `tests/e2e/coverage-map.json` — automated (`playwright-e2e` / `storybook` / `unit-dom`), or `manual` (with a `reason`) / `deferred` (with an `issue`). If it doesn't, there's no acceptance impact. (CI enforces this; opt out with a `no-acceptance-impact` note or label.)
+
 ## Manual Testing
 
 <!-- For UI/browser/user-visible behavior, list step-by-step manual checks and expected results. -->

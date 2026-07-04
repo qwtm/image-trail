@@ -92,9 +92,12 @@ can carry a stale copy until rebased or restarted from the main repo.
   instruction files (`AGENTS.md`, `CLAUDE.md` files, `.github/copilot-instructions.md`),
   `CONTRIBUTING.md`, and root `README.md`.
 - Before claiming done on any change (code, docs, or config), run `npm run lint`,
-  `npm run format:check`, `npm test`, and `npm run build`. CI runs the same
-  gates; do not skip them locally. Do not report a build you did not run; do
-  not break the build.
+  `npm run format:check`, `npm test`, and `npm run build` for the fast inner loop.
+  Before pushing, run `npm run ci`, which chains lint → format:check → `test:cov`
+  → build — the same gates CI enforces, including the `.c8rc.json` coverage floor,
+  so a coverage drop fails locally instead of on the PR. (`npm test` skips the c8
+  gate for speed; `npm run ci` does not.) Do not report a build you did not run;
+  do not break the build.
 - `npm test` includes the happy-dom suite (`npm run test:dom`, files under
   `tests/dom/`), which runs `node:test` with a real DOM registered via
   `tests/dom/register.ts`. Storybook interaction (`play`) tests run with
@@ -123,13 +126,12 @@ build` and paste **Built local** time plus commit, branch, and worktree when
 ## Tooling
 
 - Node version is pinned in `.nvmrc`; select it (`nvm use`, or an equivalent
-  version manager) before installing dependencies. CI
-  (`.github/workflows/ci.yml`) currently runs a newer Node major than
-  `.nvmrc` pins — treat `.nvmrc` as the local default, not a guarantee of
-  exact CI parity, until the two are aligned.
-- Install with `npm ci`, then run the gate commands from **Documentation And
-  Validation** (`npm run lint`, `npm run format:check`, `npm test`,
-  `npm run build`).
+  version manager) before installing dependencies. The GitHub Actions workflows
+  read the same `.nvmrc` via `node-version-file`, so `.nvmrc` is the single
+  source of truth for local and CI — bump it to move both together.
+- Install with `npm ci`, then run the gate with `npm run ci` (equivalently the
+  four commands from **Documentation And Validation**: `npm run lint`,
+  `npm run format:check`, `npm test`, `npm run build`).
 - Invoke tools through `PATH` (or `npx` for project binaries). Do not hardcode
   machine-specific absolute paths; `gh`, `gpg`, and other CLIs must resolve from
   the environment.
