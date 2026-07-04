@@ -50,5 +50,79 @@ jobs:
       - name: Playwright E2E tests
         run: npm run test:e2e
 
+      # The HTML report is a self-contained clickable app (per-test steps, and screenshots /
+      # videos / time-travel traces on failure). Upload it even when the E2E step fails —
+      # that is exactly when it matters. View: download, unzip, `npx playwright show-report <dir>`.
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 14
+
       - name: Storybook interaction tests
         run: npm run test:stories:ci
+
+  # Publishes the Playwright HTML report to GitHub Pages at a stable per-PR URL:
+  #   https://qwtm.github.io/image-trail/reports/pr-<number>/
+  # Each run replaces that PR's report (bounded growth); the artifact above keeps 14 days of
+  # history. Runs even when the CI job fails — a red E2E run is when the report matters most —
+  # but fails soft when no report artifact exists (e.g. lint failed before the E2E step).
+  e2e-report:
+    name: Publish E2E report
+    needs: ci
+    if: ${{ !cancelled() && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    # All e2e-report runs push to the same gh-pages branch, so serialize them across the whole
+    # workflow (not per PR) to avoid non-fast-forward push races between concurrent PRs.
+    concurrency:
+      group: e2e-report-gh-pages
+      cancel-in-progress: false
+    steps:
+      - name: Download Playwright report
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+
+      # Concurrency ordering within a group is not guaranteed, so an older run finishing late
+      # could overwrite the stable per-PR URL with stale results. Only deploy when this run's
+      # commit is still the PR's current head.
+      - name: Check this run is for the PR's current head
+        id: freshness
+        if: ${{ steps.download.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current=$(gh api "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}" --jq .head.sha)
+          if [ "$current" = "${{ github.event.pull_request.head.sha }}" ]; then
+            echo "fresh=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "fresh=false" >> "$GITHUB_OUTPUT"
+            echo "Skipping deploy: this run is for ${{ github.event.pull_request.head.sha }} but the PR head is now $current."
+          fi
+
+      - name: Deploy report to GitHub Pages
+        if: ${{ steps.download.outcome == 'success' && steps.freshness.outputs.fresh == 'true' }}
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: playwright-report
+          destination_dir: reports/pr-${{ github.event.pull_request.number }}
+          commit_message: 'E2E report for PR #${{ github.event.pull_request.number }} (run ${{ github.run_id }})'
+
+      - name: Link report in run summary
+        if: ${{ steps.download.outcome == 'success' && steps.freshness.outputs.fresh == 'true' }}
+        run: |
+          {
+            echo "### Playwright E2E report"
+            echo ""
+            echo "https://qwtm.github.io/image-trail/reports/pr-${{ github.event.pull_request.number }}/"
+            echo ""
+            echo "_Traces, screenshots, and videos are attached to failed tests._"
+          } >> "$GITHUB_STEP_SUMMARY"
