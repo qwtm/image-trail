@@ -159,7 +159,7 @@ test('standalone image backdrop is prepared before selection or resize styling',
 
     assert.equal(image.style.background, '#000');
     assert.equal(image.style.backgroundColor, '#000');
-    assert.equal(image.dataset.imageTrailSelected, undefined);
+    assert.equal(image.dataset['imageTrailSelected'], undefined);
     assert.equal(image.style.height, '');
     assert.equal(image.style.width, '');
     assert.equal(image.style.position, '');
@@ -184,7 +184,7 @@ test('cleanup restores prepared standalone backdrop when auto-select does not ke
 
     assert.equal(image.style.background, 'rgb(230, 230, 230)');
     assert.equal(image.style.backgroundColor, 'rgb(230, 230, 230)');
-    assert.equal(image.dataset.imageTrailSelected, undefined);
+    assert.equal(image.dataset['imageTrailSelected'], undefined);
   } finally {
     restoreDom();
   }
@@ -205,7 +205,7 @@ test('cleanup restores selected standalone backdrop through selected target rele
 
     assert.equal(image.style.background, 'rgb(230, 230, 230)');
     assert.equal(image.style.backgroundColor, 'rgb(230, 230, 230)');
-    assert.equal(image.dataset.imageTrailSelected, undefined);
+    assert.equal(image.dataset['imageTrailSelected'], undefined);
   } finally {
     restoreDom();
   }
@@ -423,7 +423,7 @@ test('release restores hosted image backdrop after restoring original URL', () =
     assert.equal(image.src, 'https://example.test/original.jpg');
     assert.equal(image.style.background, 'rgb(230, 230, 230)');
     assert.equal(image.style.backgroundColor, 'rgb(230, 230, 230)');
-    assert.equal(image.dataset.imageTrailSelected, undefined);
+    assert.equal(image.dataset['imageTrailSelected'], undefined);
 
     image.complete = true;
     image.naturalHeight = 480;
@@ -451,13 +451,13 @@ test('closing and reopening keeps standalone hosted image backdrop black', () =>
 
     adapter.suspend();
 
-    assert.equal(image.dataset.imageTrailSelected, undefined);
+    assert.equal(image.dataset['imageTrailSelected'], undefined);
     assert.equal(image.style.background, '#000');
     assert.equal(image.style.backgroundColor, '#000');
 
     adapter.autoSelectSingleImage();
 
-    assert.equal(image.dataset.imageTrailSelected, 'true');
+    assert.equal(image.dataset['imageTrailSelected'], 'true');
     assert.equal(image.style.background, '#000');
     assert.equal(image.style.backgroundColor, '#000');
   } finally {

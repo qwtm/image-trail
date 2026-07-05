@@ -28,8 +28,8 @@ function createHarness(rawUrl: string): Harness {
   const render = (): void => {
     // Stand in for the panel's real render: reflect the observable state into the DOM.
     status.textContent = state.message;
-    status.dataset.status = state.status;
-    status.dataset.splitCount = String(state.fieldSplitSpecs.length);
+    status.dataset['status'] = state.status;
+    status.dataset['splitCount'] = String(state.fieldSplitSpecs.length);
   };
   const deps: FieldEditorControllerDeps = {
     getState: () => state,
@@ -70,7 +70,7 @@ function createHarness(rawUrl: string): Harness {
 test('rejectUrlEditorInput renders the data-URL error into the DOM', () => {
   const harness = createHarness('https://example.test/image?date=01012001');
   harness.controller.rejectUrlEditorInput();
-  assert.equal(harness.status.dataset.status, 'error');
+  assert.equal(harness.status.dataset['status'], 'error');
   assert.match(harness.status.textContent ?? '', /cannot use data URLs/);
 });
 
@@ -79,7 +79,7 @@ test('a valid split-apply renders the new split count into the DOM', async () =>
   const fieldId = harness.fieldId('query date');
   harness.controller.enqueueFieldTransform({ name: 'field/transform', fieldId, transformId: 'split-apply', pattern: '2-2-4' });
   await harness.settle();
-  assert.equal(harness.status.dataset.splitCount, '1');
+  assert.equal(harness.status.dataset['splitCount'], '1');
   assert.equal(harness.getState().fieldSplitSpecs.length, 1);
 });
 
@@ -88,6 +88,6 @@ test('an invalid split-apply renders the failure message into the DOM', async ()
   const fieldId = harness.fieldId('query date');
   harness.controller.enqueueFieldTransform({ name: 'field/transform', fieldId, transformId: 'split-apply', pattern: '2-2' });
   await harness.settle();
-  assert.equal(harness.status.dataset.status, 'error');
+  assert.equal(harness.status.dataset['status'], 'error');
   assert.match(harness.status.textContent ?? '', /Split pattern totals/);
 });

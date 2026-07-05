@@ -156,7 +156,7 @@ function createRecallRow(
   item.tabIndex = 0;
   item.setAttribute('role', 'button');
   item.setAttribute('aria-pressed', selected ? 'true' : 'false');
-  item.dataset.imageTrailScrollAnchor = record.id;
+  item.dataset['imageTrailScrollAnchor'] = record.id;
 
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';

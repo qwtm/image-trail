@@ -61,7 +61,7 @@ test('selected target lockBox constrains the host image box and restores origina
   assert.equal(element.style.maxHeight, 'none');
   assert.equal(element.style.maxWidth, 'none');
   assert.equal(element.style.width, '100%');
-  assert.equal(element.dataset.imageTrailSelected, 'true');
+  assert.equal(element.dataset['imageTrailSelected'], 'true');
 
   restoreElementStyles(element);
 
@@ -75,7 +75,7 @@ test('selected target lockBox constrains the host image box and restores origina
   assert.equal(element.style.width, '144px');
   assert.equal(element.style.background, '');
   assert.equal(element.style.backgroundColor, '');
-  assert.equal(element.dataset.imageTrailSelected, undefined);
+  assert.equal(element.dataset['imageTrailSelected'], undefined);
 });
 
 test('selected target backdrop can be forced black before navigation changes', () => {
@@ -97,7 +97,7 @@ test('selected target restore can preserve black hosted-image backdrop', () => {
   markSelectedTarget(element);
   restoreElementStyles(element, { preserveBackdropBlack: true });
 
-  assert.equal(element.dataset.imageTrailSelected, undefined);
+  assert.equal(element.dataset['imageTrailSelected'], undefined);
   assert.equal(element.style.position, 'absolute');
   assert.equal(element.style.background, '#000');
   assert.equal(element.style.backgroundColor, '#000');
@@ -213,8 +213,8 @@ test('selected target can defer lockBox styling until preview replaces the image
     assert.equal(element.style.backgroundColor, '#000');
     assert.equal(body.style.background, 'white');
     assert.equal(documentElement.style.background, 'lightgray');
-    assert.equal(element.dataset.imageTrailSelected, 'true');
-    assert.equal(element.dataset.imageTrailLockBox, undefined);
+    assert.equal(element.dataset['imageTrailSelected'], 'true');
+    assert.equal(element.dataset['imageTrailLockBox'], undefined);
 
     restoreElementStyles(element);
 
@@ -239,19 +239,19 @@ test('grab preview marks valid and invalid targets and restores preview-only sty
 
   markGrabPreviewTarget(element, 'valid');
 
-  assert.equal(element.dataset.imageTrailGrabPreview, 'valid');
+  assert.equal(element.dataset['imageTrailGrabPreview'], 'valid');
   assert.equal(element.style.cursor, 'copy');
   assert.match(element.style.outline, /#38bdf8/u);
 
   markGrabPreviewTarget(element, 'invalid');
 
-  assert.equal(element.dataset.imageTrailGrabPreview, 'invalid');
+  assert.equal(element.dataset['imageTrailGrabPreview'], 'invalid');
   assert.equal(element.style.cursor, 'not-allowed');
   assert.match(element.style.outline, /#ef4444/u);
 
   restoreGrabPreviewTarget(element);
 
-  assert.equal(element.dataset.imageTrailGrabPreview, undefined);
+  assert.equal(element.dataset['imageTrailGrabPreview'], undefined);
   assert.equal(element.style.cursor, 'pointer');
   assert.equal(element.style.outline, '1px solid blue');
   assert.equal(element.style.outlineOffset, '1px');
@@ -267,7 +267,7 @@ test('grab preview restores selected target styling without clearing selection s
   markGrabPreviewTarget(element, 'valid');
   restoreGrabPreviewTarget(element);
 
-  assert.equal(element.dataset.imageTrailSelected, 'true');
-  assert.equal(element.dataset.imageTrailGrabPreview, undefined);
+  assert.equal(element.dataset['imageTrailSelected'], 'true');
+  assert.equal(element.dataset['imageTrailGrabPreview'], undefined);
   assert.equal(element.style.outline, selectedOutline);
 });

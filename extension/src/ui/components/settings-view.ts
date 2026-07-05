@@ -824,17 +824,17 @@ function createDangerButton(label: string, disabled: boolean, onConfirm: () => v
   button.disabled = disabled;
   button.className = 'is-danger';
   button.addEventListener('click', () => {
-    if (button.dataset.confirm === 'true') {
+    if (button.dataset['confirm'] === 'true') {
       onConfirm();
-      button.dataset.confirm = 'false';
+      button.dataset['confirm'] = 'false';
       button.textContent = label;
       return;
     }
-    button.dataset.confirm = 'true';
+    button.dataset['confirm'] = 'true';
     button.textContent = `Confirm ${label}`;
   });
   button.addEventListener('blur', () => {
-    button.dataset.confirm = 'false';
+    button.dataset['confirm'] = 'false';
     button.textContent = label;
   });
   return button;
@@ -1150,11 +1150,11 @@ function createTemplateFieldControls(
     const input = document.createElement('input');
     input.type = 'checkbox';
     input.checked = included.has(field.id);
-    input.dataset.templateFieldId = field.id;
+    input.dataset['templateFieldId'] = field.id;
     input.addEventListener('change', () => {
       const next = Array.from(wrapper.querySelectorAll<HTMLInputElement>('input[data-template-field-id]'))
         .filter((candidate) => candidate.checked)
-        .map((candidate) => candidate.dataset.templateFieldId)
+        .map((candidate) => candidate.dataset['templateFieldId'])
         .filter((fieldId): fieldId is string => fieldId !== undefined);
       dispatch({ name: 'url-template/update-fields', id: template.id, includedFieldIds: next });
     });

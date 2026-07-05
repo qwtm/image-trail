@@ -175,8 +175,8 @@ export function createHistoryView(
       deleteCapture.title = 'Delete original from encrypted storage.';
       deleteCapture.addEventListener('click', (event) => {
         event.stopPropagation();
-        if (deleteCapture.dataset.confirming !== 'true') {
-          deleteCapture.dataset.confirming = 'true';
+        if (deleteCapture.dataset['confirming'] !== 'true') {
+          deleteCapture.dataset['confirming'] = 'true';
           deleteCapture.textContent = 'Confirm delete original';
           deleteCapture.title = 'Click again to delete original from encrypted storage.';
           return;

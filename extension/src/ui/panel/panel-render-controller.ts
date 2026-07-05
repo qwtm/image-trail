@@ -133,7 +133,7 @@ export class PanelRenderController {
       const entry = indices.get(index);
       const cell = document.createElement('span');
       cell.className = 'image-trail-panel__buffer-debug-cell';
-      cell.dataset.status = entry ? `${entry.manifest}:${entry.image}` : 'UNKNOWN';
+      cell.dataset['status'] = entry ? `${entry.manifest}:${entry.image}` : 'UNKNOWN';
       if (index === cursor) cell.classList.add('is-current');
       cell.title = `${index}: ${entry?.manifest ?? 'UNKNOWN'} / ${entry?.image ?? 'UNKNOWN'}`;
       cell.textContent = String(index);

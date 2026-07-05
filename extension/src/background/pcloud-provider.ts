@@ -90,12 +90,12 @@ async function loadConnectionRecord(): Promise<PCloudConnectionRecord | null> {
   await restrictStorageToTrustedContexts();
   const value = await chrome.storage.local.get(PCLOUD_CONNECTION_KEY);
   const candidate = recordOrNull(value[PCLOUD_CONNECTION_KEY]);
-  if (!candidate || candidate.schemaVersion !== 1 || candidate.provider !== 'pcloud') return null;
-  const accessToken = stringOrUndefined(candidate.accessToken);
+  if (!candidate || candidate['schemaVersion'] !== 1 || candidate['provider'] !== 'pcloud') return null;
+  const accessToken = stringOrUndefined(candidate['accessToken']);
   if (!accessToken) return null;
   let apiHost: PCloudApiHost;
   try {
-    apiHost = normalizePCloudApiHost(stringOrUndefined(candidate.apiHost));
+    apiHost = normalizePCloudApiHost(stringOrUndefined(candidate['apiHost']));
   } catch {
     return null;
   }
@@ -104,10 +104,10 @@ async function loadConnectionRecord(): Promise<PCloudConnectionRecord | null> {
     provider: 'pcloud',
     accessToken,
     apiHost,
-    connectedAt: stringOrUndefined(candidate.connectedAt) ?? new Date(0).toISOString(),
-    accountPremium: booleanOrUndefined(candidate.accountPremium),
-    quotaBytes: numberOrUndefined(candidate.quotaBytes),
-    usedQuotaBytes: numberOrUndefined(candidate.usedQuotaBytes),
+    connectedAt: stringOrUndefined(candidate['connectedAt']) ?? new Date(0).toISOString(),
+    accountPremium: booleanOrUndefined(candidate['accountPremium']),
+    quotaBytes: numberOrUndefined(candidate['quotaBytes']),
+    usedQuotaBytes: numberOrUndefined(candidate['usedQuotaBytes']),
   };
 }
 
@@ -160,9 +160,9 @@ async function requestPCloudJson(apiHost: PCloudApiHost, method: string, body: B
     body,
   });
   const data = (await response.json()) as Record<string, unknown>;
-  const resultCode = numberOrUndefined(data.result);
+  const resultCode = numberOrUndefined(data['result']);
   if (!response.ok || resultCode !== 0) {
-    const error = typeof data.error === 'string' ? data.error : `pCloud ${method} failed.`;
+    const error = typeof data['error'] === 'string' ? data['error'] : `pCloud ${method} failed.`;
     throw new Error(error);
   }
   return data;
@@ -196,18 +196,18 @@ async function loadValidatedStatus(record: PCloudConnectionRecord): Promise<PClo
   const userInfo = await fetchPCloudJson(record.apiHost, 'userinfo', record.accessToken);
   const refreshed: PCloudConnectionRecord = {
     ...record,
-    accountPremium: Boolean(userInfo.premium),
-    quotaBytes: numberOrUndefined(userInfo.quota),
-    usedQuotaBytes: numberOrUndefined(userInfo.usedquota),
+    accountPremium: Boolean(userInfo['premium']),
+    quotaBytes: numberOrUndefined(userInfo['quota']),
+    usedQuotaBytes: numberOrUndefined(userInfo['usedquota']),
   };
   await saveConnectionRecord(refreshed);
   return pcloudStatusFromRecord(refreshed, 'pCloud is connected.');
 }
 
 function folderIdFromMetadata(data: Record<string, unknown>): number {
-  const metadata = recordOrNull(data.metadata);
-  const folderId = numberOrUndefined(metadata?.folderid);
-  if (!metadata || metadata.isfolder !== true || folderId === undefined)
+  const metadata = recordOrNull(data['metadata']);
+  const folderId = numberOrUndefined(metadata?.['folderid']);
+  if (!metadata || metadata['isfolder'] !== true || folderId === undefined)
     throw new Error('pCloud did not return the expected folder metadata.');
   return folderId;
 }
@@ -221,7 +221,7 @@ async function ensureFolder(record: PCloudConnectionRecord, parentFolderId: numb
 }
 
 function uploadMetadataFromResponse(data: Record<string, unknown>): Record<string, unknown> {
-  const metadataList = Array.isArray(data.metadata) ? data.metadata : [data.metadata];
+  const metadataList = Array.isArray(data['metadata']) ? data['metadata'] : [data['metadata']];
   const metadata = metadataList.map(recordOrNull).find((item): item is Record<string, unknown> => !!item);
   if (!metadata) throw new Error('pCloud did not return upload metadata.');
   return metadata;
@@ -229,18 +229,18 @@ function uploadMetadataFromResponse(data: Record<string, unknown>): Record<strin
 
 function backupCandidateFromMetadata(value: unknown): PCloudBackupRestoreCandidate | null {
   const metadata = recordOrNull(value);
-  if (!metadata || metadata.isfolder === true) return null;
-  const fileId = numberOrUndefined(metadata.fileid);
-  const fileName = stringOrUndefined(metadata.name);
-  const sizeBytes = numberOrUndefined(metadata.size);
+  if (!metadata || metadata['isfolder'] === true) return null;
+  const fileId = numberOrUndefined(metadata['fileid']);
+  const fileName = stringOrUndefined(metadata['name']);
+  const sizeBytes = numberOrUndefined(metadata['size']);
   if (fileId === undefined || !fileName || sizeBytes === undefined) return null;
   if (!fileName.endsWith('.image-trail-encrypted.json')) return null;
   return {
     fileId,
     fileName,
     sizeBytes,
-    modifiedAt: stringOrUndefined(metadata.modified),
-    sha1: stringOrUndefined(metadata.sha1)?.toLowerCase(),
+    modifiedAt: stringOrUndefined(metadata['modified']),
+    sha1: stringOrUndefined(metadata['sha1'])?.toLowerCase(),
   };
 }
 
@@ -273,9 +273,9 @@ async function uploadBackupFile(
 
   const data = await requestPCloudJson(record.apiHost, 'uploadfile', form);
   const metadata = uploadMetadataFromResponse(data);
-  const fileId = numberOrUndefined(metadata.fileid);
-  const sizeBytes = numberOrUndefined(metadata.size);
-  const fileName = stringOrUndefined(metadata.name) ?? input.fileName;
+  const fileId = numberOrUndefined(metadata['fileid']);
+  const sizeBytes = numberOrUndefined(metadata['size']);
+  const fileName = stringOrUndefined(metadata['name']) ?? input.fileName;
   if (fileId === undefined || sizeBytes === undefined) throw new Error('pCloud did not return uploaded file metadata.');
   return { fileId, sizeBytes, fileName };
 }
@@ -292,9 +292,9 @@ async function waitForListedFile(record: PCloudConnectionRecord, folderId: numbe
       folderid: String(folderId),
       noshares: '1',
     });
-    const metadata = recordOrNull(data.metadata);
-    const contents = Array.isArray(metadata?.contents) ? metadata.contents : [];
-    const listed = contents.map(recordOrNull).some((item) => numberOrUndefined(item?.fileid) === fileId);
+    const metadata = recordOrNull(data['metadata']);
+    const contents = Array.isArray(metadata?.['contents']) ? metadata['contents'] : [];
+    const listed = contents.map(recordOrNull).some((item) => numberOrUndefined(item?.['fileid']) === fileId);
     if (listed) return;
     if (attempt < PCLOUD_LIST_RETRY_ATTEMPTS) await sleep(PCLOUD_LIST_RETRY_BASE_MS * attempt);
   }
@@ -313,8 +313,8 @@ async function downloadPCloudFile(record: PCloudConnectionRecord, fileId: number
     forcedownload: '1',
     skipfilename: '1',
   });
-  const hosts = Array.isArray(data.hosts) ? data.hosts : [];
-  const path = stringOrUndefined(data.path);
+  const hosts = Array.isArray(data['hosts']) ? data['hosts'] : [];
+  const path = stringOrUndefined(data['path']);
   if (hosts.length === 0 || !path) throw new Error('pCloud did not return a download link.');
 
   let lastError = 'pCloud backup download failed.';
@@ -393,7 +393,7 @@ async function digestHex(algorithm: 'SHA-1' | 'SHA-256', bytes: Uint8Array): Pro
 
 async function verifyPCloudChecksum(record: PCloudConnectionRecord, fileId: number, bytes: Uint8Array): Promise<void> {
   const data = await fetchPCloudJson(record.apiHost, 'checksumfile', record.accessToken, { fileid: String(fileId) });
-  const remoteSha1 = stringOrUndefined(data.sha1)?.toLowerCase();
+  const remoteSha1 = stringOrUndefined(data['sha1'])?.toLowerCase();
   if (!remoteSha1) throw new Error('pCloud did not return a SHA-1 checksum for backup verification.');
   const localSha1 = await digestHex('SHA-1', bytes);
   if (remoteSha1 !== localSha1) throw new Error('pCloud backup checksum did not match the local export.');
@@ -504,9 +504,9 @@ export async function connectPCloudProvider(): Promise<PCloudProviderResult> {
       accessToken: oauth.accessToken,
       apiHost: oauth.apiHost,
       connectedAt: new Date().toISOString(),
-      accountPremium: Boolean(userInfo.premium),
-      quotaBytes: numberOrUndefined(userInfo.quota),
-      usedQuotaBytes: numberOrUndefined(userInfo.usedquota),
+      accountPremium: Boolean(userInfo['premium']),
+      quotaBytes: numberOrUndefined(userInfo['quota']),
+      usedQuotaBytes: numberOrUndefined(userInfo['usedquota']),
     };
     await saveConnectionRecord(record);
     const status = pcloudStatusFromRecord(record, 'pCloud is connected.');
@@ -580,8 +580,8 @@ export async function listPCloudBackups(): Promise<PCloudBackupListResult> {
       folderid: String(backupFolderId),
       noshares: '1',
     });
-    const metadata = recordOrNull(data.metadata);
-    const contents = Array.isArray(metadata?.contents) ? metadata.contents : [];
+    const metadata = recordOrNull(data['metadata']);
+    const contents = Array.isArray(metadata?.['contents']) ? metadata['contents'] : [];
     const candidates = sortRestoreCandidates(
       contents.map(backupCandidateFromMetadata).filter((item): item is PCloudBackupRestoreCandidate => !!item),
     );

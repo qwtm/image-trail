@@ -364,10 +364,10 @@ test('downloadPCloudBackup downloads encrypted JSON and reports local SHA-256 wi
       const params = init?.body as URLSearchParams;
       const headers = init?.headers as Record<string, string> | undefined;
       assert.equal(params.get('fileid'), '402');
-      assert.equal(headers?.accept, '*/*');
+      assert.equal(headers?.['accept'], '*/*');
       assert.equal(headers?.['content-type'], 'application/x-www-form-urlencoded;charset=UTF-8');
-      assert.equal(headers?.origin, undefined);
-      assert.equal(headers?.referer, undefined);
+      assert.equal(headers?.['origin'], undefined);
+      assert.equal(headers?.['referer'], undefined);
       assert.equal(init?.mode, 'cors');
       assert.equal(init?.credentials, 'include');
       assert.equal(init?.referrer, 'https://my.pcloud.com/');
@@ -427,10 +427,10 @@ test('downloadPCloudBackup retries alternate pCloud hosts after direct-link refe
       const params = init?.body as URLSearchParams;
       const headers = init?.headers as Record<string, string> | undefined;
       assert.equal(params.get('fileid'), '402');
-      assert.equal(headers?.accept, '*/*');
+      assert.equal(headers?.['accept'], '*/*');
       assert.equal(headers?.['content-type'], 'application/x-www-form-urlencoded;charset=UTF-8');
-      assert.equal(headers?.origin, undefined);
-      assert.equal(headers?.referer, undefined);
+      assert.equal(headers?.['origin'], undefined);
+      assert.equal(headers?.['referer'], undefined);
       assert.equal(init?.mode, 'cors');
       assert.equal(init?.credentials, 'include');
       assert.equal(init?.referrer, 'https://my.pcloud.com/');
