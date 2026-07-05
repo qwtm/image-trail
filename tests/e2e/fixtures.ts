@@ -1,5 +1,4 @@
 import { test as base, chromium, expect, type BrowserContext, type Page, type Worker } from '@playwright/test';
-import { execFileSync } from 'node:child_process';
 import { rm, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -39,14 +38,6 @@ const fixtureAssetPaths = {
   missingImage: '/missing-image.png',
 } as const;
 
-function buildExtension(): void {
-  execFileSync('npm', ['run', 'build'], {
-    cwd: repoRoot,
-    stdio: 'inherit',
-    env: process.env,
-  });
-}
-
 async function waitForServiceWorker(context: BrowserContext): Promise<Worker> {
   const worker = context.serviceWorkers().find((candidate) => candidate.url().startsWith('chrome-extension://'));
   if (worker) return worker;
@@ -67,7 +58,7 @@ function extensionIdFromWorker(worker: Worker): string {
 export const test = base.extend<ExtensionFixtures, ExtensionWorkerFixtures>({
   extensionContext: [
     async ({ headless }, use) => {
-      buildExtension();
+      // The extension is built once in global-setup.ts; each worker only loads it.
       const userDataDir = await mkdtemp(path.join(tmpdir(), 'image-trail-e2e-'));
       const context = await chromium.launchPersistentContext(userDataDir, {
         channel: 'chromium',
