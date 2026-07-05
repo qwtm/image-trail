@@ -79,6 +79,7 @@ export function createHistoryView(
     const selected = selectedIds.includes(item.id);
     const entry = document.createElement('li');
     entry.className = 'image-trail-panel__history-item';
+    entry.dataset['imageTrailRowId'] = item.id;
     if (options?.privacyMode && item.privacyStatus !== 'locked') entry.classList.add('is-privacy-masked');
     if (previewableEncrypted) entry.classList.add('is-captured');
     if (selected) entry.classList.add('is-selected');
@@ -116,17 +117,30 @@ export function createHistoryView(
     } else {
       entry.tabIndex = 0;
       entry.setAttribute('role', 'button');
-      entry.title = 'Preview this image in the selected host image. Cmd/Ctrl-click to select for export. Shift-click selects a range.';
+      entry.title =
+        'Click to select this row. Click the selected row or press Enter to preview it. Cmd/Ctrl-click selects for export. Shift-click selects a range.';
       entry.addEventListener('click', (event) => {
         if (isSelectionClick(event)) return;
-        if (selectedIds.length > 0) dispatch({ name: 'history-selection/clear' });
-        dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId });
+        event.preventDefault();
+        if (selected && selectedIds.length === 1) {
+          dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId });
+          return;
+        }
+        dispatch({ name: 'history-selection/select', ids: [item.id] });
       });
       entry.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault();
+          selectAdjacentHistoryRow(items, item.id, event.key === 'ArrowDown' ? 1 : -1, dispatch);
+          return;
+        }
         if (event.key !== 'Enter' && event.key !== ' ') return;
         event.preventDefault();
-        if (selectedIds.length > 0) dispatch({ name: 'history-selection/clear' });
-        dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId });
+        if (selected && selectedIds.length === 1) {
+          dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId });
+          return;
+        }
+        dispatch({ name: 'history-selection/select', ids: [item.id] });
       });
     }
     const visual = createRecordVisual(item, options);
@@ -288,3 +302,35 @@ function createHistoryExtensionIndicator(item: ImageDisplayRecord): HTMLElement 
 function isSelectionClick(event: MouseEvent): boolean {
   return event.metaKey || event.ctrlKey || event.shiftKey;
 }
+
+function selectAdjacentHistoryRow(
+  items: readonly ImageDisplayRecord[],
+  currentId: string,
+  delta: -1 | 1,
+  dispatch: (action: HistoryAction) => void,
+): void {
+  const currentIndex = items.findIndex((item) => item.id === currentId);
+  const next = items[currentIndex + delta];
+  if (!next) return;
+  dispatch({ name: 'history-selection/select', ids: [next.id] });
+  focusRecordRow(next.id);
+}
+
+/* c8 ignore start */
+function focusRecordRow(id: string): void {
+  queueMicrotask(() => {
+    const row = findRecordRow(id);
+    if (row) row.focus();
+  });
+}
+
+function findRecordRow(id: string): HTMLElement | null {
+  for (const candidate of document.querySelectorAll('[data-image-trail-row-id]')) {
+    if (!(candidate instanceof HTMLElement)) continue;
+    if (candidate.dataset['imageTrailRowId'] === id) {
+      return candidate;
+    }
+  }
+  return null;
+}
+/* c8 ignore stop */

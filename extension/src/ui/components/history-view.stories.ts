@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/html-vite';
+import { expect, fireEvent, fn, userEvent } from 'storybook/test';
 
 import { createHistoryView } from './history-view.js';
 import {
@@ -46,13 +47,44 @@ export const Narrow: Story = {
   render: () => historyStory(recentFixtures, [selectedRecord.id], { width: 300 }),
 };
 
+const dispatchSpy = fn();
+
+export const SelectsRow: Story = {
+  render: () => historyStory(recentFixtures, [], {}, dispatchSpy),
+  play: async ({ canvasElement }) => {
+    dispatchSpy.mockClear();
+    const row = canvasElement.querySelector('[data-image-trail-row-id="recent-normal"]');
+    if (!(row instanceof HTMLElement)) throw new Error('expected the recent-normal row to render');
+    await userEvent.click(row);
+    await expect(dispatchSpy).toHaveBeenCalledWith({ name: 'history-selection/select', ids: ['recent-normal'] });
+    await expect(dispatchSpy).toHaveBeenCalledTimes(1);
+    dispatchSpy.mockClear();
+    await fireEvent.click(row, { ctrlKey: true });
+    await expect(dispatchSpy).toHaveBeenCalledWith({ name: 'history-selection/toggle', id: 'recent-normal' });
+    await expect(dispatchSpy).toHaveBeenCalledTimes(1);
+  },
+};
+
+export const PreviewsSelectedRow: Story = {
+  render: () => historyStory(recentFixtures, ['recent-normal'], {}, dispatchSpy),
+  play: async ({ canvasElement }) => {
+    dispatchSpy.mockClear();
+    const row = canvasElement.querySelector('[data-image-trail-row-id="recent-normal"]');
+    if (!(row instanceof HTMLElement)) throw new Error('expected the recent-normal row to render');
+    await userEvent.click(row);
+    await expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ name: 'capture/preview' }));
+    await expect(dispatchSpy).toHaveBeenCalledTimes(1);
+  },
+};
+
 function historyStory(
   items: Parameters<typeof createHistoryView>[0],
   selectedIds: readonly string[],
   options: { readonly width?: number } = {},
+  dispatch: Parameters<typeof createHistoryView>[4] = mockDispatch(),
 ) {
   return panelStory(
-    createHistoryView(items, selectedIds, false, true, mockDispatch(), {
+    createHistoryView(items, selectedIds, false, true, dispatch, {
       blobKeyAvailable: true,
       listBlockSize: null,
       onListResize: mockDispatch<number>('history resize'),
