@@ -79,7 +79,6 @@ export function createSettingsView(
   },
   utilityChildren: readonly HTMLElement[],
   dispatch: (action: PanelAction) => void,
-  options: { readonly headerAccessory?: HTMLElement } = {},
 ): HTMLElement {
   const section = document.createElement('section');
   section.className = 'image-trail-panel__section image-trail-panel__settings-section';
@@ -89,7 +88,6 @@ export function createSettingsView(
   const header = document.createElement('div');
   header.className = 'image-trail-panel__section-header';
   header.append(heading);
-  if (options.headerAccessory) header.append(options.headerAccessory);
 
   section.append(
     header,
