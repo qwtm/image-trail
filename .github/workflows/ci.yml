@@ -160,17 +160,25 @@ jobs:
   # in the branch ruleset — not "E2E", which is legitimately skipped on non-E2E PRs.
   e2e-gate:
     name: E2E gate
-    needs: e2e
+    needs: [changes, e2e]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
       - name: Verify E2E result
         run: |
-          result='${{ needs.e2e.result }}'
-          echo "E2E job result: $result"
-          # A skipped E2E job (change filter opted out) is a pass; success is a pass; anything
-          # else (failure, cancelled) fails the gate.
-          if [ "$result" = 'success' ] || [ "$result" = 'skipped' ]; then
+          changes='${{ needs.changes.result }}'
+          e2e='${{ needs.e2e.result }}'
+          echo "Detect changes: $changes | E2E job: $e2e"
+          # A skip is only trustworthy when change detection itself succeeded and decided E2E
+          # wasn't needed. If the changes job failed or was cancelled, the E2E skip is an
+          # artifact of that failure, not an intentional opt-out — fail so it can't slip through.
+          if [ "$changes" != 'success' ]; then
+            echo "Change detection did not succeed ($changes); refusing to accept an E2E skip." >&2
+            exit 1
+          fi
+          # With change detection healthy: a skipped E2E job (filter opted out) is a pass, as is
+          # success; anything else (failure, cancelled) fails the gate.
+          if [ "$e2e" = 'success' ] || [ "$e2e" = 'skipped' ]; then
             exit 0
           fi
           exit 1
