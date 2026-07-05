@@ -76,6 +76,25 @@ test('registers the build-info keyboard command for Chromium shortcut settings',
   });
 });
 
+test('registers assignable action commands for Chromium shortcut settings', async ({ serviceWorker }) => {
+  const commandNames = await serviceWorker.evaluate(async () => {
+    return (await chrome.commands.getAll()).map((command) => command.name).sort();
+  });
+
+  expect(commandNames).toEqual(
+    expect.arrayContaining([
+      'shortcut-next',
+      'shortcut-previous',
+      'shortcut-download',
+      'shortcut-download-save-as',
+      'shortcut-slideshow-toggle',
+      'shortcut-stop',
+      'shortcut-grab-mode-toggle',
+      'shortcut-retry',
+    ]),
+  );
+});
+
 test('surfaces the build-info overlay toggle in Settings', async ({ page, serviceWorker }) => {
   await openFixturePage(page, fixturePaths.singleImage);
   await togglePanelFromExtensionAction(page, serviceWorker);

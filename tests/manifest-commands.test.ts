@@ -41,6 +41,25 @@ test('manifest exposes the browser action in Chromium keyboard shortcuts', () =>
   assert.equal(command.suggested_key, undefined);
 });
 
+test('manifest exposes assignable Image Trail action commands in Chromium keyboard shortcuts', () => {
+  const commands = loadManifest().commands ?? {};
+  const expected = {
+    'shortcut-next': 'Next trail step',
+    'shortcut-previous': 'Previous trail step',
+    'shortcut-download': 'Download image',
+    'shortcut-download-save-as': 'Download with Save As',
+    'shortcut-slideshow-toggle': 'Slideshow',
+    'shortcut-stop': 'Stop automation',
+    'shortcut-grab-mode-toggle': 'Grab mode',
+    'shortcut-retry': 'Retry navigation',
+  };
+
+  for (const [name, description] of Object.entries(expected)) {
+    assert.equal(commands[name]?.description, description);
+    assert.equal(commands[name]?.suggested_key, undefined);
+  }
+});
+
 test('manifest exposes panel stylesheet imports to content pages', () => {
   const resources = loadManifest().web_accessible_resources?.flatMap((entry) => entry.resources ?? []) ?? [];
 

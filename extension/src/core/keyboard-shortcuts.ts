@@ -15,6 +15,13 @@ export interface ShortcutReference {
   readonly description: string;
 }
 
+export interface BrowserCommandShortcut {
+  readonly command: string;
+  readonly action: string;
+  readonly label: string;
+  readonly description: string;
+}
+
 export const PAGE_SHORTCUTS: readonly ShortcutKeyBinding[] = [
   {
     key: 'ArrowRight',
@@ -105,12 +112,68 @@ export const PAGE_SHORTCUTS: readonly ShortcutKeyBinding[] = [
   },
 ];
 
+export const BROWSER_COMMAND_SHORTCUTS: readonly BrowserCommandShortcut[] = [
+  {
+    command: 'shortcut-next',
+    action: 'next',
+    label: 'Next trail step',
+    description: 'Run the same action as ArrowRight on the active Image Trail panel.',
+  },
+  {
+    command: 'shortcut-previous',
+    action: 'previous',
+    label: 'Previous trail step',
+    description: 'Run the same action as ArrowLeft on the active Image Trail panel.',
+  },
+  {
+    command: 'shortcut-download',
+    action: 'download',
+    label: 'Download image',
+    description: 'Download the current image without a Save As prompt.',
+  },
+  {
+    command: 'shortcut-download-save-as',
+    action: 'download-save-as',
+    label: 'Download with Save As',
+    description: 'Download the current image with a Save As prompt.',
+  },
+  {
+    command: 'shortcut-slideshow-toggle',
+    action: 'slideshow-toggle',
+    label: 'Slideshow',
+    description: 'Start, pause, or resume slideshow navigation.',
+  },
+  {
+    command: 'shortcut-stop',
+    action: 'stop',
+    label: 'Stop automation',
+    description: 'Stop active slideshow and retry automation.',
+  },
+  {
+    command: 'shortcut-grab-mode-toggle',
+    action: 'grab-mode-toggle',
+    label: 'Grab mode',
+    description: 'Start or stop target-image grab mode.',
+  },
+  {
+    command: 'shortcut-retry',
+    action: 'retry',
+    label: 'Retry navigation',
+    description: 'Start retry automation for the current image.',
+  },
+];
+
 export const BROWSER_SHORTCUTS: readonly ShortcutReference[] = [
   {
     keys: ['Extension button', 'Browser shortcut'],
     label: 'Open or hide panel',
     description: 'Use the toolbar button or assign the Image Trail action in browser extension shortcuts.',
   },
+  ...BROWSER_COMMAND_SHORTCUTS.map((shortcut) => ({
+    keys: ['Browser shortcut'],
+    label: shortcut.label,
+    description: shortcut.description,
+  })),
   {
     keys: ['Alt+Shift+B'],
     label: 'Build identity overlay',

@@ -105,11 +105,21 @@ test('settings exposes browser, panel, and legacy shortcut decisions', () => {
 
   const text = view.textContent ?? '';
   assert.match(text, /Shortcuts/);
+  assert.doesNotMatch(text, /Keyboard shortcuts/);
   assert.match(text, /Open or hide panel/);
   assert.match(text, /P/);
   assert.match(text, /Hide panel/);
   assert.match(text, /Legacy field jumps not assigned/);
   assert.match(text, /Legacy grayscale hide not assigned/);
+
+  const shortcuts = Array.from(view.querySelectorAll<HTMLElement>('.image-trail-panel__shortcut-row'));
+  assert.ok(shortcuts.length >= 20, 'shortcut reference should render shortcut rows');
+  assert.ok(view.querySelector('.image-trail-panel__shortcut-keys kbd'), 'shortcut keys should render as stable key chips');
+
+  const subheadings = Array.from(view.querySelectorAll('h5')).map((heading) => heading.textContent);
+  assert.ok(subheadings.includes('Browser shortcuts'));
+  assert.ok(subheadings.includes('Panel shortcuts'));
+  assert.ok(subheadings.includes('Legacy keys'));
 });
 
 function recentsSettings(view: HTMLElement): HTMLElement {
