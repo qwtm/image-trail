@@ -4,9 +4,6 @@ export function createShortcutSettingsView(): HTMLElement {
   const wrapper = document.createElement('div');
   wrapper.className = 'image-trail-panel__settings-templates';
 
-  const heading = document.createElement('h4');
-  heading.textContent = 'Keyboard shortcuts';
-
   const browserHeading = document.createElement('h5');
   browserHeading.textContent = 'Browser shortcuts';
   const browserList = createShortcutList(BROWSER_SHORTCUTS);
@@ -25,23 +22,41 @@ export function createShortcutSettingsView(): HTMLElement {
   legacyHeading.textContent = 'Legacy keys';
   const legacyList = createShortcutList(LEGACY_SHORTCUT_DECISIONS);
 
-  wrapper.append(heading, browserHeading, browserList, panelHeading, panelList, legacyHeading, legacyList);
+  wrapper.append(browserHeading, browserList, panelHeading, panelList, legacyHeading, legacyList);
   return wrapper;
 }
 
 function createShortcutList(shortcuts: readonly ShortcutReference[]): HTMLElement {
-  const list = document.createElement('dl');
-  list.className = 'image-trail-panel__build-identity';
+  const list = document.createElement('div');
+  list.className = 'image-trail-panel__shortcut-list';
   for (const shortcut of shortcuts) {
-    appendKeyValueRow(list, shortcut.keys.join(' / '), `${shortcut.label}: ${shortcut.description}`);
+    list.append(createShortcutRow(shortcut));
   }
   return list;
 }
 
-function appendKeyValueRow(list: HTMLDListElement, label: string, value: string): void {
-  const key = document.createElement('dt');
-  key.textContent = label;
-  const data = document.createElement('dd');
-  data.textContent = value;
-  list.append(key, data);
+function createShortcutRow(shortcut: ShortcutReference): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'image-trail-panel__shortcut-row';
+
+  const keys = document.createElement('div');
+  keys.className = 'image-trail-panel__shortcut-keys';
+  for (const key of shortcut.keys) {
+    const keyChip = document.createElement('kbd');
+    keyChip.textContent = key;
+    keys.append(keyChip);
+  }
+
+  const body = document.createElement('div');
+  body.className = 'image-trail-panel__shortcut-body';
+
+  const label = document.createElement('strong');
+  label.textContent = shortcut.label;
+
+  const description = document.createElement('span');
+  description.textContent = shortcut.description;
+
+  body.append(label, description);
+  row.append(keys, body);
+  return row;
 }
