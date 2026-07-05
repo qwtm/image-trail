@@ -223,6 +223,7 @@ async function sendToggle(tabId: number): Promise<void> {
 }
 
 async function sendToggleBuildIdentityOverlay(tabId: number): Promise<void> {
+  await ensureContentScript(tabId);
   const response = await chrome.tabs.sendMessage(tabId, createToggleBuildIdentityOverlayMessage());
   if (!isStatusMessage(response)) {
     console.warn('Image Trail received an unexpected build-info toggle response.', response);
