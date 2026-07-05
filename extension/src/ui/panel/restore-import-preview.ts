@@ -246,7 +246,7 @@ export function createUrlReviewStatusRestorePreview(
 
 function imagePayloadPreviewSample(
   url: string,
-  options: { readonly label?: string; readonly title?: string; readonly detail?: string } = {},
+  options: { readonly label?: string | undefined; readonly title?: string | undefined; readonly detail?: string | undefined } = {},
 ): NonNullable<ImportRestorePreviewState['samples']>[number] {
   return {
     label: options.label ?? options.title ?? filenameFromUrl(url),

@@ -11,9 +11,9 @@ export interface UrlTemplateField {
   readonly placeholder: string;
   readonly location: UrlField['location'];
   readonly tokenKind: UrlField['tokenKind'];
-  readonly partIndex?: number;
-  readonly queryIndex?: number;
-  readonly queryKey?: string;
+  readonly partIndex?: number | undefined;
+  readonly queryIndex?: number | undefined;
+  readonly queryKey?: string | undefined;
   readonly tokenIndex: number;
 }
 
@@ -31,7 +31,7 @@ export interface GrabSourcePattern {
   readonly hostname: string;
   readonly patternUrl: string;
   readonly matchRules: UrlTemplateMatchRules;
-  readonly grabStrategy?: UrlTemplateGrabStrategy;
+  readonly grabStrategy?: UrlTemplateGrabStrategy | undefined;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly useCount: number;
@@ -46,7 +46,7 @@ export interface UrlTemplateRecord {
   readonly fields: readonly UrlTemplateField[];
   readonly hideExcludedFields: boolean;
   readonly autoApplyEnabled: boolean;
-  readonly grabStrategy?: UrlTemplateGrabStrategy;
+  readonly grabStrategy?: UrlTemplateGrabStrategy | undefined;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly useCount: number;
@@ -56,8 +56,8 @@ export function createUrlTemplateRecord(input: {
   readonly model: ParsedUrlModel;
   readonly fields: readonly UrlField[];
   readonly includedFieldIds: readonly string[];
-  readonly existing?: UrlTemplateRecord;
-  readonly now?: string;
+  readonly existing?: UrlTemplateRecord | undefined;
+  readonly now?: string | undefined;
 }): UrlTemplateRecord | null {
   const included = input.fields.filter((field) => input.includedFieldIds.includes(field.id));
   if (included.length === 0) return null;
@@ -84,9 +84,9 @@ export function createUrlTemplateRecord(input: {
 
 export function createGrabSourcePattern(input: {
   readonly model: ParsedUrlModel;
-  readonly existing?: GrabSourcePattern;
-  readonly grabStrategy?: UrlTemplateGrabStrategy;
-  readonly now?: string;
+  readonly existing?: GrabSourcePattern | undefined;
+  readonly grabStrategy?: UrlTemplateGrabStrategy | undefined;
+  readonly now?: string | undefined;
 }): GrabSourcePattern {
   const now = input.now ?? new Date().toISOString();
   const matchRules = templateMatchRules(input.model, 'exact-page-shape');
@@ -116,9 +116,9 @@ export function upsertGrabSourcePattern(
 export function updateGrabSourcePatternSettings(
   pattern: GrabSourcePattern,
   changes: {
-    readonly matchMode?: UrlTemplateMatchMode;
-    readonly grabStrategy?: UrlTemplateGrabStrategy | null;
-    readonly now?: string;
+    readonly matchMode?: UrlTemplateMatchMode | undefined;
+    readonly grabStrategy?: UrlTemplateGrabStrategy | null | undefined;
+    readonly now?: string | undefined;
   },
 ): GrabSourcePattern {
   const grabStrategy =
@@ -211,11 +211,11 @@ export function templateMatchesModel(
 export function updateTemplateSettings(
   template: UrlTemplateRecord,
   changes: {
-    readonly matchMode?: UrlTemplateMatchMode;
-    readonly hideExcludedFields?: boolean;
-    readonly autoApplyEnabled?: boolean;
-    readonly grabStrategy?: UrlTemplateGrabStrategy | null;
-    readonly now?: string;
+    readonly matchMode?: UrlTemplateMatchMode | undefined;
+    readonly hideExcludedFields?: boolean | undefined;
+    readonly autoApplyEnabled?: boolean | undefined;
+    readonly grabStrategy?: UrlTemplateGrabStrategy | null | undefined;
+    readonly now?: string | undefined;
   },
 ): UrlTemplateRecord {
   const grabStrategy =

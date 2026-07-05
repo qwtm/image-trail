@@ -59,10 +59,12 @@ interface ScrollSnapshot {
   readonly selector: string | null;
   readonly scrollTop: number;
   readonly scrollLeft: number;
-  readonly anchor?: {
-    readonly id: string;
-    readonly top: number;
-  };
+  readonly anchor?:
+    | {
+        readonly id: string;
+        readonly top: number;
+      }
+    | undefined;
 }
 
 const SCROLL_SNAPSHOT_SELECTORS = [

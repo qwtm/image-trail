@@ -180,7 +180,7 @@ export interface CaptureImageMessage {
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
   readonly payload: {
     readonly url: string;
-    readonly sourceRecordId?: string;
+    readonly sourceRecordId?: string | undefined;
     readonly sourceType: CaptureSourceType;
   };
 }
@@ -213,7 +213,7 @@ export interface ExportEncryptedImageMessage {
   readonly payload: {
     readonly url: string;
     readonly fileName: string;
-    readonly blobId?: string;
+    readonly blobId?: string | undefined;
   };
 }
 
@@ -361,10 +361,10 @@ export interface FetchThumbnailSourceMessage {
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
   readonly payload: {
     readonly url: string;
-    readonly referrer?: string;
-    readonly intent?: ImageRequestIntent;
-    readonly contextKey?: string;
-    readonly sourceProfile?: ImageSourceProfile;
+    readonly referrer?: string | undefined;
+    readonly intent?: ImageRequestIntent | undefined;
+    readonly contextKey?: string | undefined;
+    readonly sourceProfile?: ImageSourceProfile | undefined;
   };
 }
 
@@ -372,7 +372,13 @@ export interface FetchThumbnailSourceResultMessage {
   readonly type: typeof MessageType.FetchThumbnailSourceResult;
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
   readonly payload:
-    | { readonly ok: true; readonly dataUrl: string; readonly mimeType: string; readonly byteLength: number; readonly sha256?: string }
+    | {
+        readonly ok: true;
+        readonly dataUrl: string;
+        readonly mimeType: string;
+        readonly byteLength: number;
+        readonly sha256?: string | undefined;
+      }
     | { readonly ok: false; readonly reason: string; readonly message: string };
 }
 
@@ -381,10 +387,10 @@ export interface ProbeImageSourceMessage {
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
   readonly payload: {
     readonly url: string;
-    readonly referrer?: string;
+    readonly referrer?: string | undefined;
     readonly timeoutMs: number;
-    readonly contextKey?: string;
-    readonly probeMethod?: ImageProbeMethod;
+    readonly contextKey?: string | undefined;
+    readonly probeMethod?: ImageProbeMethod | undefined;
   };
 }
 
@@ -401,9 +407,9 @@ export interface FetchBufferedImageSourceMessage {
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
   readonly payload: {
     readonly url: string;
-    readonly referrer?: string;
-    readonly intent?: ImageRequestIntent;
-    readonly contextKey?: string;
+    readonly referrer?: string | undefined;
+    readonly intent?: ImageRequestIntent | undefined;
+    readonly contextKey?: string | undefined;
   };
 }
 
@@ -411,7 +417,13 @@ export interface FetchBufferedImageSourceResultMessage {
   readonly type: typeof MessageType.FetchBufferedImageSourceResult;
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
   readonly payload:
-    | { readonly ok: true; readonly bytes: ArrayBuffer; readonly mimeType: string; readonly byteLength: number; readonly sha256?: string }
+    | {
+        readonly ok: true;
+        readonly bytes: ArrayBuffer;
+        readonly mimeType: string;
+        readonly byteLength: number;
+        readonly sha256?: string | undefined;
+      }
     | { readonly ok: false; readonly reason: string; readonly message: string };
 }
 
@@ -420,9 +432,9 @@ export interface CheckImageRequestPolicyMessage {
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
   readonly payload: {
     readonly url: string;
-    readonly referrer?: string;
-    readonly intent?: ImageRequestIntent;
-    readonly contextKey?: string;
+    readonly referrer?: string | undefined;
+    readonly intent?: ImageRequestIntent | undefined;
+    readonly contextKey?: string | undefined;
   };
 }
 
@@ -455,7 +467,7 @@ export interface GrantPermissionAndCaptureMessage {
   readonly payload: {
     readonly url: string;
     readonly sourceType: CaptureSourceType;
-    readonly sourceRecordId?: string;
+    readonly sourceRecordId?: string | undefined;
   };
 }
 
@@ -482,7 +494,7 @@ export interface SetupBlobKeyMessage {
 export interface UnlockBlobKeyMessage {
   readonly type: typeof MessageType.UnlockBlobKey;
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
-  readonly payload: { readonly password: string; readonly keyReference?: string };
+  readonly payload: { readonly password: string; readonly keyReference?: string | undefined };
 }
 
 export interface ClearBlobKeyMessage {
@@ -494,7 +506,7 @@ export interface ClearBlobKeyMessage {
 export interface ExportBlobKeyBackupMessage {
   readonly type: typeof MessageType.ExportBlobKeyBackup;
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
-  readonly payload: { readonly password: string; readonly keyReference?: string };
+  readonly payload: { readonly password: string; readonly keyReference?: string | undefined };
 }
 
 export interface ExportBlobKeyBackupResultMessage {
@@ -539,8 +551,8 @@ export interface LoadBookmarksMessage {
   readonly payload: {
     readonly offset: number;
     readonly limit: number;
-    readonly scope?: 'global' | 'site';
-    readonly currentPageUrl?: string;
+    readonly scope?: 'global' | 'site' | undefined;
+    readonly currentPageUrl?: string | undefined;
   };
 }
 
@@ -612,8 +624,8 @@ export interface RemoveRecallBookmarksMessage {
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
   readonly payload: {
     readonly offset: number;
-    readonly scope?: 'global' | 'site';
-    readonly currentPageUrl?: string;
+    readonly scope?: 'global' | 'site' | undefined;
+    readonly currentPageUrl?: string | undefined;
   };
 }
 
@@ -626,7 +638,7 @@ export interface RemoveRecallBookmarksResultMessage {
 export interface LoadRecentHistoryMessage {
   readonly type: typeof MessageType.LoadRecentHistory;
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
-  readonly payload: { readonly pageUrl: string; readonly includeRetained?: boolean };
+  readonly payload: { readonly pageUrl: string; readonly includeRetained?: boolean | undefined };
 }
 
 export interface LoadRecentHistoryResultMessage {
@@ -665,8 +677,8 @@ export interface LoadRecallCandidatesMessage {
   readonly payload: {
     readonly offset: number;
     readonly limit: number;
-    readonly scope?: 'global' | 'site';
-    readonly currentPageUrl?: string;
+    readonly scope?: 'global' | 'site' | undefined;
+    readonly currentPageUrl?: string | undefined;
   };
 }
 
@@ -1378,7 +1390,11 @@ export function createCreateDataUrlPreviewMessage(dataUrl: string): CreateDataUr
 export function createFetchThumbnailSourceMessage(
   url: string,
   referrer?: string,
-  options: { readonly intent?: ImageRequestIntent; readonly contextKey?: string; readonly sourceProfile?: ImageSourceProfile } = {},
+  options: {
+    readonly intent?: ImageRequestIntent | undefined;
+    readonly contextKey?: string | undefined;
+    readonly sourceProfile?: ImageSourceProfile | undefined;
+  } = {},
 ): FetchThumbnailSourceMessage {
   return { type: MessageType.FetchThumbnailSource, version: MESSAGE_PROTOCOL_VERSION, payload: { url, referrer, ...options } };
 }
@@ -1602,8 +1618,8 @@ export function createRemoveRecentHistoryResultMessage(
 export function createLoadRecallCandidatesMessage(input: {
   readonly offset: number;
   readonly limit: number;
-  readonly scope?: 'global' | 'site';
-  readonly currentPageUrl?: string;
+  readonly scope?: 'global' | 'site' | undefined;
+  readonly currentPageUrl?: string | undefined;
 }): LoadRecallCandidatesMessage {
   return { type: MessageType.LoadRecallCandidates, version: MESSAGE_PROTOCOL_VERSION, payload: input };
 }

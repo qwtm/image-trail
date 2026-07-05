@@ -26,7 +26,7 @@ export async function requestImageDownload(
 export interface EncryptedImageExportRequest {
   readonly url: string;
   readonly fileName: string;
-  readonly blobId?: string;
+  readonly blobId?: string | undefined;
 }
 
 export async function requestEncryptedImageExport(

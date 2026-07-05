@@ -552,7 +552,11 @@ export class RecallExportController {
     this.deps.render();
   }
 
-  private encryptedImageExportTargets(): readonly { readonly url: string; readonly fileName: string; readonly blobId?: string }[] {
+  private encryptedImageExportTargets(): readonly {
+    readonly url: string;
+    readonly fileName: string;
+    readonly blobId?: string | undefined;
+  }[] {
     const selected = this.selectedImageDownloadRecords();
     if (selected.length > 0) {
       return selected.map((record) => ({

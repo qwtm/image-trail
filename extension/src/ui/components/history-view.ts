@@ -10,7 +10,7 @@ type HistoryAction =
   | { readonly name: 'history-selection/select'; readonly ids: readonly string[]; readonly mode?: 'replace' | 'add' }
   | { readonly name: 'history-selection/clear' }
   | { readonly name: 'capture/request'; readonly url: string; readonly sourceType: 'history'; readonly sourceRecordId: string }
-  | { readonly name: 'capture/preview'; readonly url: string; readonly blobId?: string }
+  | { readonly name: 'capture/preview'; readonly url: string; readonly blobId?: string | undefined }
   | { readonly name: 'capture/delete'; readonly id: string; readonly blobId: string };
 
 interface HistoryViewOptions {

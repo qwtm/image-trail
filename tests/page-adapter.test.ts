@@ -333,7 +333,11 @@ test('selected image projection load reports projection ownership metadata', asy
   const image = new FakeImageElement();
   const restoreDom = installFakeDom(image);
   const adapter = new PageAdapter();
-  const loaded: Array<{ readonly url: string; readonly projectionId?: string; readonly projectionReason?: string }> = [];
+  const loaded: Array<{
+    readonly url: string;
+    readonly projectionId?: string | undefined;
+    readonly projectionReason?: string | undefined;
+  }> = [];
 
   try {
     adapter.autoSelectSingleImage();
@@ -372,7 +376,7 @@ test('selected image load ignores stale projection completion after newer projec
   const image = new FakeImageElement();
   const restoreDom = installFakeDom(image);
   const adapter = new PageAdapter();
-  const loaded: Array<{ readonly url: string; readonly projectionId?: string }> = [];
+  const loaded: Array<{ readonly url: string; readonly projectionId?: string | undefined }> = [];
 
   try {
     adapter.autoSelectSingleImage();

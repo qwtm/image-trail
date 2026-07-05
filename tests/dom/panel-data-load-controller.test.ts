@@ -13,14 +13,14 @@ window.location.href = 'https://images.example.test/gallery';
 interface Harness {
   readonly controller: PanelDataLoadController;
   readonly log: string[];
-  readonly loadPageInputs: { offset: number; currentPageUrl?: string }[];
+  readonly loadPageInputs: { offset: number; currentPageUrl?: string | undefined }[];
   getState(): PanelState;
 }
 
 function createHarness(): Harness {
   let state = createInitialPanelState(0);
   const log: string[] = [];
-  const loadPageInputs: { offset: number; currentPageUrl?: string }[] = [];
+  const loadPageInputs: { offset: number; currentPageUrl?: string | undefined }[] = [];
   const bookmarkStore: BookmarkStore = {
     loadPage: async (input: { offset: number; limit: number; scope?: 'global' | 'site'; currentPageUrl?: string }) => {
       loadPageInputs.push({ offset: input.offset, currentPageUrl: input.currentPageUrl });

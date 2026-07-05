@@ -8,8 +8,8 @@ const CONNECTION_KEY = 'imageTrail.pcloudConnection';
 
 interface FetchCall {
   readonly url: string;
-  readonly init?: RequestInit;
-  readonly body?: BodyInit | null;
+  readonly init?: RequestInit | undefined;
+  readonly body?: BodyInit | null | undefined;
 }
 
 function jsonResponse(body: Record<string, unknown>, ok = true): Response {

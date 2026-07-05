@@ -49,7 +49,11 @@ function createThumbnailDataUrlFromDrawable(
 
 export async function fetchThumbnailSource(
   url: string,
-  options: { readonly intent?: ImageRequestIntent; readonly contextKey?: string; readonly sourceProfile?: ImageSourceProfile } = {},
+  options: {
+    readonly intent?: ImageRequestIntent | undefined;
+    readonly contextKey?: string | undefined;
+    readonly sourceProfile?: ImageSourceProfile | undefined;
+  } = {},
 ): Promise<FetchThumbnailSourceResultMessage['payload']> {
   try {
     const response = await sendRuntimeMessage(createFetchThumbnailSourceMessage(url, document.location.href, options));

@@ -3,35 +3,39 @@ import type { CaptureStatus, StoredOriginalReference } from './image/capture-res
 export interface ImageDisplayRecord {
   readonly id: string;
   readonly url: string;
-  readonly title?: string;
-  readonly label?: string;
-  readonly thumbnail?: string;
-  readonly width?: number;
-  readonly height?: number;
+  readonly title?: string | undefined;
+  readonly label?: string | undefined;
+  readonly thumbnail?: string | undefined;
+  readonly width?: number | undefined;
+  readonly height?: number | undefined;
   readonly timestamp: string;
-  readonly queueUpdatedAt?: string;
-  readonly pinnedAt?: string;
-  readonly pinnedRecordId?: string;
-  readonly downloadedAt?: string;
-  readonly capturedAt?: string;
-  readonly source?: 'history' | 'bookmark' | 'favorites';
-  readonly captureStatus?: CaptureStatus;
-  readonly blobId?: string;
-  readonly storedOriginal?: StoredOriginalReference;
-  readonly pinSaveStorage?: {
-    readonly destination: 'encrypted' | 'plaintext';
-    readonly reason?: 'setting' | 'locked' | 'unavailable' | 'failed';
-  };
-  readonly privacyStatus?: 'locked' | 'unlocked';
-  readonly protectedPin?: {
-    readonly plainPinId: string;
-    readonly encryptedPinId?: string;
-    readonly encryptedThumbnailId?: string;
-    readonly storedOriginalBlobId?: string;
-    readonly hasEncryptedMetadata: boolean;
-    readonly hasEncryptedThumbnail: boolean;
-    readonly hasStoredOriginal: boolean;
-  };
+  readonly queueUpdatedAt?: string | undefined;
+  readonly pinnedAt?: string | undefined;
+  readonly pinnedRecordId?: string | undefined;
+  readonly downloadedAt?: string | undefined;
+  readonly capturedAt?: string | undefined;
+  readonly source?: 'history' | 'bookmark' | 'favorites' | undefined;
+  readonly captureStatus?: CaptureStatus | undefined;
+  readonly blobId?: string | undefined;
+  readonly storedOriginal?: StoredOriginalReference | undefined;
+  readonly pinSaveStorage?:
+    | {
+        readonly destination: 'encrypted' | 'plaintext';
+        readonly reason?: 'setting' | 'locked' | 'unavailable' | 'failed' | undefined;
+      }
+    | undefined;
+  readonly privacyStatus?: 'locked' | 'unlocked' | undefined;
+  readonly protectedPin?:
+    | {
+        readonly plainPinId: string;
+        readonly encryptedPinId?: string | undefined;
+        readonly encryptedThumbnailId?: string | undefined;
+        readonly storedOriginalBlobId?: string | undefined;
+        readonly hasEncryptedMetadata: boolean;
+        readonly hasEncryptedThumbnail: boolean;
+        readonly hasStoredOriginal: boolean;
+      }
+    | undefined;
 }
 
 export const IMAGE_RECORD_EXTENSIONS = ['PNG', 'JPG', 'JPEG', 'GIF', 'WEBP'] as const;
@@ -152,7 +156,11 @@ function isImageRecordExtension(value: string): value is (typeof IMAGE_RECORD_EX
 }
 
 export function createDisplayRecord(
-  input: Omit<ImageDisplayRecord, 'id' | 'label' | 'timestamp'> & Partial<Pick<ImageDisplayRecord, 'id' | 'label' | 'timestamp'>>,
+  input: Omit<ImageDisplayRecord, 'id' | 'label' | 'timestamp'> & {
+    readonly id?: string | undefined;
+    readonly label?: string | undefined;
+    readonly timestamp?: string | undefined;
+  },
 ): ImageDisplayRecord {
   const timestamp = input.timestamp ?? new Date().toISOString();
   const id = input.id ?? createDisplayRecordId(timestamp, input.url);

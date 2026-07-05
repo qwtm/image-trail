@@ -3,13 +3,13 @@ export type UrlTokenKind = 'int' | 'hex' | 'text';
 export interface UrlToken {
   readonly kind: UrlTokenKind;
   readonly value: string;
-  readonly width?: number;
-  readonly prefix?: '0x' | '0X';
-  readonly uppercase?: boolean;
-  readonly originalTokenIndex?: number;
-  readonly splitBaseId?: string;
-  readonly splitPartIndex?: number;
-  readonly splitPartCount?: number;
+  readonly width?: number | undefined;
+  readonly prefix?: '0x' | '0X' | undefined;
+  readonly uppercase?: boolean | undefined;
+  readonly originalTokenIndex?: number | undefined;
+  readonly splitBaseId?: string | undefined;
+  readonly splitPartIndex?: number | undefined;
+  readonly splitPartCount?: number | undefined;
 }
 
 export interface PathSeparator {
@@ -53,21 +53,21 @@ export interface UrlField {
   readonly label: string;
   readonly value: string;
   readonly tokenKind: UrlTokenKind;
-  readonly digitWidth?: number;
-  readonly partIndex?: number;
-  readonly queryIndex?: number;
+  readonly digitWidth?: number | undefined;
+  readonly partIndex?: number | undefined;
+  readonly queryIndex?: number | undefined;
   readonly tokenIndex: number;
-  readonly originalTokenIndex?: number;
-  readonly splitBaseId?: string;
-  readonly splitPartIndex?: number;
-  readonly splitPartCount?: number;
+  readonly originalTokenIndex?: number | undefined;
+  readonly splitBaseId?: string | undefined;
+  readonly splitPartIndex?: number | undefined;
+  readonly splitPartCount?: number | undefined;
 }
 
 export interface UrlFieldSplitSpec {
   readonly baseFieldId: string;
   readonly location: UrlFieldLocation;
-  readonly partIndex?: number;
-  readonly queryIndex?: number;
+  readonly partIndex?: number | undefined;
+  readonly queryIndex?: number | undefined;
   readonly tokenIndex: number;
   readonly lengths: readonly number[];
   readonly pattern: string;
@@ -76,5 +76,5 @@ export interface UrlFieldSplitSpec {
 export interface UrlFieldDigitWidthSpec {
   readonly fieldId: string;
   readonly width: number;
-  readonly sourceWidth?: number;
+  readonly sourceWidth?: number | undefined;
 }

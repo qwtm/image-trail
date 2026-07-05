@@ -29,7 +29,7 @@ export interface FetchImageFailure {
 export type FetchImageResult = FetchImageSuccess | FetchImageFailure;
 
 export interface FetchImageOptions {
-  readonly referrer?: string;
+  readonly referrer?: string | undefined;
 }
 
 export async function fetchImageBytes(

@@ -24,10 +24,10 @@ interface ValidatedRecordUrl extends ImageRecordUrlValidation {
 }
 
 export interface RecordAddOptions {
-  readonly trustLoadedImage?: boolean;
-  readonly width?: number;
-  readonly height?: number;
-  readonly projectionId?: string;
+  readonly trustLoadedImage?: boolean | undefined;
+  readonly width?: number | undefined;
+  readonly height?: number | undefined;
+  readonly projectionId?: string | undefined;
 }
 
 export interface RecordLibraryControllerDeps {

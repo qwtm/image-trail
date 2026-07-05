@@ -19,7 +19,7 @@ export interface CapturedOriginalsControllerDeps {
   render(options?: { readonly includeRecall?: boolean }): void;
   renderPanelAndRefreshRecall(): void;
   loadBookmarkPage(offset: number, options?: { readonly render?: boolean }): Promise<void>;
-  refreshStorageUsage(options?: { readonly render?: boolean }): Promise<void>;
+  refreshStorageUsage(options?: { readonly render?: boolean | undefined }): Promise<void>;
   applyStorageUsage(usage: NonNullable<PanelState['storageUsage']>): void;
   // Cancels in-flight storage-usage refreshes (the panel-owned request-id bump) so a stale response
   // cannot overwrite the usage snapshot this controller just applied.

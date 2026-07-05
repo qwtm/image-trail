@@ -55,35 +55,35 @@ export interface StoredOriginalReference {
 
 export interface DurableHistoryPayloadV1 {
   readonly url: string;
-  readonly title?: string;
-  readonly label?: string;
-  readonly thumbnail?: string;
+  readonly title?: string | undefined;
+  readonly label?: string | undefined;
+  readonly thumbnail?: string | undefined;
   readonly capturedAt: string;
   readonly captureStatus: 'remote-only' | 'downloaded' | 'failed';
-  readonly storedOriginal?: StoredOriginalReference;
+  readonly storedOriginal?: StoredOriginalReference | undefined;
 }
 
 export interface DurableBookmarkPayloadV1 {
   readonly url: string;
-  readonly title?: string;
-  readonly label?: string;
-  readonly thumbnail?: string;
-  readonly width?: number;
-  readonly height?: number;
+  readonly title?: string | undefined;
+  readonly label?: string | undefined;
+  readonly thumbnail?: string | undefined;
+  readonly width?: number | undefined;
+  readonly height?: number | undefined;
   readonly bookmarkedAt: string;
-  readonly downloadedAt?: string;
-  readonly capturedAt?: string;
-  readonly sourceCompatibility?: 'favorites';
-  readonly storedOriginal?: StoredOriginalReference;
-  readonly protectedPin?: ProtectedPinRelationshipV1;
+  readonly downloadedAt?: string | undefined;
+  readonly capturedAt?: string | undefined;
+  readonly sourceCompatibility?: 'favorites' | undefined;
+  readonly storedOriginal?: StoredOriginalReference | undefined;
+  readonly protectedPin?: ProtectedPinRelationshipV1 | undefined;
 }
 
 export interface ProtectedPinRelationshipV1 {
   readonly schemaVersion: 1;
   readonly plainPinId: string;
-  readonly encryptedPinId?: string;
-  readonly encryptedThumbnailId?: string;
-  readonly storedOriginalBlobId?: string;
+  readonly encryptedPinId?: string | undefined;
+  readonly encryptedThumbnailId?: string | undefined;
+  readonly storedOriginalBlobId?: string | undefined;
   readonly queueUpdatedAt: string;
   readonly hasEncryptedMetadata: boolean;
   readonly hasEncryptedThumbnail: boolean;
@@ -92,26 +92,26 @@ export interface ProtectedPinRelationshipV1 {
 
 export interface DurableEncryptedPinPayloadV1 {
   readonly url: string;
-  readonly title?: string;
-  readonly label?: string;
-  readonly width?: number;
-  readonly height?: number;
+  readonly title?: string | undefined;
+  readonly label?: string | undefined;
+  readonly width?: number | undefined;
+  readonly height?: number | undefined;
   readonly bookmarkedAt: string;
-  readonly downloadedAt?: string;
-  readonly capturedAt?: string;
-  readonly sourceCompatibility?: 'favorites';
-  readonly storedOriginal?: StoredOriginalReference;
-  readonly thumbnailId?: string;
+  readonly downloadedAt?: string | undefined;
+  readonly capturedAt?: string | undefined;
+  readonly sourceCompatibility?: 'favorites' | undefined;
+  readonly storedOriginal?: StoredOriginalReference | undefined;
+  readonly thumbnailId?: string | undefined;
 }
 
 export interface DurableDownloadPayloadV1 {
   readonly sourceUrl: string;
   readonly filename: string;
-  readonly originalFilename?: string;
-  readonly mimeType?: string;
-  readonly byteLength?: number;
-  readonly fingerprint?: string;
+  readonly originalFilename?: string | undefined;
+  readonly mimeType?: string | undefined;
+  readonly byteLength?: number | undefined;
+  readonly fingerprint?: string | undefined;
   readonly downloadedAt: string;
-  readonly sourceRecordUuid?: string;
-  readonly fileFormatVersion?: number;
+  readonly sourceRecordUuid?: string | undefined;
+  readonly fileFormatVersion?: number | undefined;
 }

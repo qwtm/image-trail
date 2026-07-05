@@ -2,13 +2,13 @@ export type PCloudApiHost = 'api.pcloud.com' | 'eapi.pcloud.com';
 
 export interface PCloudProviderStatus {
   readonly connected: boolean;
-  readonly apiHost?: PCloudApiHost;
-  readonly connectedAt?: string;
-  readonly accountPremium?: boolean;
-  readonly quotaBytes?: number;
-  readonly usedQuotaBytes?: number;
-  readonly message?: string;
-  readonly messageIsError?: boolean;
+  readonly apiHost?: PCloudApiHost | undefined;
+  readonly connectedAt?: string | undefined;
+  readonly accountPremium?: boolean | undefined;
+  readonly quotaBytes?: number | undefined;
+  readonly usedQuotaBytes?: number | undefined;
+  readonly message?: string | undefined;
+  readonly messageIsError?: boolean | undefined;
 }
 
 export interface PCloudProviderResult {
@@ -26,8 +26,8 @@ export interface PCloudBackupRestoreCandidate {
   readonly fileId: number;
   readonly fileName: string;
   readonly sizeBytes: number;
-  readonly modifiedAt?: string;
-  readonly sha1?: string;
+  readonly modifiedAt?: string | undefined;
+  readonly sha1?: string | undefined;
 }
 
 export interface PCloudBackupDownloadInput {
@@ -53,8 +53,8 @@ export type PCloudBackupUploadResult =
       readonly status: PCloudProviderStatus;
       readonly reason: string;
       readonly message: string;
-      readonly cleanupFileId?: number;
-      readonly cleanupNeeded?: boolean;
+      readonly cleanupFileId?: number | undefined;
+      readonly cleanupNeeded?: boolean | undefined;
     };
 
 export type PCloudBackupListResult =
