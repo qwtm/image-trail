@@ -59,13 +59,188 @@ function panelState(overrides: Partial<PanelState> = {}): PanelState {
   };
 }
 
+test('the Settings header renders a detach control that dispatches section/detach', () => {
+  const harness = createHarness();
+  harness.render(panelState({ settingsOpen: true }));
+
+  const detach = harness.root.querySelector<HTMLButtonElement>('[data-image-trail-detach="settings"]');
+  assert.ok(detach instanceof HTMLButtonElement, 'the detach control renders inside the Settings header');
+  assert.equal(harness.root.querySelector('.image-trail-panel__settings-section')?.contains(detach), true);
+
+  detach.click();
+  assert.deepEqual(harness.actions, [{ name: 'section/detach', sectionId: 'settings' }]);
+});
+
+test('the detached window body scroll survives rerenders (Settings scrolls on the body, not a record list)', () => {
+  const harness = createHarness();
+  harness.render(panelState({ settingsOpen: true, detachedSections: ['settings'] }));
+  const body = harness.detachedRoot.querySelector<HTMLElement>(
+    '[data-image-trail-detached-window="settings"] .image-trail-panel__detached-body',
+  );
+  assert.ok(body, 'the Settings window renders a scrollable body');
+  body.scrollTop = 33;
+
+  harness.render(panelState({ settingsOpen: true, detachedSections: ['settings'] }));
+
+  const nextBody = harness.detachedRoot.querySelector<HTMLElement>(
+    '[data-image-trail-detached-window="settings"] .image-trail-panel__detached-body',
+  );
+  assert.ok(nextBody);
+  assert.equal(nextBody.scrollTop, 33, 'body scroll is preserved across the detached rerender');
+});
+
+test('a hidden detached neighbor does not shift another window’s default stack position', () => {
+  const openHarness = createHarness();
+  openHarness.render(panelState({ settingsOpen: true, detachedSections: ['settings', 'history'] }));
+  const withSettingsVisible = openHarness.detachedRoot.querySelector<HTMLElement>('[data-image-trail-detached-window="history"]');
+  assert.ok(withSettingsVisible);
+
+  const closedHarness = createHarness();
+  closedHarness.render(panelState({ settingsOpen: false, detachedSections: ['settings', 'history'] }));
+  const withSettingsHidden = closedHarness.detachedRoot.querySelector<HTMLElement>('[data-image-trail-detached-window="history"]');
+  assert.ok(withSettingsHidden, 'the history window renders even while the Settings window is hidden');
+
+  assert.equal(withSettingsHidden.style.left, withSettingsVisible.style.left, 'default left is stable');
+  assert.equal(withSettingsHidden.style.top, withSettingsVisible.style.top, 'default top is stable');
+});
+
+test('detached Settings renders a placeholder and a wider window only while Settings is open', () => {
+  const harness = createHarness();
+  harness.render(panelState({ settingsOpen: true, detachedSections: ['settings'] }));
+
+  assert.equal(harness.root.querySelector('.image-trail-panel__settings-section'), null, 'Settings leaves the panel root');
+  assert.ok(harness.root.querySelector('[data-image-trail-detached-placeholder="settings"]'), 'a placeholder holds the Settings slot');
+  const windowEl = harness.detachedRoot.querySelector<HTMLElement>('[data-image-trail-detached-window="settings"]');
+  assert.ok(windowEl, 'the Settings window renders while Settings is open');
+  assert.equal(windowEl.getAttribute('aria-label'), 'Settings (detached)');
+  assert.ok(windowEl.querySelector('.image-trail-panel__settings-section'), 'the window hosts the Settings content');
+  assert.equal(windowEl.style.width, '420px', 'Settings gets the wider window default');
+
+  harness.render(panelState({ settingsOpen: false, detachedSections: ['settings'] }));
+
+  assert.equal(harness.root.querySelector('[data-image-trail-detached-placeholder="settings"]'), null, 'no placeholder while closed');
+  assert.equal(harness.detachedRoot.querySelector('[data-image-trail-detached-window="settings"]'), null, 'no window while closed');
+});
+
+test('a settings change dispatched from the detached window routes through the normal settings actions', () => {
+  const harness = createHarness();
+  harness.render(panelState({ settingsOpen: true, detachedSections: ['settings'] }));
+  const windowEl = harness.detachedRoot.querySelector<HTMLElement>('[data-image-trail-detached-window="settings"]');
+  assert.ok(windowEl);
+  const checkbox = windowEl.querySelector<HTMLInputElement>('.image-trail-panel__settings-checkbox input[type="checkbox"]');
+  assert.ok(checkbox instanceof HTMLInputElement, 'a settings checkbox renders inside the window');
+
+  checkbox.click();
+
+  assert.equal(harness.actions.length, 1);
+  const action = harness.actions[0] as { name: string };
+  assert.match(action.name, /^settings\//, 'the change dispatches a normal settings action');
+});
+
+test('Escape originating in an editable control does not restore the window', () => {
+  const harness = createHarness();
+  harness.render(panelState({ settingsOpen: true, detachedSections: ['settings'] }));
+  const windowEl = harness.detachedRoot.querySelector<HTMLElement>('[data-image-trail-detached-window="settings"]');
+  assert.ok(windowEl);
+  const input = windowEl.querySelector<HTMLInputElement>('input');
+  assert.ok(input instanceof HTMLInputElement, 'the Settings window contains an input');
+
+  const escapeFromInput = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true });
+  input.dispatchEvent(escapeFromInput);
+
+  assert.equal(escapeFromInput.defaultPrevented, false, 'the window leaves Escape to the editable control');
+  assert.deepEqual(harness.actions, [], 'no restore dispatches from an editable control');
+
+  windowEl.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+  assert.deepEqual(harness.actions, [{ name: 'section/restore', sectionId: 'settings' }]);
+});
+
+test('the Queue section detaches like Recent history: control, placeholder, and window content', () => {
+  const harness = createHarness();
+  harness.render(panelState({ bookmarks: [{ ...record, id: 'queue-1', source: 'bookmark' }], bookmarkTotal: 1 }));
+
+  const detach = harness.root.querySelector<HTMLButtonElement>('[data-image-trail-detach="bookmarks"]');
+  assert.ok(detach instanceof HTMLButtonElement, 'the detach control renders inside the Queue header');
+  detach.click();
+  assert.deepEqual(harness.actions, [{ name: 'section/detach', sectionId: 'bookmarks' }]);
+
+  harness.render(
+    panelState({ bookmarks: [{ ...record, id: 'queue-1', source: 'bookmark' }], bookmarkTotal: 1, detachedSections: ['bookmarks'] }),
+  );
+
+  assert.equal(harness.root.querySelector('.image-trail-panel__bookmarks-section'), null, 'the Queue section leaves the panel root');
+  assert.ok(harness.root.querySelector('[data-image-trail-detached-placeholder="bookmarks"]'));
+  const windowEl = harness.detachedRoot.querySelector<HTMLElement>('[data-image-trail-detached-window="bookmarks"]');
+  assert.ok(windowEl, 'the Queue window renders into the detached root');
+  assert.equal(windowEl.getAttribute('aria-label'), 'Queue (detached)');
+  assert.ok(windowEl.querySelector('[data-image-trail-row-id="queue-1"]'), 'the detached Queue still renders its rows');
+});
+
+test('dragging the detach control past the threshold detaches at the drop position without double-dispatching', () => {
+  const harness = createHarness();
+  harness.render(panelState());
+  const detach = harness.root.querySelector<HTMLButtonElement>('[data-image-trail-detach="history"]');
+  assert.ok(detach instanceof HTMLButtonElement);
+  (detach as HTMLButtonElement & { setPointerCapture(id: number): void }).setPointerCapture = () => {};
+  (detach as HTMLButtonElement & { releasePointerCapture(id: number): void }).releasePointerCapture = () => {};
+
+  detach.dispatchEvent(new MouseEvent('pointerdown', { button: 0, clientX: 40, clientY: 40, bubbles: true, cancelable: true }));
+  detach.dispatchEvent(new MouseEvent('pointermove', { clientX: 300, clientY: 220, bubbles: true }));
+  detach.dispatchEvent(new MouseEvent('pointerup', { clientX: 300, clientY: 220, bubbles: true }));
+  // Browsers fire a click after pointerup on the same element; the control must swallow it.
+  detach.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+  assert.deepEqual(harness.actions, [{ name: 'section/detach', sectionId: 'history' }], 'exactly one detach dispatches');
+  assert.deepEqual(harness.layoutState.detachedWindowPositions.get('history'), { left: 276, top: 208 });
+  assert.equal(document.querySelector('.image-trail-panel__detach-ghost'), null, 'the drop ghost is removed');
+
+  harness.render(panelState({ detachedSections: ['history'] }));
+  const windowEl = harness.detachedRoot.querySelector<HTMLElement>('[data-image-trail-detached-window="history"]');
+  assert.ok(windowEl);
+  assert.equal(windowEl.style.left, '276px', 'the window opens at the drop position');
+  assert.equal(windowEl.style.top, '208px');
+});
+
+test('drag-out clamps the drop position against the section’s actual window width', () => {
+  const harness = createHarness();
+  harness.render(panelState({ settingsOpen: true }));
+  const detach = harness.root.querySelector<HTMLButtonElement>('[data-image-trail-detach="settings"]');
+  assert.ok(detach instanceof HTMLButtonElement);
+  (detach as HTMLButtonElement & { setPointerCapture(id: number): void }).setPointerCapture = () => {};
+  (detach as HTMLButtonElement & { releasePointerCapture(id: number): void }).releasePointerCapture = () => {};
+
+  detach.dispatchEvent(new MouseEvent('pointerdown', { button: 0, clientX: 40, clientY: 40, bubbles: true, cancelable: true }));
+  detach.dispatchEvent(new MouseEvent('pointermove', { clientX: 1000, clientY: 100, bubbles: true }));
+  detach.dispatchEvent(new MouseEvent('pointerup', { clientX: 1000, clientY: 100, bubbles: true }));
+  detach.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+  // viewport 1024 wide; Settings window is 420px → maxLeft = 1024 - 420 - 12 = 592, not the
+  // 672 a fixed 340px ghost would have allowed (which renders 80px off-screen).
+  assert.deepEqual(harness.layoutState.detachedWindowPositions.get('settings'), { left: 592, top: 88 });
+});
+
+test('a sub-threshold press still detaches via the plain click path', () => {
+  const harness = createHarness();
+  harness.render(panelState());
+  const detach = harness.root.querySelector<HTMLButtonElement>('[data-image-trail-detach="history"]');
+  assert.ok(detach instanceof HTMLButtonElement);
+
+  detach.dispatchEvent(new MouseEvent('pointerdown', { button: 0, clientX: 40, clientY: 40, bubbles: true, cancelable: true }));
+  detach.dispatchEvent(new MouseEvent('pointermove', { clientX: 42, clientY: 41, bubbles: true }));
+  detach.dispatchEvent(new MouseEvent('pointerup', { clientX: 42, clientY: 41, bubbles: true }));
+  detach.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+  assert.deepEqual(harness.actions, [{ name: 'section/detach', sectionId: 'history' }]);
+  assert.equal(harness.layoutState.detachedWindowPositions.has('history'), false, 'a plain click keeps the default position');
+});
+
 test('the history section header renders a keyboard-accessible detach control that dispatches section/detach', () => {
   const harness = createHarness();
   harness.render(panelState());
 
   const detach = harness.root.querySelector<HTMLButtonElement>('[data-image-trail-detach="history"]');
   assert.ok(detach instanceof HTMLButtonElement, 'the detach control renders inside the history section');
-  assert.equal(detach.getAttribute('aria-label'), 'Detach Recent history into a floating window');
+  assert.equal(detach.getAttribute('aria-label'), 'Detach Recent history into a floating window (drag to place)');
   assert.equal(harness.root.querySelector('.image-trail-panel__history-section')?.contains(detach), true);
 
   detach.click();

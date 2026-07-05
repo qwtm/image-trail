@@ -8,23 +8,30 @@ import {
   createSectionDetachControl,
   type DetachedWindowPosition,
 } from './components/detachable-section.js';
-import { createEncryptionView } from './components/encryption-view.js';
 import { createUrlEditorView } from './components/url-editor-view.js';
 import { createHistoryView } from './components/history-view.js';
-import {
-  createCloudBackupView,
-  createImageTransferView,
-  createImportExportView,
-  type CloudBackupProviderState,
-  type ImportExportViewState,
-} from './components/import-export-view.js';
 import { createRecallDrawerView, type RecallDrawerGeometry } from './components/recall-drawer-view.js';
-import { createSettingsView } from './components/settings-view.js';
+import { createSettingsSection } from './settings-section.js';
 import { createStatusView } from './components/status-view.js';
 import { createTargetPickerView } from './components/target-picker-view.js';
 import { activeUrlFieldsForState } from './active-url-fields.js';
+
+import type { UrlField } from '../core/url/types.js';
 import { createParsedFieldsSection, type NumericFieldDisplayMode } from './parsed-fields-section.js';
-import { recallDeleteCountForQueue } from './recall-delete-count.js';
+
+// PanelState is immutable per render, so the URL parse/tokenization is shared between the main
+// panel pass and the detached Settings renderer instead of running twice per render. Keyed by
+// the page href too: the derivation falls back to window.location.href (no selected URL, or a
+// data: URL), and an SPA navigation can re-render with the same state object.
+const activeUrlFieldsCache = new WeakMap<PanelState, { href: string; value: ReturnType<typeof activeUrlFieldsForState> }>();
+function cachedActiveUrlFields(state: PanelState): ReturnType<typeof activeUrlFieldsForState> {
+  const href = window.location.href;
+  const cached = activeUrlFieldsCache.get(state);
+  if (cached && cached.href === href) return cached.value;
+  const value = activeUrlFieldsForState(state, href);
+  activeUrlFieldsCache.set(state, { href, value });
+  return value;
+}
 
 export interface PanelRenderTarget {
   readonly root: HTMLElement;
@@ -283,7 +290,7 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState, option
 
   target.root.replaceChildren();
 
-  const { activeUrl, fields, visibleFields, editableFields, activeTemplate } = activeUrlFieldsForState(state, window.location.href);
+  const { activeUrl, fields, visibleFields, editableFields, activeTemplate } = cachedActiveUrlFields(state);
 
   const dispatchActiveField = (delta: -1 | 1): void => {
     if (visibleFields.length === 0) return;
@@ -352,124 +359,14 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState, option
     autoSection.append(makeButton('Stop all', { name: 'stop-all' }, target.dispatch));
   }
 
-  const importExportState: ImportExportViewState = {
-    busy: state.importExportBusy,
-    currentImageUrl: state.target.selectedUrl,
-    selectedHistoryCount: state.selectedHistoryIds.length,
-    selectedBookmarkCount: state.selectedBookmarkIds.length + state.recall.selectedIds.length,
-    selectedImageDownloadCount: selectedRecordCount(state),
-    visibleImageSelectionCount: visibleImageSelectionCount(state),
-    imageDownloadAvailable:
-      state.selectedHistoryIds.length + state.selectedBookmarkIds.length + state.recall.selectedIds.length > 0 ||
-      !!state.target.selectedUrl ||
-      state.history.length > 0,
-    encryptedImageTransferAvailable:
-      state.blobKeyUnlocked &&
-      (state.selectedHistoryIds.length + state.selectedBookmarkIds.length + state.recall.selectedIds.length > 0 ||
-        !!state.target.selectedUrl ||
-        state.history.length > 0),
-    blobKeyUnlocked: state.blobKeyUnlocked,
-    lastMessage: state.importExportMessage,
-    lastMessageIsError: state.importExportMessageIsError,
-    restorePreview: state.importRestorePreview,
-  };
-  const cloudBackupState: CloudBackupProviderState = {
-    provider: 'pcloud',
-    connectionState: state.pcloudBackup.connectionState,
-    apiHost: state.pcloudBackup.apiHost,
-    folderPath: '/Image Trail/backups',
-    lastBackupAt: state.pcloudBackup.lastBackupAt,
-    lastBackupName: state.pcloudBackup.lastBackupFileName,
-    lastBackupSize:
-      state.pcloudBackup.lastBackupSizeBytes === undefined ? undefined : formatCloudBackupBytes(state.pcloudBackup.lastBackupSizeBytes),
-    lastBackupOriginalCount: state.pcloudBackup.lastBackupOriginalCount,
-    lastBackupOriginalBytes:
-      state.pcloudBackup.lastBackupOriginalBytes === undefined
-        ? undefined
-        : formatCloudBackupBytes(state.pcloudBackup.lastBackupOriginalBytes),
-    lastBackupMissingOriginalCount: state.pcloudBackup.lastBackupMissingOriginalCount,
-    lastBackupSha256: state.pcloudBackup.lastBackupSha256,
-    restoreCandidates: state.pcloudBackup.restoreCandidates?.map((candidate) => ({
-      fileId: candidate.fileId,
-      fileName: candidate.fileName,
-      size: formatCloudBackupBytes(candidate.sizeBytes),
-      modifiedAt: candidate.modifiedAt,
-    })),
-    restoreCandidateName: state.pcloudBackup.lastRestoreFileName,
-    restoreCandidateSize:
-      state.pcloudBackup.lastRestoreSizeBytes === undefined ? undefined : formatCloudBackupBytes(state.pcloudBackup.lastRestoreSizeBytes),
-    restoreCandidateSha256: state.pcloudBackup.lastRestoreSha256,
-    restoreDownloadedAt: state.pcloudBackup.lastRestoreDownloadedAt,
-    restorePreview: state.importRestorePreview,
-    pendingOperation: state.pcloudBackup.pendingOperation,
-    message: state.pcloudBackup.message,
-    messageIsError: state.pcloudBackup.messageIsError,
-  };
-
   target.root.append(
     createPanelHeader(state, target),
     createStatusView(state, target.dispatch, statusView),
     ...(state.settingsOpen
       ? [
-          createSettingsView(
-            state.bookmarkLimit,
-            {
-              limit: state.recentHistoryLimit,
-              retainedLimit: state.recentHistoryRetainedLimit,
-              overflowBehavior: state.recentHistoryOverflowBehavior,
-            },
-            state.privacyModeEnabled,
-            state.urlTemplates,
-            state.grabSourcePatterns,
-            activeTemplate?.id ?? state.activeUrlTemplateId,
-            fields,
-            {
-              pinSaveStoragePreference: state.pinSaveStoragePreference,
-              blobKeyUnlocked: state.blobKeyUnlocked,
-              blobKeyAvailable: state.blobKeyAvailable,
-            },
-            {
-              visibleQueueCount: state.bookmarks.length,
-              recallCount: recallDeleteCountForQueue(state),
-              busy: state.importExportBusy || state.recall.busy,
-            },
-            state.storageUsage,
-            {
-              identity: state.buildIdentity,
-              overlayVisible: state.buildInfoOverlayVisible,
-            },
-            {
-              limit: state.urlReviewStatusLimit,
-              clearAfterExport: state.clearUrlReviewStatusAfterExport,
-            },
-            {
-              minimumIntervalMs: state.requestThrottleMs,
-              maxRequests: state.requestThrottleMaxRequests,
-              windowMs: state.requestThrottleWindowMs,
-            },
-            {
-              enabled: state.neighborPreloadEnabled,
-              radius: state.neighborPreloadRadius,
-              cacheLimit: state.neighborPreloadCacheLimit,
-              probeMethod: state.neighborPreloadProbeMethod,
-            },
-            [
-              createEncryptionView(
-                {
-                  unlocked: state.blobKeyUnlocked,
-                  keyReference: state.blobKeyReference,
-                  hasKey: state.blobKeyAvailable,
-                  busy: state.importExportBusy,
-                  abandonedOriginalCount: state.storageUsage?.orphanedBlobCount ?? 0,
-                },
-                target.dispatch,
-              ),
-              createImageTransferView(importExportState, target.dispatch),
-              createCloudBackupView(cloudBackupState, target.dispatch),
-              createImportExportView(importExportState, target.dispatch),
-            ],
-            target.dispatch,
-          ),
+          state.detachedSections.includes('settings')
+            ? createDetachedSectionPlaceholder('settings', DETACHABLE_SECTION_TITLES.settings, target.dispatch)
+            : createAttachedSettingsSection(target, state, fields, activeTemplate?.id ?? state.activeUrlTemplateId),
         ]
       : []),
     createUrlEditorView(
@@ -497,25 +394,9 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState, option
     state.detachedSections.includes('history')
       ? createDetachedSectionPlaceholder('history', DETACHABLE_SECTION_TITLES.history, target.dispatch)
       : createHistorySection(target, state, { detachable: true }),
-    createBookmarksView(
-      state.target.selectedUrl,
-      state.bookmarks,
-      state.selectedBookmarkIds,
-      state.captureInProgress,
-      state.blobKeyUnlocked,
-      state.blobKeyAvailable,
-      state.bookmarkVisibilityScope,
-      {
-        offset: state.bookmarkOffset,
-        limit: state.bookmarkLimit,
-        total: state.bookmarkTotal,
-        hasOlder: state.hasOlderBookmarks,
-        hasNewer: state.hasNewerBookmarks,
-      },
-      { recallOpen: state.recall.open },
-      { privacyMode: state.privacyModeEnabled },
-      target.dispatch,
-    ),
+    state.detachedSections.includes('bookmarks')
+      ? createDetachedSectionPlaceholder('bookmarks', DETACHABLE_SECTION_TITLES.bookmarks, target.dispatch)
+      : createBookmarksSection(target, state, { detachable: true }),
   );
   restoreScrollSnapshots(target.root, scrollPositions);
   // Detached windows render before the focus restore so a control inside one can be re-found.
@@ -524,9 +405,18 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState, option
   if (options.renderRecall !== false) renderRecallDrawer(target, state);
 }
 
-/** Content renderers for detached-section windows; the window chrome lives in `detached-sections.ts`. */
+/**
+ * Content renderers for detached-section windows; the window chrome lives in `detached-sections.ts`.
+ * A renderer may return null to skip its window this render (Settings while `settingsOpen` is false).
+ */
 const DETACHED_SECTION_RENDERERS = {
   history: (target: PanelRenderTarget, state: PanelState) => createHistorySection(target, state, { detachable: false }),
+  bookmarks: (target: PanelRenderTarget, state: PanelState) => createBookmarksSection(target, state, { detachable: false }),
+  settings: (target: PanelRenderTarget, state: PanelState) => {
+    if (!state.settingsOpen) return null;
+    const { fields, activeTemplate } = cachedActiveUrlFields(state);
+    return createSettingsSection(state, { fields, activeTemplateId: activeTemplate?.id ?? state.activeUrlTemplateId }, target.dispatch);
+  },
 } as const;
 
 function createHistorySection(target: PanelRenderTarget, state: PanelState, options: { readonly detachable: boolean }): HTMLElement {
@@ -537,16 +427,53 @@ function createHistorySection(target: PanelRenderTarget, state: PanelState, opti
       target.layoutState.historyListBlockSize = blockSize;
     },
     privacyMode: state.privacyModeEnabled,
-    ...(options.detachable
-      ? { headerAccessory: createSectionDetachControl('history', DETACHABLE_SECTION_TITLES.history, target.dispatch) }
-      : {}),
+    ...(options.detachable ? { headerAccessory: detachControl(target, 'history') } : {}),
   });
 }
 
-function formatCloudBackupBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+function createBookmarksSection(target: PanelRenderTarget, state: PanelState, options: { readonly detachable: boolean }): HTMLElement {
+  return createBookmarksView(
+    state.target.selectedUrl,
+    state.bookmarks,
+    state.selectedBookmarkIds,
+    state.captureInProgress,
+    state.blobKeyUnlocked,
+    state.blobKeyAvailable,
+    state.bookmarkVisibilityScope,
+    {
+      offset: state.bookmarkOffset,
+      limit: state.bookmarkLimit,
+      total: state.bookmarkTotal,
+      hasOlder: state.hasOlderBookmarks,
+      hasNewer: state.hasNewerBookmarks,
+    },
+    { recallOpen: state.recall.open },
+    {
+      privacyMode: state.privacyModeEnabled,
+      ...(options.detachable ? { headerAccessory: detachControl(target, 'bookmarks') } : {}),
+    },
+    target.dispatch,
+  );
+}
+
+function createAttachedSettingsSection(
+  target: PanelRenderTarget,
+  state: PanelState,
+  fields: readonly UrlField[],
+  activeTemplateId: string | null,
+): HTMLElement {
+  return createSettingsSection(state, { fields, activeTemplateId }, target.dispatch, {
+    headerAccessory: detachControl(target, 'settings'),
+  });
+}
+
+/** Detach control wired for drag-out: a drop seeds the window position before the detach dispatch. */
+function detachControl(target: PanelRenderTarget, sectionId: DetachableSectionId): HTMLElement {
+  return createSectionDetachControl(sectionId, DETACHABLE_SECTION_TITLES[sectionId], target.dispatch, {
+    onDragOutPosition: (id, position) => {
+      target.layoutState.detachedWindowPositions.set(id, position);
+    },
+  });
 }
 
 function renderStatusToast(toastRoot: HTMLElement | null | undefined, state: PanelState): void {
@@ -666,14 +593,6 @@ export function renderRecallDrawer(target: PanelRenderTarget, state: PanelState)
       nextList.scrollTop = previousScrollTop;
     });
   }
-}
-
-function selectedRecordCount(state: PanelState): number {
-  return state.selectedHistoryIds.length + state.selectedBookmarkIds.length + state.recall.selectedIds.length;
-}
-
-function visibleImageSelectionCount(state: PanelState): number {
-  return state.history.length + state.bookmarks.length + (state.recall.open ? state.recall.candidates.length : 0);
 }
 
 function recallDrawerGeometry(panelRoot: HTMLElement, side: 'left' | 'right'): RecallDrawerGeometry {

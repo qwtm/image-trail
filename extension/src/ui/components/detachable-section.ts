@@ -12,19 +12,102 @@ export interface DetachedWindowGeometry extends DetachedWindowPosition {
 
 type DetachDispatch = (action: PanelAction) => void;
 
+const DRAG_OUT_THRESHOLD_PX = 6;
+const DRAG_GHOST_BLOCK_SIZE = 160;
+
 /**
- * Keyboard-accessible detach control rendered inside a section's own header. The floating window is
- * extension-owned; this only dispatches — window creation happens on the detached render pass.
+ * Preferred window widths per section; Settings gets the panel's width for its dense forms. Owned
+ * here so the drag-out ghost/clamp and the detached render pass share one source of truth.
  */
-export function createSectionDetachControl(sectionId: DetachableSectionId, sectionTitle: string, dispatch: DetachDispatch): HTMLElement {
+export const DETACHED_WINDOW_INLINE_SIZES: Record<DetachableSectionId, number> = {
+  history: 340,
+  bookmarks: 340,
+  settings: 420,
+};
+
+/**
+ * Keyboard-accessible detach control rendered inside a section's own header. Click (or Enter/Space)
+ * detaches at the default position; press-and-drag past a small threshold shows a drop ghost and
+ * detaches with the window opening where it was released (`onDragOutPosition` seeds the position
+ * before the dispatch). The floating window is extension-owned; this only dispatches — window
+ * creation happens on the detached render pass.
+ */
+export function createSectionDetachControl(
+  sectionId: DetachableSectionId,
+  sectionTitle: string,
+  dispatch: DetachDispatch,
+  options: { readonly onDragOutPosition?: (sectionId: DetachableSectionId, position: DetachedWindowPosition) => void } = {},
+): HTMLElement {
   const detach = document.createElement('button');
   detach.type = 'button';
   detach.className = 'image-trail-panel__icon-button image-trail-panel__section-detach';
   detach.textContent = '⧉';
   detach.dataset['imageTrailDetach'] = sectionId;
-  detach.setAttribute('aria-label', `Detach ${sectionTitle} into a floating window`);
-  detach.title = `Detach ${sectionTitle} into a floating window`;
-  detach.addEventListener('click', () => dispatch({ name: 'section/detach', sectionId }));
+  detach.setAttribute('aria-label', `Detach ${sectionTitle} into a floating window (drag to place)`);
+  detach.title = `Detach ${sectionTitle} into a floating window (drag to place)`;
+  let suppressClick = false;
+  detach.addEventListener('click', () => {
+    if (suppressClick) {
+      suppressClick = false;
+      return;
+    }
+    dispatch({ name: 'section/detach', sectionId });
+  });
+  detach.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 || !options.onDragOutPosition) return;
+    // Capture immediately: once the pointer leaves this small button, move/up events would
+    // otherwise target whatever is under the cursor and the drag would never engage.
+    if (typeof detach.setPointerCapture === 'function') detach.setPointerCapture(event.pointerId);
+    const startX = event.clientX;
+    const startY = event.clientY;
+    let ghost: HTMLElement | null = null;
+
+    // Clamp against the section's actual window width — a fixed ghost size would let a wider
+    // window (Settings, 420px) store a drop position that renders partially off-screen.
+    const windowInlineSize = DETACHED_WINDOW_INLINE_SIZES[sectionId];
+    const dropPosition = (move: PointerEvent): DetachedWindowPosition =>
+      clampPanelPosition(
+        { left: move.clientX - 24, top: move.clientY - 12 },
+        { width: windowInlineSize, height: DRAG_GHOST_BLOCK_SIZE },
+        { width: window.innerWidth, height: window.innerHeight },
+      );
+    const onMove = (move: PointerEvent): void => {
+      if (!ghost) {
+        if (Math.hypot(move.clientX - startX, move.clientY - startY) < DRAG_OUT_THRESHOLD_PX) return;
+        ghost = document.createElement('div');
+        ghost.className = 'image-trail-panel__detach-ghost';
+        ghost.style.width = `${windowInlineSize}px`;
+        ghost.style.height = `${DRAG_GHOST_BLOCK_SIZE}px`;
+        const rootNode = detach.getRootNode();
+        (rootNode instanceof ShadowRoot ? rootNode : document.body).append(ghost);
+      }
+      const position = dropPosition(move);
+      ghost.style.left = `${position.left}px`;
+      ghost.style.top = `${position.top}px`;
+    };
+    const cleanup = (): void => {
+      detach.removeEventListener('pointermove', onMove);
+      detach.removeEventListener('pointerup', onUp);
+      detach.removeEventListener('pointercancel', onCancel);
+      if (typeof detach.releasePointerCapture === 'function') detach.releasePointerCapture(event.pointerId);
+      ghost?.remove();
+    };
+    const onUp = (up: PointerEvent): void => {
+      const dragged = ghost !== null;
+      cleanup();
+      if (!dragged) return;
+      suppressClick = true;
+      options.onDragOutPosition?.(sectionId, dropPosition(up));
+      dispatch({ name: 'section/detach', sectionId });
+    };
+    const onCancel = (): void => {
+      cleanup();
+      suppressClick = ghost !== null;
+    };
+    detach.addEventListener('pointermove', onMove);
+    detach.addEventListener('pointerup', onUp);
+    detach.addEventListener('pointercancel', onCancel);
+  });
   return detach;
 }
 
@@ -97,6 +180,10 @@ export function createDetachedSectionWindow(
     'keydown',
     (event) => {
       if (event.key !== 'Escape') return;
+      // Escape inside an editable control belongs to that control (cancel/blur an in-progress
+      // edit), not to the window — dense sections like Settings carry text inputs and textareas.
+      const origin = event.target;
+      if (origin instanceof HTMLInputElement || origin instanceof HTMLTextAreaElement || origin instanceof HTMLSelectElement) return;
       event.preventDefault();
       event.stopPropagation();
       dispatch({ name: 'section/restore', sectionId });

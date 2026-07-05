@@ -98,8 +98,13 @@ async function closeSettingsIfOpen(page: Page): Promise<void> {
 }
 
 async function deleteVisibleRecents(page: Page): Promise<void> {
-  const deleteRecents = page.getByRole('button', { name: /Delete recents/u });
-  if ((await deleteRecents.count()) > 0) await deleteRecents.click();
+  // An image load already in flight can re-add a recent right after the delete (worker
+  // contention makes this reliable on CI runners); re-delete until the list stays empty.
+  await expect(async () => {
+    const deleteRecents = page.getByRole('button', { name: /Delete recents/u });
+    if ((await deleteRecents.count()) > 0) await deleteRecents.click();
+    await expect(page.locator('.image-trail-panel__history-item')).toHaveCount(0, { timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
 }
 
 async function clearAllUrlReviewStatus(page: Page): Promise<void> {
@@ -305,7 +310,10 @@ test('URL review status export/import round trips without image-record side effe
   await clearAllUrlReviewStatus(page);
   await deleteVisibleRecents(page);
   await expect(page.locator('.image-trail-panel__history-item')).toHaveCount(0);
-  await expect(page.locator('.image-trail-panel__bookmark-item')).toHaveCount(0);
+  // Baseline-relative: the browser profile is worker-scoped (fixtures.ts), so durable pins from
+  // other spec files sharing this worker may legitimately exist. The invariant under test is that
+  // export/import causes no image-record side effects — not that the profile is virgin.
+  const queueCountBeforeImport = await page.locator('.image-trail-panel__bookmark-item').count();
   await expect(page.locator('.image-trail-panel__recall-drawer')).toHaveCount(0);
   const storageUsage = page.locator('.image-trail-panel__storage-usage');
   const storageUsageBeforeImport = (await storageUsage.count()) > 0 ? await storageUsage.textContent() : null;
@@ -313,7 +321,7 @@ test('URL review status export/import round trips without image-record side effe
   await importUrlReviewStatus(page, fileContent);
 
   await expect(page.locator('.image-trail-panel__history-item')).toHaveCount(0);
-  await expect(page.locator('.image-trail-panel__bookmark-item')).toHaveCount(0);
+  await expect(page.locator('.image-trail-panel__bookmark-item')).toHaveCount(queueCountBeforeImport);
   await expect(page.locator('.image-trail-panel__recall-drawer')).toHaveCount(0);
   if (storageUsageBeforeImport === null) {
     await expect(page.locator('.image-trail-panel__storage-usage')).toHaveCount(0);
