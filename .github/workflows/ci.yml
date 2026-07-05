@@ -19,10 +19,38 @@ concurrency:
 
 permissions:
   contents: read
-  # The acceptance-coverage check reads the PR's changed files, body, and labels.
+  # The acceptance-coverage check and the change filter read the PR's changed files, body, and labels.
   pull-requests: read
 
 jobs:
+  # Path filter for the E2E job — the long pole. Skip it on PRs that cannot change extension
+  # behavior (docs-only, unit/DOM-test-only, changeset-only); re-run it whenever the extension,
+  # the E2E harness, build scripts, dependencies, the toolchain, or this workflow change. On push
+  # to main E2E always runs (main must stay green regardless of the diff).
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      e2e: ${{ steps.filter.outputs.e2e }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Filter paths
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            e2e:
+              - 'extension/**'
+              - 'tests/e2e/**'
+              - 'scripts/**'
+              - 'playwright.config.ts'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'tsconfig*.json'
+              - '.nvmrc'
+              - '.github/workflows/ci.yml'
+
   ci:
     name: CI
     runs-on: ubuntu-latest
@@ -36,8 +64,8 @@ jobs:
         with:
           # Single source of truth: CI and local resolve Node from the same .nvmrc, so versions
           # never drift. `npm run ci` runs the non-browser gates (lint, format:check, test:cov,
-          # build); CI additionally runs the Playwright and Storybook suites. Bump .nvmrc to move
-          # both together.
+          # build); the E2E job and this job's Storybook step add the browser suites. Bump .nvmrc
+          # to move them together.
           node-version-file: .nvmrc
           cache: npm
 
@@ -69,6 +97,42 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Storybook interaction tests
+        run: npm run test:stories:ci
+
+      # Forcing function (#343): a PR touching user-facing source (ui/ or content/) must also
+      # update tests/e2e/coverage-map.json, or opt out with "no-acceptance-impact". Runs last and
+      # with !cancelled() so it always reports its verdict, and is part of the required CI check.
+      # PR-only: it reads the PR's changed files/body/labels, which a main-push run doesn't have.
+      - name: Acceptance coverage check
+        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run check:acceptance-coverage
+
+  # E2E is its own job so it runs in parallel with the lint/unit/build/Storybook gates above,
+  # and so the change filter can skip it wholesale on PRs that cannot affect it. test:e2e builds
+  # the extension once via the Playwright global-setup, runs the coverage-map gate, then the specs
+  # across workers (see playwright.config.ts).
+  e2e:
+    name: E2E
+    needs: changes
+    if: ${{ github.event_name == 'push' || needs.changes.outputs.e2e == 'true' }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
@@ -86,29 +150,36 @@ jobs:
           path: playwright-report/
           retention-days: 14
 
-      - name: Storybook interaction tests
-        run: npm run test:stories:ci
-
-      # Forcing function (#343): a PR touching user-facing source (ui/ or content/) must also
-      # update tests/e2e/coverage-map.json, or opt out with "no-acceptance-impact". Runs last and
-      # with !cancelled() so it always reports its verdict, and is part of the required CI check.
-      # PR-only: it reads the PR's changed files/body/labels, which a main-push run doesn't have.
-      - name: Acceptance coverage check
-        if: ${{ !cancelled() && github.event_name == 'pull_request' }}
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: npm run check:acceptance-coverage
+  # Stable required check for the E2E path. It always runs and reports a definitive verdict, so a
+  # path-filtered skip never leaves a required check stuck "Expected". Require THIS job ("E2E gate")
+  # in the branch ruleset — not "E2E", which is legitimately skipped on non-E2E PRs.
+  e2e-gate:
+    name: E2E gate
+    needs: e2e
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify E2E result
+        run: |
+          result='${{ needs.e2e.result }}'
+          echo "E2E job result: $result"
+          # A skipped E2E job (change filter opted out) is a pass; success is a pass; anything
+          # else (failure, cancelled) fails the gate.
+          if [ "$result" = 'success' ] || [ "$result" = 'skipped' ]; then
+            exit 0
+          fi
+          exit 1
 
   # Publishes the Playwright HTML report to GitHub Pages at a stable per-PR URL:
   #   https://qwtm.github.io/image-trail/reports/pr-<number>/
   # Each run replaces that PR's report (bounded growth); the artifact above keeps 14 days of
-  # history. Runs even when the CI job fails — a red E2E run is when the report matters most —
-  # but fails soft when no report artifact exists (e.g. lint failed before the E2E step).
+  # history. Runs even when the E2E job fails — a red E2E run is when the report matters most —
+  # but is skipped when E2E itself was skipped (no report to publish).
   e2e-report:
     name: Publish E2E report
-    needs: ci
-    # PR-only (the stable URL is per-PR); the event guard also keeps main-push runs out explicitly.
-    if: ${{ !cancelled() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+    needs: e2e
+    # PR-only (the stable URL is per-PR); skip when E2E was path-filtered out (no artifact).
+    if: ${{ !cancelled() && needs.e2e.result != 'skipped' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

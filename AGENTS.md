@@ -108,6 +108,15 @@ can carry a stale copy until rebased or restarted from the main repo.
   `c8` and fails below the ratcheting thresholds in `.c8rc.json` (currently lines 71 /
   branches 80), writing `coverage/lcov.info` (uploaded as a CI artifact). Raise the
   floor over time as coverage improves; do not lower it to make a change pass.
+- **E2E runs as its own path-filtered CI job**, in parallel with the lint/unit/build/
+  Storybook `CI` job. The extension is built once in `tests/e2e/global-setup.ts` and
+  specs run across workers (`workers: 3`, `fullyParallel: false` — files parallel,
+  tests-within-a-spec serial). Parallelism is file-level, so **wall-clock ≈ the slowest
+  single spec file**: as flows grow, prefer a _new focused spec file_ over piling onto a
+  large one, and split large specs when they dominate. The E2E job is skipped on PRs that
+  cannot affect it; the required ruleset check is **`E2E gate`** (a small always-run job),
+  not `E2E`. Design, ceiling, and follow-ups: wiki → _Testing Strategy → E2E execution
+  model and the parallelism ceiling_ (issue #379).
 - `npm run lint` ends with a type-coverage ratchet (`lint:types`: strict
   `type-coverage` over `extension/src`, floor 99.8%). Same rule as the c8 gate:
   raise the floor as `any`/unsafe spots are removed; never lower it.
