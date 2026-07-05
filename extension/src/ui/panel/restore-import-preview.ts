@@ -110,7 +110,7 @@ function restoreSha256FromUnknown(value: unknown): string | undefined {
   if (!object) return undefined;
   const direct = stringField(object, 'sha256') ?? stringField(object, 'fingerprint');
   if (direct) return direct;
-  return restoreSha256FromUnknown(object.storedOriginal);
+  return restoreSha256FromUnknown(object['storedOriginal']);
 }
 
 function recordObject(value: unknown): Record<string, unknown> | null {

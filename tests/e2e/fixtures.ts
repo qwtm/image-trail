@@ -58,7 +58,7 @@ async function waitForServiceWorker(context: BrowserContext): Promise<Worker> {
 
 function extensionIdFromWorker(worker: Worker): string {
   const match = /^chrome-extension:\/\/(?<extensionId>[^/]+)\//u.exec(worker.url());
-  const extensionId = match?.groups?.extensionId;
+  const extensionId = match?.groups?.['extensionId'];
   if (!extensionId) throw new Error(`Could not resolve extension id from service worker URL: ${worker.url()}`);
   return extensionId;
 }

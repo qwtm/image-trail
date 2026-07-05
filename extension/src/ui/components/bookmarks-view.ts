@@ -184,7 +184,7 @@ export function createBookmarksView(
     const selected = selectedIds.includes(item.id);
     const entry = document.createElement('li');
     entry.className = 'image-trail-panel__bookmark-item';
-    entry.dataset.imageTrailScrollAnchor = `bookmark:${item.id}`;
+    entry.dataset['imageTrailScrollAnchor'] = `bookmark:${item.id}`;
     if (options.privacyMode && !privatePlaceholder) entry.classList.add('is-privacy-masked');
     if (previewableEncrypted) entry.classList.add('is-captured');
     if (selected) entry.classList.add('is-selected');
@@ -278,8 +278,8 @@ export function createBookmarksView(
       deleteCapture.textContent = 'Delete original';
       deleteCapture.title = 'Delete original from encrypted storage.';
       deleteCapture.addEventListener('click', () => {
-        if (deleteCapture.dataset.confirming !== 'true') {
-          deleteCapture.dataset.confirming = 'true';
+        if (deleteCapture.dataset['confirming'] !== 'true') {
+          deleteCapture.dataset['confirming'] = 'true';
           deleteCapture.textContent = 'Confirm delete original';
           deleteCapture.title = 'Click again to delete original from encrypted storage.';
           return;

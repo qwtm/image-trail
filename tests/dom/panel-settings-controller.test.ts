@@ -40,10 +40,10 @@ function createHarness(
     render: () => {
       // Stand in for the panel's real render: reflect the observable state into the DOM.
       status.textContent = state.message;
-      status.dataset.bookmarkLimit = String(state.bookmarkLimit);
+      status.dataset['bookmarkLimit'] = String(state.bookmarkLimit);
     },
     renderPanelAndRefreshRecall: () => {
-      status.dataset.bookmarkLimit = String(state.bookmarkLimit);
+      status.dataset['bookmarkLimit'] = String(state.bookmarkLimit);
     },
     loadBookmarkPage: async () => {},
     loadRecentHistory: async () => {},
@@ -84,7 +84,7 @@ function createHarness(
 test('loadLocalSettings drives a render that reflects the new bookmark limit into the DOM', async () => {
   const harness = createHarness({ storeSettings: { ...DEFAULT_LOCAL_SETTINGS, visibleBookmarkSoftMax: 15 } });
   await harness.controller.loadLocalSettings();
-  assert.equal(harness.status.dataset.bookmarkLimit, '15');
+  assert.equal(harness.status.dataset['bookmarkLimit'], '15');
   assert.equal(harness.getState().bookmarkLimit, 15);
 });
 
@@ -97,5 +97,5 @@ test('preloadMoreNeighbors renders the queued-candidate message into the DOM', (
 test('updateVisibleBookmarkSoftMax refreshes the recall-adjacent bookmark limit in the DOM', async () => {
   const harness = createHarness();
   await harness.controller.updateVisibleBookmarkSoftMax(42);
-  assert.equal(harness.status.dataset.bookmarkLimit, '42');
+  assert.equal(harness.status.dataset['bookmarkLimit'], '42');
 });

@@ -75,19 +75,19 @@ function restoreLockBoxLayout(element: HTMLElement): void {
     element.style.top = original.top;
     element.style.width = original.width;
   }
-  if (element.dataset.imageTrailLockBox) restorePageBackdrop();
-  delete element.dataset.imageTrailLockBox;
+  if (element.dataset['imageTrailLockBox']) restorePageBackdrop();
+  delete element.dataset['imageTrailLockBox'];
 }
 
 export function markPickModeCandidate(element: HTMLElement): void {
   snapshotElementStyles(element);
-  element.dataset.imageTrailCandidate = 'true';
+  element.dataset['imageTrailCandidate'] = 'true';
   element.style.cursor = 'crosshair';
 }
 
 export function markHoveredTarget(element: HTMLElement): void {
   snapshotElementStyles(element);
-  element.dataset.imageTrailHover = 'true';
+  element.dataset['imageTrailHover'] = 'true';
   element.style.outline = '3px dashed #f59e0b';
   element.style.outlineOffset = '3px';
 }
@@ -101,7 +101,7 @@ export function markGrabPreviewTarget(element: HTMLElement, state: 'valid' | 'in
       outlineOffset: element.style.outlineOffset,
     });
   }
-  element.dataset.imageTrailGrabPreview = state;
+  element.dataset['imageTrailGrabPreview'] = state;
   element.style.cursor = state === 'valid' ? 'copy' : 'not-allowed';
   element.style.outline = state === 'valid' ? '3px solid #38bdf8' : '3px solid #ef4444';
   element.style.outlineOffset = '4px';
@@ -117,16 +117,16 @@ export function restoreGrabPreviewTarget(element: HTMLElement): void {
     element.style.outlineOffset = original.outlineOffset;
     grabPreviewSnapshots.delete(element);
   }
-  delete element.dataset.imageTrailGrabPreview;
+  delete element.dataset['imageTrailGrabPreview'];
 }
 
 export function markSelectedTarget(element: HTMLElement, options: SelectedTargetOptions = {}): void {
   snapshotElementStyles(element);
   keepSelectedTargetBackdropBlack(element);
-  if (!options.lockBox && element.dataset.imageTrailLockBox) restoreLockBoxLayout(element);
-  element.dataset.imageTrailSelected = 'true';
+  if (!options.lockBox && element.dataset['imageTrailLockBox']) restoreLockBoxLayout(element);
+  element.dataset['imageTrailSelected'] = 'true';
   if (options.lockBox) {
-    element.dataset.imageTrailLockBox = 'true';
+    element.dataset['imageTrailLockBox'] = 'true';
     markPageBackdropBlack();
     element.style.height = '100%';
     element.style.left = '0';
@@ -167,11 +167,11 @@ export function restoreElementStyles(element: HTMLElement, options: RestoreEleme
     element.style.width = original.width;
     snapshots.delete(element);
   }
-  delete element.dataset.imageTrailCandidate;
-  delete element.dataset.imageTrailHover;
-  if (element.dataset.imageTrailLockBox) restorePageBackdrop();
-  delete element.dataset.imageTrailLockBox;
-  delete element.dataset.imageTrailSelected;
+  delete element.dataset['imageTrailCandidate'];
+  delete element.dataset['imageTrailHover'];
+  if (element.dataset['imageTrailLockBox']) restorePageBackdrop();
+  delete element.dataset['imageTrailLockBox'];
+  delete element.dataset['imageTrailSelected'];
 }
 
 function markPageBackdropBlack(): void {

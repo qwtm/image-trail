@@ -162,7 +162,7 @@ function createMinimizedPanel(state: PanelState, target: PanelRenderTarget): HTM
     state.target.grabModeActive ? 'Expand Image Trail panel. Grab Mode is active.' : 'Expand Image Trail panel',
   );
   button.title = state.target.grabModeActive ? 'Expand Image Trail panel. Grab Mode is active.' : 'Expand Image Trail panel';
-  button.dataset.grabMode = state.target.grabModeActive ? 'active' : 'inactive';
+  button.dataset['grabMode'] = state.target.grabModeActive ? 'active' : 'inactive';
   container.append(button);
   return container;
 }
@@ -177,8 +177,8 @@ function focusedTextControlSnapshot(root: HTMLElement): FocusedTextControlSnapsh
     selector = '.image-trail-panel__password-input';
   } else if (activeElement.classList.contains('image-trail-panel__full-url-input')) {
     selector = '.image-trail-panel__full-url-input';
-  } else if (activeElement.classList.contains('image-trail-panel__field-input') && activeElement.dataset.fieldId) {
-    selector = `.image-trail-panel__field-input[data-field-id="${CSS.escape(activeElement.dataset.fieldId)}"]`;
+  } else if (activeElement.classList.contains('image-trail-panel__field-input') && activeElement.dataset['fieldId']) {
+    selector = `.image-trail-panel__field-input[data-field-id="${CSS.escape(activeElement.dataset['fieldId'])}"]`;
   }
 
   return selector
@@ -238,7 +238,7 @@ function visibleScrollAnchor(container: HTMLElement): ScrollSnapshot['anchor'] {
   for (const anchor of anchors) {
     const rect = anchor.getBoundingClientRect();
     if (rect.bottom <= containerRect.top || rect.top >= containerRect.bottom) continue;
-    const id = anchor.dataset.imageTrailScrollAnchor;
+    const id = anchor.dataset['imageTrailScrollAnchor'];
     if (!id) continue;
     return { id, top: rect.top };
   }

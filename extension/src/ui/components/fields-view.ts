@@ -186,7 +186,7 @@ export function createFieldsView(
     value.readOnly = options.privacyMode === true;
     value.title = options.privacyMode ? 'Privacy mode is hiding this URL field for screen sharing.' : field.value;
     value.setAttribute('aria-label', options.privacyMode ? 'Private URL field' : `Edit ${field.field.label}`);
-    value.dataset.fieldId = field.field.id;
+    value.dataset['fieldId'] = field.field.id;
     let suppressedValueChange: string | null = null;
     const commitValueChange = (): void => {
       if (value.value === field.value) return;
