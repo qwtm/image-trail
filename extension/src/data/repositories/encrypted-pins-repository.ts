@@ -134,7 +134,7 @@ export class EncryptedPinsRepository {
     readonly payload: DurableEncryptedPinPayloadV1;
     readonly key: CryptoKey;
     readonly keyReference: KeyReference<'blob'>;
-    readonly now?: string;
+    readonly now?: string | undefined;
   }): Promise<EncryptedPinRecord> {
     const envelope = await sealJsonEnvelope({
       payload: input.payload,

@@ -99,8 +99,8 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
   async loadPage(input: {
     readonly offset: number;
     readonly limit: number;
-    readonly scope?: 'global' | 'site';
-    readonly currentPageUrl?: string;
+    readonly scope?: 'global' | 'site' | undefined;
+    readonly currentPageUrl?: string | undefined;
   }): Promise<BookmarkPage> {
     const context = await this.openContext();
     const offset = Math.max(0, input.offset);
@@ -186,8 +186,8 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
   async loadRecallPage(input: {
     readonly offset: number;
     readonly limit: number;
-    readonly scope?: 'global' | 'site';
-    readonly currentPageUrl?: string;
+    readonly scope?: 'global' | 'site' | undefined;
+    readonly currentPageUrl?: string | undefined;
   }): Promise<BookmarkRecallPage> {
     const context = await this.openContext();
     const offset = Math.max(0, input.offset);
@@ -311,8 +311,8 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
 
   async removeRecallPage(input: {
     readonly offset: number;
-    readonly scope?: 'global' | 'site';
-    readonly currentPageUrl?: string;
+    readonly scope?: 'global' | 'site' | undefined;
+    readonly currentPageUrl?: string | undefined;
   }): Promise<{ readonly removedCount: number }> {
     const context = await this.openContext();
     if (!context) return { removedCount: 0 };
@@ -578,8 +578,8 @@ export class IndexedDbBookmarkStore implements BookmarkStore {
       readonly bookmarkKey: BookmarkKeyContext;
     },
     input: {
-      readonly scope?: 'global' | 'site';
-      readonly currentPageUrl?: string;
+      readonly scope?: 'global' | 'site' | undefined;
+      readonly currentPageUrl?: string | undefined;
     },
     offset: number,
     limit: number,
@@ -796,9 +796,9 @@ function toRelationshipPayload(relationship: ProtectedPinRelationshipV1): Durabl
 
 function protectedRelationship(input: {
   readonly plainPinId: string;
-  readonly encryptedPinId?: string;
-  readonly encryptedThumbnailId?: string;
-  readonly storedOriginalBlobId?: string;
+  readonly encryptedPinId?: string | undefined;
+  readonly encryptedThumbnailId?: string | undefined;
+  readonly storedOriginalBlobId?: string | undefined;
   readonly queueUpdatedAt: string;
 }): ProtectedPinRelationshipV1 {
   return {

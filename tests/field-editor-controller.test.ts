@@ -15,7 +15,7 @@ import { FieldEditorController, type FieldEditorControllerDeps } from '../extens
 interface ApplyCall {
   readonly url: string;
   readonly attemptedFieldIds: readonly string[];
-  readonly options?: { readonly pushVisibleUrl?: boolean; readonly resetFieldState?: boolean };
+  readonly options?: { readonly pushVisibleUrl?: boolean; readonly resetFieldState?: boolean } | undefined;
 }
 
 interface ResetCall {

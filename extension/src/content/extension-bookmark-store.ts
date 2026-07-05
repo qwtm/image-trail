@@ -41,8 +41,8 @@ export class ExtensionBookmarkStore implements BookmarkStore {
   async loadPage(input: {
     readonly offset: number;
     readonly limit: number;
-    readonly scope?: 'global' | 'site';
-    readonly currentPageUrl?: string;
+    readonly scope?: 'global' | 'site' | undefined;
+    readonly currentPageUrl?: string | undefined;
   }): Promise<{
     readonly items: readonly ImageDisplayRecord[];
     readonly offset: number;
@@ -92,8 +92,8 @@ export class ExtensionBookmarkStore implements BookmarkStore {
 
   async removeRecallPage(input: {
     readonly offset: number;
-    readonly scope?: 'global' | 'site';
-    readonly currentPageUrl?: string;
+    readonly scope?: 'global' | 'site' | undefined;
+    readonly currentPageUrl?: string | undefined;
   }): Promise<{ readonly removedCount: number }> {
     const response = await sendRuntimeMessage(createRemoveRecallBookmarksMessage(input));
     if (isRemoveRecallBookmarksResultMessage(response) && response.payload.ok) return { removedCount: response.payload.removedCount };

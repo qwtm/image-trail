@@ -18,7 +18,7 @@ window.location.href = 'https://images.example.test/gallery';
 
 interface Harness {
   readonly controller: UrlReviewStatusController;
-  readonly saved: { record: UrlReviewStatusRecord; options?: { readonly maxRecordsPerHost?: number } }[];
+  readonly saved: { record: UrlReviewStatusRecord; options?: { readonly maxRecordsPerHost?: number } | undefined }[];
   readonly cleared: UrlReviewStatusClearFilter[];
   getState(): PanelState;
   patchState(patch: Partial<PanelState>): void;
@@ -26,7 +26,7 @@ interface Harness {
 
 function createHarness(): Harness {
   let state = createInitialPanelState(0);
-  const saved: { record: UrlReviewStatusRecord; options?: { readonly maxRecordsPerHost?: number } }[] = [];
+  const saved: { record: UrlReviewStatusRecord; options?: { readonly maxRecordsPerHost?: number } | undefined }[] = [];
   const cleared: UrlReviewStatusClearFilter[] = [];
   const store: UrlReviewStatusStore = {
     save: async (record: UrlReviewStatusRecord, options?: { readonly maxRecordsPerHost?: number }) => {

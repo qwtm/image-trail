@@ -82,7 +82,7 @@ export interface ParsedFieldStateRecord {
   readonly unlockedFieldIds: readonly string[];
   readonly manuallyExcludedFieldIds: readonly string[];
   readonly fieldSplitSpecs: readonly UrlFieldSplitSpec[];
-  readonly fieldDigitWidthSpecs?: readonly UrlFieldDigitWidthSpec[];
+  readonly fieldDigitWidthSpecs?: readonly UrlFieldDigitWidthSpec[] | undefined;
   readonly activeUrlTemplateId: string | null;
   readonly updatedAt: string;
 }
@@ -103,7 +103,7 @@ export interface UrlReviewStatusRecord {
   readonly status: UrlReviewStatus;
   readonly fieldIds: readonly string[];
   readonly activeFieldId: string | null;
-  readonly reason?: string;
+  readonly reason?: string | undefined;
   readonly updatedAt: string;
 }
 
@@ -135,34 +135,34 @@ export interface RecallState {
   readonly hasMore: boolean;
   readonly total: number;
   readonly failedCount: number;
-  readonly message?: string;
-  readonly messageIsError?: boolean;
+  readonly message?: string | undefined;
+  readonly messageIsError?: boolean | undefined;
 }
 
 export type PCloudBackupConnectionState = 'disconnected' | 'connected' | 'busy' | 'error';
 
 export interface PCloudBackupState {
   readonly connectionState: PCloudBackupConnectionState;
-  readonly apiHost?: string;
-  readonly connectedAt?: string;
-  readonly accountPremium?: boolean;
-  readonly quotaBytes?: number;
-  readonly usedQuotaBytes?: number;
-  readonly pendingOperation?: 'connecting' | 'disconnecting' | 'backing-up' | 'restoring';
-  readonly lastBackupAt?: string;
-  readonly lastBackupFileName?: string;
-  readonly lastBackupSizeBytes?: number;
-  readonly lastBackupSha256?: string;
-  readonly lastBackupOriginalCount?: number;
-  readonly lastBackupOriginalBytes?: number;
-  readonly lastBackupMissingOriginalCount?: number;
-  readonly restoreCandidates?: readonly import('./cloud/pcloud-provider.js').PCloudBackupRestoreCandidate[];
-  readonly lastRestoreFileName?: string;
-  readonly lastRestoreSizeBytes?: number;
-  readonly lastRestoreSha256?: string;
-  readonly lastRestoreDownloadedAt?: string;
-  readonly message?: string;
-  readonly messageIsError?: boolean;
+  readonly apiHost?: string | undefined;
+  readonly connectedAt?: string | undefined;
+  readonly accountPremium?: boolean | undefined;
+  readonly quotaBytes?: number | undefined;
+  readonly usedQuotaBytes?: number | undefined;
+  readonly pendingOperation?: 'connecting' | 'disconnecting' | 'backing-up' | 'restoring' | undefined;
+  readonly lastBackupAt?: string | undefined;
+  readonly lastBackupFileName?: string | undefined;
+  readonly lastBackupSizeBytes?: number | undefined;
+  readonly lastBackupSha256?: string | undefined;
+  readonly lastBackupOriginalCount?: number | undefined;
+  readonly lastBackupOriginalBytes?: number | undefined;
+  readonly lastBackupMissingOriginalCount?: number | undefined;
+  readonly restoreCandidates?: readonly import('./cloud/pcloud-provider.js').PCloudBackupRestoreCandidate[] | undefined;
+  readonly lastRestoreFileName?: string | undefined;
+  readonly lastRestoreSizeBytes?: number | undefined;
+  readonly lastRestoreSha256?: string | undefined;
+  readonly lastRestoreDownloadedAt?: string | undefined;
+  readonly message?: string | undefined;
+  readonly messageIsError?: boolean | undefined;
 }
 
 export interface PanelState {
@@ -203,9 +203,9 @@ export interface PanelState {
   readonly blobKeyAvailable: boolean;
   readonly blobKeyReference: string | null;
   readonly importExportBusy: boolean;
-  readonly importExportMessage?: string;
-  readonly importExportMessageIsError?: boolean;
-  readonly importRestorePreview?: ImportRestorePreviewState;
+  readonly importExportMessage?: string | undefined;
+  readonly importExportMessageIsError?: boolean | undefined;
+  readonly importRestorePreview?: ImportRestorePreviewState | undefined;
   readonly pcloudBackup: PCloudBackupState;
   readonly settingsOpen: boolean;
   readonly automation: AutomationState;
@@ -232,22 +232,22 @@ export interface ImportRestorePreviewState {
   readonly fileName: string;
   readonly payloadLabel: string;
   readonly recordCount: number;
-  readonly capturedOriginalCount?: number;
-  readonly duplicateCount?: number;
-  readonly skippedCount?: number;
-  readonly unsupportedCount?: number;
-  readonly plaintext?: boolean;
-  readonly message?: string;
-  readonly messageIsError?: boolean;
+  readonly capturedOriginalCount?: number | undefined;
+  readonly duplicateCount?: number | undefined;
+  readonly skippedCount?: number | undefined;
+  readonly unsupportedCount?: number | undefined;
+  readonly plaintext?: boolean | undefined;
+  readonly message?: string | undefined;
+  readonly messageIsError?: boolean | undefined;
   readonly samples: readonly ImportRestorePreviewSample[];
-  readonly validationIssues?: readonly ImportRestorePreviewValidationIssue[];
-  readonly unsupportedSections?: readonly ImportRestorePreviewUnsupportedSection[];
+  readonly validationIssues?: readonly ImportRestorePreviewValidationIssue[] | undefined;
+  readonly unsupportedSections?: readonly ImportRestorePreviewUnsupportedSection[] | undefined;
 }
 
 export interface ImportRestorePreviewSample {
   readonly label: string;
-  readonly url?: string;
-  readonly detail?: string;
+  readonly url?: string | undefined;
+  readonly detail?: string | undefined;
 }
 
 export interface ImportRestorePreviewUnsupportedSection {
@@ -501,11 +501,11 @@ export type PanelAction =
   | {
       readonly name: 'history/add-loaded';
       readonly url: string;
-      readonly title?: string;
-      readonly timestamp?: string;
-      readonly thumbnail?: string;
-      readonly width?: number;
-      readonly height?: number;
+      readonly title?: string | undefined;
+      readonly timestamp?: string | undefined;
+      readonly thumbnail?: string | undefined;
+      readonly width?: number | undefined;
+      readonly height?: number | undefined;
     }
   | {
       readonly name: 'history/remove' | 'history/pin' | 'bookmark/load' | 'bookmark/remove' | 'bookmark/clear' | 'history/select';
@@ -587,11 +587,16 @@ export type PanelAction =
   | { readonly name: 'selected-url/apply'; readonly url: string }
   | { readonly name: 'capture/request'; readonly url: string; readonly sourceType: CaptureSourceType; readonly sourceRecordId?: string }
   | { readonly name: 'capture/start' }
-  | { readonly name: 'capture/complete'; readonly result: CaptureResult; readonly sourceRecordId?: string }
+  | { readonly name: 'capture/complete'; readonly result: CaptureResult; readonly sourceRecordId?: string | undefined }
   | { readonly name: 'capture/clear' }
   | { readonly name: 'capture/delete'; readonly id: string; readonly blobId: string }
   | { readonly name: 'capture/cleanup-orphans' }
-  | { readonly name: 'capture/preview'; readonly url: string; readonly blobId?: string; readonly scrollAnchorId?: string }
+  | {
+      readonly name: 'capture/preview';
+      readonly url: string;
+      readonly blobId?: string | undefined;
+      readonly scrollAnchorId?: string | undefined;
+    }
   | { readonly name: 'blob-key/setup' | 'blob-key/unlock'; readonly password: string }
   | { readonly name: 'blob-key/clear' }
   | { readonly name: 'blob-key/export'; readonly password: string }
@@ -706,8 +711,8 @@ export interface BookmarkStore {
   readonly loadPage: (input: {
     readonly offset: number;
     readonly limit: number;
-    readonly scope?: 'global' | 'site';
-    readonly currentPageUrl?: string;
+    readonly scope?: 'global' | 'site' | undefined;
+    readonly currentPageUrl?: string | undefined;
   }) => Promise<{
     readonly items: readonly ImageDisplayRecord[];
     readonly offset: number;
@@ -725,7 +730,7 @@ export interface BookmarkStore {
   readonly removeMany: (ids: readonly string[]) => Promise<{ readonly removedCount: number }>;
   readonly removeRecallPage: (input: {
     readonly offset: number;
-    readonly scope?: 'global' | 'site';
-    readonly currentPageUrl?: string;
+    readonly scope?: 'global' | 'site' | undefined;
+    readonly currentPageUrl?: string | undefined;
   }) => Promise<{ readonly removedCount: number }>;
 }

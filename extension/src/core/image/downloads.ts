@@ -4,12 +4,12 @@ const SAFE_IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'gif', 'webp']);
 
 export interface DownloadDuplicateCandidate {
   readonly sourceUrl: string;
-  readonly fingerprint?: string;
+  readonly fingerprint?: string | undefined;
 }
 
 export interface DownloadDuplicateRecord {
   readonly sourceUrl: string;
-  readonly fingerprint?: string;
+  readonly fingerprint?: string | undefined;
 }
 
 export interface ImageDownloadRecord {
@@ -19,8 +19,8 @@ export interface ImageDownloadRecord {
 
 export interface ImageDownloadNameRecord {
   readonly url: string;
-  readonly title?: string;
-  readonly label?: string;
+  readonly title?: string | undefined;
+  readonly label?: string | undefined;
 }
 
 export interface SelectImageDownloadUrlsInput {

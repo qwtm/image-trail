@@ -54,18 +54,18 @@ export interface TargetSelectionSnapshot {
 export type TargetSelectionListener = (snapshot: TargetSelectionSnapshot) => void;
 export type TargetLoadListener = (
   target: TargetImageInfo & {
-    readonly thumbnail?: string;
-    readonly trustedLoadedImage?: boolean;
-    readonly projectionId?: string;
-    readonly projectionReason?: ProjectionReason;
+    readonly thumbnail?: string | undefined;
+    readonly trustedLoadedImage?: boolean | undefined;
+    readonly projectionId?: string | undefined;
+    readonly projectionReason?: ProjectionReason | undefined;
   },
 ) => void;
 export type TargetBookmarkRequestListener = (
   target: Omit<TargetImageInfo, 'width' | 'height'> & {
-    readonly width?: number;
-    readonly height?: number;
-    readonly thumbnail?: string;
-    readonly trustedLoadedImage?: boolean;
+    readonly width?: number | undefined;
+    readonly height?: number | undefined;
+    readonly thumbnail?: string | undefined;
+    readonly trustedLoadedImage?: boolean | undefined;
   },
 ) => void;
 export type TargetGrabSourcePatternRequestListener = (url: string) => void;

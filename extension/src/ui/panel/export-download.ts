@@ -37,7 +37,7 @@ export async function downloadUrlsInSeries(
 }
 
 export async function exportEncryptedImagesInSeries(
-  downloads: readonly { readonly url: string; readonly fileName: string; readonly blobId?: string }[],
+  downloads: readonly { readonly url: string; readonly fileName: string; readonly blobId?: string | undefined }[],
 ): Promise<{
   readonly requested: number;
   readonly started: number;

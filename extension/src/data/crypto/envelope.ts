@@ -28,7 +28,7 @@ export async function sealJsonEnvelope<TPayload, TMetadata extends Record<string
   readonly key: CryptoKey;
   readonly keyReference: KeyReference;
   readonly authenticatedMetadata: TMetadata;
-  readonly now?: string;
+  readonly now?: string | undefined;
 }): Promise<EncryptedEnvelope<TMetadata>> {
   const iv = createAesGcmIv();
   const ciphertext = await encryptAesGcm(

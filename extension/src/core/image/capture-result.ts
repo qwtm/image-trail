@@ -18,8 +18,13 @@ export type CaptureResult =
       readonly mimeType: string;
       readonly byteLength: number;
     }
-  | { readonly status: 'remote-only'; readonly reason: CaptureFailureReason; readonly message: string; readonly origin?: string }
-  | { readonly status: 'failed'; readonly reason: CaptureFailureReason; readonly message: string; readonly origin?: string };
+  | {
+      readonly status: 'remote-only';
+      readonly reason: CaptureFailureReason;
+      readonly message: string;
+      readonly origin?: string | undefined;
+    }
+  | { readonly status: 'failed'; readonly reason: CaptureFailureReason; readonly message: string; readonly origin?: string | undefined };
 
 export interface StoredOriginalReference {
   readonly blobId: string;
@@ -36,10 +41,10 @@ export interface StorageUsageBucketSummary {
 export interface StorageUsageSummary {
   readonly blobCount: number;
   readonly totalBytes: number;
-  readonly orphanedBlobCount?: number;
-  readonly originals?: StorageUsageBucketSummary;
-  readonly queueRecords?: StorageUsageBucketSummary;
-  readonly thumbnails?: StorageUsageBucketSummary;
+  readonly orphanedBlobCount?: number | undefined;
+  readonly originals?: StorageUsageBucketSummary | undefined;
+  readonly queueRecords?: StorageUsageBucketSummary | undefined;
+  readonly thumbnails?: StorageUsageBucketSummary | undefined;
 }
 
 export const DEFAULT_MAX_ORIGINAL_BYTES = 25 * 1024 * 1024;

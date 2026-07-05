@@ -16,11 +16,23 @@ export type ImageProbeResult =
   | { readonly ok: false; readonly status?: number; readonly reason: string; readonly message: string };
 
 export type ImageBytesResult =
-  | { readonly ok: true; readonly bytes: ArrayBuffer; readonly mimeType: string; readonly byteLength: number; readonly sha256?: string }
+  | {
+      readonly ok: true;
+      readonly bytes: ArrayBuffer;
+      readonly mimeType: string;
+      readonly byteLength: number;
+      readonly sha256?: string | undefined;
+    }
   | { readonly ok: false; readonly reason: string; readonly message: string };
 
 export type ThumbnailSourceResult =
-  | { readonly ok: true; readonly dataUrl: string; readonly mimeType: string; readonly byteLength: number; readonly sha256?: string }
+  | {
+      readonly ok: true;
+      readonly dataUrl: string;
+      readonly mimeType: string;
+      readonly byteLength: number;
+      readonly sha256?: string | undefined;
+    }
   | { readonly ok: false; readonly reason: string; readonly message: string };
 
 export type ImageRequestPolicyResult =
@@ -52,12 +64,12 @@ export interface ImageRequestManagerOptions {
 }
 
 type ImageBytesRequestContext = Omit<ImageRequestContext, 'intent'> & {
-  readonly intent?: ImageRequestIntent;
-  readonly sourceProfile?: ImageSourceProfile;
+  readonly intent?: ImageRequestIntent | undefined;
+  readonly sourceProfile?: ImageSourceProfile | undefined;
 };
 type ImageProbeRequestContext = Omit<ImageRequestContext, 'intent'> & {
   readonly timeoutMs: number;
-  readonly probeMethod?: ImageProbeMethod;
+  readonly probeMethod?: ImageProbeMethod | undefined;
 };
 
 export class ImageRequestManager {

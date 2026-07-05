@@ -20,7 +20,12 @@ type BookmarkAction =
   | { readonly name: 'bookmarks/refresh-thumbnails' }
   | { readonly name: 'recall/open'; readonly side: 'left' | 'right' }
   | { readonly name: 'capture/request'; readonly url: string; readonly sourceType: 'bookmark'; readonly sourceRecordId: string }
-  | { readonly name: 'capture/preview'; readonly url: string; readonly blobId?: string; readonly scrollAnchorId?: string }
+  | {
+      readonly name: 'capture/preview';
+      readonly url: string;
+      readonly blobId?: string | undefined;
+      readonly scrollAnchorId?: string | undefined;
+    }
   | { readonly name: 'capture/delete'; readonly id: string; readonly blobId: string };
 
 export function createBookmarksView(

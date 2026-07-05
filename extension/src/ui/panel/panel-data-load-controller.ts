@@ -102,7 +102,7 @@ export class PanelDataLoadController {
     if (options.render !== false) this.deps.render();
   };
 
-  async refreshStorageUsage(options: { readonly render?: boolean } = {}): Promise<void> {
+  async refreshStorageUsage(options: { readonly render?: boolean | undefined } = {}): Promise<void> {
     const captureStore = this.deps.captureStore();
     if (!captureStore) return;
     const requestId = (this.storageUsageRequestId += 1);

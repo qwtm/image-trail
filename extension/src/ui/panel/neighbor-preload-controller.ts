@@ -46,7 +46,11 @@ export interface NeighborPreloadControllerDeps {
   currentFieldContextKeyParts(): FieldContextKeyParts;
   fetchThumbnail(
     url: string,
-    options: { readonly intent?: ImageRequestIntent; readonly contextKey?: string; readonly sourceProfile?: ImageSourceProfile },
+    options: {
+      readonly intent?: ImageRequestIntent | undefined;
+      readonly contextKey?: string | undefined;
+      readonly sourceProfile?: ImageSourceProfile | undefined;
+    },
   ): Promise<FetchThumbnailResult>;
 }
 
@@ -84,10 +88,10 @@ export class NeighborPreloadController {
   async preload(
     url: string,
     options: {
-      readonly readCache?: boolean;
-      readonly writeCache?: boolean;
-      readonly intent?: ImageRequestIntent;
-      readonly contextKey?: string;
+      readonly readCache?: boolean | undefined;
+      readonly writeCache?: boolean | undefined;
+      readonly intent?: ImageRequestIntent | undefined;
+      readonly contextKey?: string | undefined;
     } = {},
   ): Promise<PreloadResult> {
     const cached = options.readCache !== false && this.isActive ? this.cache.get(url) : undefined;

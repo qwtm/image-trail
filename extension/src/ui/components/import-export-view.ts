@@ -46,29 +46,31 @@ export type CloudBackupConnectionState = 'disconnected' | 'connected' | 'busy' |
 export interface CloudBackupProviderState {
   readonly provider: 'pcloud';
   readonly connectionState: CloudBackupConnectionState;
-  readonly apiHost?: string;
-  readonly folderPath?: string;
-  readonly lastBackupAt?: string;
-  readonly lastBackupName?: string;
-  readonly lastBackupSize?: string;
-  readonly lastBackupSha256?: string;
-  readonly lastBackupOriginalCount?: number;
-  readonly lastBackupOriginalBytes?: string;
-  readonly lastBackupMissingOriginalCount?: number;
-  readonly pendingOperation?: 'connecting' | 'disconnecting' | 'backing-up' | 'restoring';
-  readonly restoreCandidates?: readonly {
-    readonly fileId: number;
-    readonly fileName: string;
-    readonly size: string;
-    readonly modifiedAt?: string;
-  }[];
-  readonly restoreCandidateName?: string;
-  readonly restoreCandidateSize?: string;
-  readonly restoreCandidateSha256?: string;
-  readonly restoreDownloadedAt?: string;
-  readonly restorePreview?: ImportRestorePreviewState;
-  readonly message?: string;
-  readonly messageIsError?: boolean;
+  readonly apiHost?: string | undefined;
+  readonly folderPath?: string | undefined;
+  readonly lastBackupAt?: string | undefined;
+  readonly lastBackupName?: string | undefined;
+  readonly lastBackupSize?: string | undefined;
+  readonly lastBackupSha256?: string | undefined;
+  readonly lastBackupOriginalCount?: number | undefined;
+  readonly lastBackupOriginalBytes?: string | undefined;
+  readonly lastBackupMissingOriginalCount?: number | undefined;
+  readonly pendingOperation?: 'connecting' | 'disconnecting' | 'backing-up' | 'restoring' | undefined;
+  readonly restoreCandidates?:
+    | readonly {
+        readonly fileId: number;
+        readonly fileName: string;
+        readonly size: string;
+        readonly modifiedAt?: string | undefined;
+      }[]
+    | undefined;
+  readonly restoreCandidateName?: string | undefined;
+  readonly restoreCandidateSize?: string | undefined;
+  readonly restoreCandidateSha256?: string | undefined;
+  readonly restoreDownloadedAt?: string | undefined;
+  readonly restorePreview?: ImportRestorePreviewState | undefined;
+  readonly message?: string | undefined;
+  readonly messageIsError?: boolean | undefined;
 }
 
 export interface ImportExportViewState {
@@ -81,9 +83,9 @@ export interface ImportExportViewState {
   readonly imageDownloadAvailable: boolean;
   readonly encryptedImageTransferAvailable: boolean;
   readonly blobKeyUnlocked: boolean;
-  readonly lastMessage?: string;
-  readonly lastMessageIsError?: boolean;
-  readonly restorePreview?: ImportRestorePreviewState;
+  readonly lastMessage?: string | undefined;
+  readonly lastMessageIsError?: boolean | undefined;
+  readonly restorePreview?: ImportRestorePreviewState | undefined;
 }
 
 let imageUtilitiesOpen = false;

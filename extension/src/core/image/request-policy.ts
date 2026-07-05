@@ -18,6 +18,6 @@ export type ImageSourceProfile = 'thumbnail' | 'navigation';
 
 export interface ImageRequestContext {
   readonly intent: ImageRequestIntent;
-  readonly referrer?: string;
-  readonly contextKey?: string;
+  readonly referrer?: string | undefined;
+  readonly contextKey?: string | undefined;
 }

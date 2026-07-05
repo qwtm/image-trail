@@ -18,9 +18,9 @@ interface PCloudConnectionRecord {
   readonly accessToken: string;
   readonly apiHost: PCloudApiHost;
   readonly connectedAt: string;
-  readonly accountPremium?: boolean;
-  readonly quotaBytes?: number;
-  readonly usedQuotaBytes?: number;
+  readonly accountPremium?: boolean | undefined;
+  readonly quotaBytes?: number | undefined;
+  readonly usedQuotaBytes?: number | undefined;
 }
 
 const PCLOUD_CONNECTION_KEY = 'imageTrail.pcloudConnection';
@@ -142,21 +142,24 @@ function launchWebAuthFlow(url: string): Promise<string> {
 
 async function requestPCloudJson(apiHost: PCloudApiHost, method: string, body: BodyInit): Promise<Record<string, unknown>> {
   const isUrlEncodedBody = body instanceof URLSearchParams;
-  const response = await fetch(`https://${apiHost}/${method}`, {
-    method: 'POST',
-    mode: isUrlEncodedBody ? 'cors' : undefined,
-    credentials: isUrlEncodedBody ? 'include' : undefined,
-    referrer: isUrlEncodedBody ? PCLOUD_DOWNLOAD_REFERRER : undefined,
-    referrerPolicy: isUrlEncodedBody ? 'origin' : undefined,
-    headers: isUrlEncodedBody
-      ? {
+  const urlEncodedInit: RequestInit = isUrlEncodedBody
+    ? {
+        mode: 'cors',
+        credentials: 'include',
+        referrer: PCLOUD_DOWNLOAD_REFERRER,
+        referrerPolicy: 'origin',
+        headers: {
           accept: '*/*',
           'accept-language': 'en-US,en;q=0.9',
           'cache-control': 'no-cache',
           'content-type': 'application/x-www-form-urlencoded;charset=UTF-8',
           pragma: 'no-cache',
-        }
-      : undefined,
+        },
+      }
+    : {};
+  const response = await fetch(`https://${apiHost}/${method}`, {
+    method: 'POST',
+    ...urlEncodedInit,
     body,
   });
   const data = (await response.json()) as Record<string, unknown>;

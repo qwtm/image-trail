@@ -5,13 +5,13 @@ export type RestoreDuplicateMatch = 'sha256' | 'url';
 export interface RestoreDuplicateCandidate {
   readonly id: string;
   readonly url: string;
-  readonly sha256?: string;
+  readonly sha256?: string | undefined;
 }
 
 export interface RestoreDuplicateRecord {
   readonly id: string;
   readonly url: string;
-  readonly sha256?: string;
+  readonly sha256?: string | undefined;
 }
 
 export interface RestoreDuplicateClassification<T extends RestoreDuplicateCandidate> {
