@@ -190,6 +190,7 @@ export function createBookmarksView(
     const entry = document.createElement('li');
     entry.className = 'image-trail-panel__bookmark-item';
     entry.dataset['imageTrailScrollAnchor'] = `bookmark:${item.id}`;
+    entry.dataset['imageTrailRowId'] = item.id;
     if (options.privacyMode && !privatePlaceholder) entry.classList.add('is-privacy-masked');
     if (previewableEncrypted) entry.classList.add('is-captured');
     if (selected) entry.classList.add('is-selected');
@@ -231,16 +232,29 @@ export function createBookmarksView(
     } else {
       entry.tabIndex = 0;
       entry.setAttribute('role', 'button');
-      entry.title = 'Preview this image in the selected host image. Cmd/Ctrl-click to select for export. Shift-click selects a range.';
+      entry.title =
+        'Click to select this row. Click the selected row or press Enter to preview it. Cmd/Ctrl-click selects for export. Shift-click selects a range.';
       entry.addEventListener('click', (event) => {
         if (isSelectionClick(event)) return;
-        dispatch({ name: 'bookmark-selection/single', id: item.id });
+        event.preventDefault();
+        if (!selected || selectedIds.length !== 1) {
+          dispatch({ name: 'bookmark-selection/single', id: item.id });
+          return;
+        }
         dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId, scrollAnchorId: `bookmark:${item.id}` });
       });
       entry.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+          event.preventDefault();
+          selectAdjacentBookmarkRow(items, item.id, event.key === 'ArrowDown' ? 1 : -1, dispatch);
+          return;
+        }
         if (event.key !== 'Enter' && event.key !== ' ') return;
         event.preventDefault();
-        dispatch({ name: 'bookmark-selection/single', id: item.id });
+        if (!selected || selectedIds.length !== 1) {
+          dispatch({ name: 'bookmark-selection/single', id: item.id });
+          return;
+        }
         dispatch({ name: 'capture/preview', url: item.url, blobId: capturedBlobId, scrollAnchorId: `bookmark:${item.id}` });
       });
     }
@@ -385,6 +399,38 @@ function isPreviewableEncryptedRecord(item: ImageDisplayRecord, blobKeyUnlocked:
 function isSelectionClick(event: MouseEvent): boolean {
   return event.metaKey || event.ctrlKey || event.shiftKey;
 }
+
+function selectAdjacentBookmarkRow(
+  items: readonly ImageDisplayRecord[],
+  currentId: string,
+  delta: -1 | 1,
+  dispatch: (action: BookmarkAction) => void,
+): void {
+  const currentIndex = items.findIndex((item) => item.id === currentId);
+  const next = items[currentIndex + delta];
+  if (!next) return;
+  dispatch({ name: 'bookmark-selection/single', id: next.id });
+  focusRecordRow(next.id);
+}
+
+/* c8 ignore start */
+function focusRecordRow(id: string): void {
+  queueMicrotask(() => {
+    const row = findRecordRow(id);
+    if (row) row.focus();
+  });
+}
+
+function findRecordRow(id: string): HTMLElement | null {
+  for (const candidate of document.querySelectorAll('[data-image-trail-row-id]')) {
+    if (!(candidate instanceof HTMLElement)) continue;
+    if (candidate.dataset['imageTrailRowId'] === id) {
+      return candidate;
+    }
+  }
+  return null;
+}
+/* c8 ignore stop */
 
 export function bookmarkRowClearAction(): 'bookmark/clear' {
   return 'bookmark/clear';

@@ -1,4 +1,4 @@
-import { imageExtensionFromUrl, type ImageDisplayRecord } from '../../core/display-records.js';
+import { encryptedBlobIdForRecord, imageExtensionFromUrl, type ImageDisplayRecord } from '../../core/display-records.js';
 import type { PanelAction, RecallDrawerSide, RecallState } from '../../core/types.js';
 import { createExtensionIndicator, isCapturedOriginalRecord } from './bookmarks-view.js';
 import { createPrivacyThumbnail, recordDisplayName, recordMetadataText, recordTitle } from './record-metadata.js';
@@ -157,6 +157,9 @@ function createRecallRow(
   item.setAttribute('role', 'button');
   item.setAttribute('aria-pressed', selected ? 'true' : 'false');
   item.dataset['imageTrailScrollAnchor'] = record.id;
+  item.dataset['imageTrailRowId'] = record.id;
+  item.title =
+    'Click to select this row. Click the selected row or press Enter to preview it. Cmd/Ctrl-click selects for export. Shift-click selects a range.';
 
   const checkbox = document.createElement('input');
   checkbox.type = 'checkbox';
@@ -172,20 +175,69 @@ function createRecallRow(
 
   item.append(checkbox, createRecallThumbnail(record, options), createRecallLabel(record, options));
   item.addEventListener('click', (event) => {
+    if (event.metaKey || event.ctrlKey) {
+      dispatch({ name: 'recall-selection/toggle', id: record.id });
+      return;
+    }
     if (event.shiftKey) {
       dispatch({ name: 'recall-selection/select', ids: selectedRangeIds(orderedIds, selectedIds, record.id), mode: 'add' });
       return;
     }
-    dispatch({ name: 'recall-selection/toggle', id: record.id });
+    if (selected && selectedIds.length === 1) {
+      dispatch({ name: 'capture/preview', url: record.url, blobId: encryptedBlobIdForRecord(record), scrollAnchorId: record.id });
+      return;
+    }
+    dispatch({ name: 'recall-selection/select', ids: [record.id] });
   });
   item.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      selectAdjacentRecallRow(orderedIds, record.id, event.key === 'ArrowDown' ? 1 : -1, dispatch);
+      return;
+    }
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      dispatch({ name: 'recall-selection/toggle', id: record.id });
+      if (selected && selectedIds.length === 1) {
+        dispatch({ name: 'capture/preview', url: record.url, blobId: encryptedBlobIdForRecord(record), scrollAnchorId: record.id });
+        return;
+      }
+      dispatch({ name: 'recall-selection/select', ids: [record.id] });
     }
   });
   return item;
 }
+
+function selectAdjacentRecallRow(
+  orderedIds: readonly string[],
+  currentId: string,
+  delta: -1 | 1,
+  dispatch: (action: PanelAction) => void,
+): void {
+  const currentIndex = orderedIds.indexOf(currentId);
+  const nextId = orderedIds[currentIndex + delta];
+  if (!nextId) return;
+  dispatch({ name: 'recall-selection/select', ids: [nextId] });
+  focusRecordRow(nextId);
+}
+
+/* c8 ignore start */
+function focusRecordRow(id: string): void {
+  queueMicrotask(() => {
+    const row = findRecordRow(id);
+    if (row) row.focus();
+  });
+}
+
+function findRecordRow(id: string): HTMLElement | null {
+  for (const candidate of document.querySelectorAll('[data-image-trail-row-id]')) {
+    if (!(candidate instanceof HTMLElement)) continue;
+    if (candidate.dataset['imageTrailRowId'] === id) {
+      return candidate;
+    }
+  }
+  return null;
+}
+/* c8 ignore stop */
 
 function createRecallThumbnail(record: ImageDisplayRecord, options: { readonly privacyMode?: boolean } = {}): HTMLElement {
   if (options.privacyMode && record.privacyStatus !== 'locked') return createPrivacyThumbnail();

@@ -42,7 +42,7 @@ export const Narrow: Story = {
 
 const dispatchSpy = fn();
 
-export const SelectsAndPreviewsRow: Story = {
+export const SelectsRow: Story = {
   render: () => bookmarksStory(bookmarkFixtures, [], {}, dispatchSpy),
   play: async ({ canvasElement }) => {
     dispatchSpy.mockClear();
@@ -50,12 +50,24 @@ export const SelectsAndPreviewsRow: Story = {
     if (!(row instanceof HTMLElement)) throw new Error('expected the queue-normal row to render');
     await userEvent.click(row);
     await expect(dispatchSpy).toHaveBeenCalledWith({ name: 'bookmark-selection/single', id: 'queue-normal' });
-    await expect(dispatchSpy).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'capture/preview', scrollAnchorId: 'bookmark:queue-normal' }),
-    );
+    await expect(dispatchSpy).toHaveBeenCalledTimes(1);
     dispatchSpy.mockClear();
     await fireEvent.click(row, { ctrlKey: true });
     await expect(dispatchSpy).toHaveBeenCalledWith({ name: 'bookmark-selection/toggle', id: 'queue-normal' });
+    await expect(dispatchSpy).toHaveBeenCalledTimes(1);
+  },
+};
+
+export const PreviewsSelectedRow: Story = {
+  render: () => bookmarksStory(bookmarkFixtures, ['queue-normal'], {}, dispatchSpy),
+  play: async ({ canvasElement }) => {
+    dispatchSpy.mockClear();
+    const row = canvasElement.querySelector('[data-image-trail-scroll-anchor="bookmark:queue-normal"]');
+    if (!(row instanceof HTMLElement)) throw new Error('expected the queue-normal row to render');
+    await userEvent.click(row);
+    await expect(dispatchSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'capture/preview', scrollAnchorId: 'bookmark:queue-normal' }),
+    );
     await expect(dispatchSpy).toHaveBeenCalledTimes(1);
   },
 };

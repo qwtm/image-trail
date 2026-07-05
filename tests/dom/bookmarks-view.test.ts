@@ -13,13 +13,13 @@ const record: ImageDisplayRecord = {
 
 function buildBookmarksView(
   actions: unknown[],
-  overrides: { readonly items?: readonly ImageDisplayRecord[]; readonly total?: number } = {},
+  overrides: { readonly items?: readonly ImageDisplayRecord[]; readonly selectedIds?: readonly string[]; readonly total?: number } = {},
 ): HTMLElement {
   const items = overrides.items ?? [record];
   return createBookmarksView(
     'https://images.example.test/current.jpg',
     items,
-    [],
+    overrides.selectedIds ?? [],
     false,
     true,
     true,
@@ -43,7 +43,7 @@ function buttonByText(view: HTMLElement, text: string): HTMLButtonElement {
   return button;
 }
 
-test('a plain click selects the row and previews it', () => {
+test('a plain click selects an unselected queue row without previewing it', () => {
   const actions: unknown[] = [];
   const view = buildBookmarksView(actions);
   const row = rowFor(view, 'row-1');
@@ -53,10 +53,17 @@ test('a plain click selects the row and previews it', () => {
 
   row.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
-  assert.deepEqual(actions, [
-    { name: 'bookmark-selection/single', id: 'row-1' },
-    { name: 'capture/preview', url: record.url, blobId: undefined, scrollAnchorId: 'bookmark:row-1' },
-  ]);
+  assert.deepEqual(actions, [{ name: 'bookmark-selection/single', id: 'row-1' }]);
+});
+
+test('a plain click previews an already selected queue row', () => {
+  const actions: unknown[] = [];
+  const view = buildBookmarksView(actions, { selectedIds: ['row-1'] });
+  const row = rowFor(view, 'row-1');
+
+  row.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+  assert.deepEqual(actions, [{ name: 'capture/preview', url: record.url, blobId: undefined, scrollAnchorId: 'bookmark:row-1' }]);
 });
 
 test('a ctrl-click toggles selection without previewing', () => {
@@ -69,7 +76,7 @@ test('a ctrl-click toggles selection without previewing', () => {
   assert.deepEqual(actions, [{ name: 'bookmark-selection/toggle', id: 'row-1' }]);
 });
 
-test('Enter on a focused row mirrors a plain click', () => {
+test('Enter on an unselected queue row selects without previewing', () => {
   const actions: unknown[] = [];
   const view = buildBookmarksView(actions);
   const row = rowFor(view, 'row-1');
@@ -78,10 +85,54 @@ test('Enter on a focused row mirrors a plain click', () => {
   row.dispatchEvent(enter);
 
   assert.equal(enter.defaultPrevented, true);
-  assert.deepEqual(actions, [
-    { name: 'bookmark-selection/single', id: 'row-1' },
-    { name: 'capture/preview', url: record.url, blobId: undefined, scrollAnchorId: 'bookmark:row-1' },
-  ]);
+  assert.deepEqual(actions, [{ name: 'bookmark-selection/single', id: 'row-1' }]);
+});
+
+test('Enter on a selected queue row previews it', () => {
+  const actions: unknown[] = [];
+  const view = buildBookmarksView(actions, { selectedIds: ['row-1'] });
+  const row = rowFor(view, 'row-1');
+
+  const enter = new KeyboardEvent('keydown', { key: 'Enter', cancelable: true, bubbles: true });
+  row.dispatchEvent(enter);
+
+  assert.equal(enter.defaultPrevented, true);
+  assert.deepEqual(actions, [{ name: 'capture/preview', url: record.url, blobId: undefined, scrollAnchorId: 'bookmark:row-1' }]);
+});
+
+test('ArrowDown moves queue row single selection to the next row', () => {
+  const actions: unknown[] = [];
+  const second = { ...record, id: 'row-2', url: 'https://images.example.test/albums/1024/photo_0043.jpg' };
+  const view = buildBookmarksView(actions, { items: [record, second], selectedIds: ['row-1'] });
+  const row = rowFor(view, 'row-1');
+
+  const arrow = new KeyboardEvent('keydown', { key: 'ArrowDown', cancelable: true, bubbles: true });
+  row.dispatchEvent(arrow);
+
+  assert.equal(arrow.defaultPrevented, true);
+  assert.deepEqual(actions, [{ name: 'bookmark-selection/single', id: 'row-2' }]);
+});
+
+test('stored queue rows render the original indicator and clear action', () => {
+  const actions: unknown[] = [];
+  const captured = {
+    ...record,
+    captureStatus: 'captured' as const,
+    blobId: 'blob-1',
+    storedOriginal: {
+      blobId: 'blob-1',
+      mimeType: 'image/jpeg',
+      byteLength: 1024,
+      capturedAt: '2026-06-25T15:30:00.000Z',
+    },
+  };
+  const view = buildBookmarksView(actions, { items: [captured] });
+  const row = rowFor(view, 'row-1');
+
+  assert.ok(row.querySelector('.image-trail-panel__stored-original-dot'));
+  buttonByText(view, 'Clear').click();
+
+  assert.deepEqual(actions, [{ name: 'bookmark/clear', id: 'row-1' }]);
 });
 
 test('Pin current dispatches pin/current', () => {
