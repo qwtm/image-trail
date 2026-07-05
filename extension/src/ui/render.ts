@@ -3,7 +3,7 @@ import { captureFailureMessage } from '../core/image/capture-result.js';
 import { createBookmarksView } from './components/bookmarks-view.js';
 import { createControlsView } from './components/controls-view.js';
 import { createEncryptionView } from './components/encryption-view.js';
-import { createFieldsView, type EditableField } from './components/fields-view.js';
+import { createFieldsView, type EditableField, type NumericFieldDisplayMode } from './components/fields-view.js';
 import { createUrlEditorView } from './components/url-editor-view.js';
 import { createHistoryView } from './components/history-view.js';
 import {
@@ -42,6 +42,7 @@ export interface PanelLayoutState {
   fieldsPanelOpen: boolean;
   fieldsPanelBlockSize: number | null;
   historyListBlockSize: number | null;
+  fieldDisplayModes: Map<string, NumericFieldDisplayMode>;
 }
 
 export function recallDeleteCountForQueue(state: Pick<PanelState, 'bookmarkTotal' | 'bookmarkLimit'>): number {
@@ -544,6 +545,9 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState, option
         onToggleUnlock: (fieldId) => {
           target.dispatch({ name: 'field-unlock/toggle', id: fieldId });
         },
+        onNumericDisplayModeChange: (fieldId, mode) => {
+          target.layoutState.fieldDisplayModes.set(fieldId, mode);
+        },
         onApplySplit: (fieldId, pattern) => {
           target.dispatch({ name: 'field/transform', fieldId, transformId: 'split-apply', pattern });
         },
@@ -562,6 +566,7 @@ export function renderPanel(target: PanelRenderTarget, state: PanelState, option
         open: target.layoutState.fieldsPanelOpen,
         blockSize: target.layoutState.fieldsPanelBlockSize,
         privacyMode: state.privacyModeEnabled,
+        numericDisplayModes: target.layoutState.fieldDisplayModes,
       },
     ),
     createSecondaryControlsGroup(state, target, [

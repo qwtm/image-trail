@@ -25,6 +25,7 @@ function recordingCallbacks(calls: CallbackCall[]): FieldsViewCallbacks {
     onDigitWidthChange: (fieldId, value) => calls.push({ name: 'onDigitWidthChange', args: [fieldId, value] }),
     onActivate: (fieldId) => calls.push({ name: 'onActivate', args: [fieldId] }),
     onToggleUnlock: (fieldId) => calls.push({ name: 'onToggleUnlock', args: [fieldId] }),
+    onNumericDisplayModeChange: (fieldId, mode) => calls.push({ name: 'onNumericDisplayModeChange', args: [fieldId, mode] }),
     onApplySplit: (fieldId, pattern) => calls.push({ name: 'onApplySplit', args: [fieldId, pattern] }),
     onClearSplit: (baseFieldId) => calls.push({ name: 'onClearSplit', args: [baseFieldId] }),
     onOpenChange: (open, blockSize) => calls.push({ name: 'onOpenChange', args: [open, blockSize] }),
@@ -135,6 +136,41 @@ test('the trail button toggles inclusion and flips its label', () => {
   assert.deepEqual(calls, [{ name: 'onToggleUnlock', args: ['query-page'] }]);
   assert.equal(trail.textContent, 'Exclude');
   assert.equal(trail.getAttribute('aria-label'), 'Exclude page from Previous/Next');
+});
+
+test('numeric display toggle changes the input display without committing a value', () => {
+  const calls: CallbackCall[] = [];
+  const view = buildFieldsView(calls);
+  const input = inputByLabel(view, 'Edit page');
+  const hexToggle = buttonByLabel(view, 'Show page as Hex');
+
+  hexToggle.click();
+
+  assert.equal(input.value, '0x11');
+  assert.deepEqual(calls, [{ name: 'onNumericDisplayModeChange', args: ['query-page', 'hex'] }]);
+});
+
+test('alternate numeric display commits edits in source field representation', () => {
+  const calls: CallbackCall[] = [];
+  const view = buildFieldsView(calls, { options: { open: true, blockSize: null, numericDisplayModes: new Map([['query-page', 'hex']]) } });
+  const input = inputByLabel(view, 'Edit page');
+
+  assert.equal(input.value, '0x11');
+  input.value = '0x12';
+  input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true, bubbles: true }));
+
+  assert.deepEqual(calls, [{ name: 'onValueChange', args: ['query-page', '18'] }]);
+});
+
+test('split length hint renders without exposing field length in privacy mode', () => {
+  const calls: CallbackCall[] = [];
+  const view = buildFieldsView(calls);
+  const length = view.querySelector('.image-trail-panel__field-split-length');
+  assert.equal(length?.textContent, 'Length: 2 digits');
+
+  const privateView = buildFieldsView([], { options: { open: true, blockSize: null, privacyMode: true } });
+  const privateLength = privateView.querySelector('.image-trail-panel__field-split-length');
+  assert.equal(privateLength?.textContent, 'Length hidden');
 });
 
 test('no parsed fields renders the empty state', () => {
