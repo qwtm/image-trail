@@ -139,6 +139,7 @@ test('a viewport narrower than the drawer clamps the inline width inside the edg
         historyListBlockSize: null,
         fieldDisplayModes: new Map(),
         detachedWindowPositions: new Map(),
+        detachedWindowMinimized: new Set(),
       },
     };
     const state = {
