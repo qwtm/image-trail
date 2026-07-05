@@ -45,7 +45,14 @@
       "coverage": [
         {
           "type": "unit-dom",
-          "paths": ["tests/dom/buffered-navigation-controller.test.ts", "tests/parsed-field-state-sync.test.ts"]
+          "paths": [
+            "tests/dom/buffered-navigation-controller.test.ts",
+            "tests/parsed-field-state-sync.test.ts",
+            "tests/dom/history-view.test.ts",
+            "tests/dom/bookmarks-view.test.ts",
+            "tests/dom/recall-drawer-view.test.ts"
+          ],
+          "notes": "Covers projection ownership plus row interaction dispatch: plain click selects once, selected-row click or Enter projects through capture/preview, arrows move single selection/focus, and locked rows stay disabled."
         },
         {
           "type": "playwright-e2e",
@@ -192,7 +199,13 @@
       "coverage": [
         {
           "type": "unit-dom",
-          "path": "tests/panel-state.test.ts"
+          "paths": [
+            "tests/panel-state.test.ts",
+            "tests/dom/history-view.test.ts",
+            "tests/dom/bookmarks-view.test.ts",
+            "tests/dom/recall-drawer-view.test.ts"
+          ],
+          "notes": "Covers selection state plus row-level Cmd/Ctrl toggle and Shift range behavior for Recents, Queue, and Recall without triggering projection."
         },
         {
           "type": "playwright-e2e",
@@ -209,7 +222,13 @@
       "coverage": [
         {
           "type": "unit-dom",
-          "paths": ["tests/indexeddb-protected-pins.test.ts", "tests/encrypted-blobs.test.ts"]
+          "paths": [
+            "tests/indexeddb-protected-pins.test.ts",
+            "tests/encrypted-blobs.test.ts",
+            "tests/dom/history-view.test.ts",
+            "tests/dom/bookmarks-view.test.ts"
+          ],
+          "notes": "Covers encrypted image export/import plus locked or unavailable encrypted rows remaining disabled until keys are available."
         },
         {
           "type": "playwright-e2e",

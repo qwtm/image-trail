@@ -228,7 +228,11 @@ test('recent preview projects into selected host image and guards repeated curre
   const projectedTwo = await imageNavigationSnapshot(page, primaryImage);
   expect(projectedTwo.src).toMatch(/^data:image\/svg\+xml;base64,/u);
 
-  await page.locator('.image-trail-panel__history-item', { hasText: 'asset-one.svg' }).click();
+  const assetOneRecent = page.locator('.image-trail-panel__history-item', { hasText: 'asset-one.svg' });
+  await assetOneRecent.click();
+  await expect(assetOneRecent).toHaveClass(/is-selected/u);
+  await expectPanelStatusMessage(page, /Loaded .*asset-two\.svg/u);
+  await assetOneRecent.click();
   await expectPanelStatusMessage(page, /Loaded .*asset-one\.svg/u);
   await expect(page.locator('.image-trail-panel__target-url')).toHaveText(fixtureUrl(fixtureAssetPaths.assetOne));
   const projectedOne = await imageNavigationSnapshot(page, primaryImage);

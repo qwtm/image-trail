@@ -209,6 +209,13 @@ async function clearSelectedQueueRows(page: Page) {
   }
 }
 
+async function clearSelectedRecentRows(page: Page) {
+  const selectedRecentRows = page.locator('.image-trail-panel__history-item.is-selected');
+  while ((await selectedRecentRows.count()) > 0) {
+    await selectedRecentRows.first().dispatchEvent('click', { bubbles: true, cancelable: true, ctrlKey: true });
+  }
+}
+
 test('exports the current host image and records shifted Save As metadata', async ({ page, serviceWorker }) => {
   await installDownloadRequestLog(serviceWorker);
   await openPanel(page, serviceWorker);
@@ -248,6 +255,7 @@ test('exports selected recents, queue rows, and Recall rows in UI order', async 
   await applyUrlInEditor(page, fixtureUrl(fixtureAssetPaths.assetTwo));
   await page.getByRole('button', { name: 'Pin current' }).click();
   await expect(page.locator('.image-trail-panel__bookmark-item', { hasText: 'asset-two.svg' })).toBeVisible();
+  await clearSelectedRecentRows(page);
   await openQueueMenu(page);
   await page.getByRole('button', { name: 'Select all queue' }).click();
   await exportImages(page, serviceWorker);
@@ -304,7 +312,10 @@ test('captures originals, prefers stored bytes for export, and round-trips encry
   await expectPanelStatusMessage(page, /Imported 1 encrypted image into bookmarks and recent history\./u);
   const bookmarkCountAfterImport = await page.locator('.image-trail-panel__bookmark-item').count();
   expect(bookmarkCountAfterImport).toBeGreaterThanOrEqual(bookmarkCountBeforeFailures);
-  await page.locator('.image-trail-panel__history-item', { hasText: 'asset-one.svg' }).first().click();
+  const importedRecent = page.locator('.image-trail-panel__history-item', { hasText: 'asset-one.svg' }).first();
+  await importedRecent.click();
+  await expect(importedRecent).toHaveClass(/is-selected/u);
+  await importedRecent.click();
   const imported = await imageNavigationSnapshot(page, primaryImage);
   expect(imported.src).toMatch(/^data:image\/svg\+xml;base64,/u);
 
