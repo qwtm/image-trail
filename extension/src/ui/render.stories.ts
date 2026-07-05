@@ -84,6 +84,7 @@ function panelLayoutStory(overrides: Partial<PanelState> = {}): HTMLElement {
     fieldsPanelOpen: true,
     fieldsPanelBlockSize: null,
     historyListBlockSize: null,
+    fieldDisplayModes: new Map(),
   };
 
   renderPanel(

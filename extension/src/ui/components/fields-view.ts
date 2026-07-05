@@ -1,5 +1,7 @@
 import type { UrlField, UrlFieldDigitWidthSpec } from '../../core/url/types.js';
 
+export type NumericFieldDisplayMode = 'decimal' | 'hex';
+
 export interface EditableField {
   readonly field: UrlField;
   readonly value: string;
@@ -11,6 +13,7 @@ export interface FieldsViewCallbacks {
   readonly onDigitWidthChange: (fieldId: string, value: string) => void;
   readonly onActivate: (fieldId: string) => void;
   readonly onToggleUnlock: (fieldId: string) => void;
+  readonly onNumericDisplayModeChange: (fieldId: string, mode: NumericFieldDisplayMode) => void;
   readonly onApplySplit: (fieldId: string, pattern: string) => void;
   readonly onClearSplit: (baseFieldId: string) => void;
   readonly onOpenChange: (open: boolean, blockSize: number | null) => void;
@@ -21,6 +24,7 @@ export interface FieldsViewOptions {
   readonly open: boolean;
   readonly blockSize: number | null;
   readonly privacyMode?: boolean;
+  readonly numericDisplayModes?: ReadonlyMap<string, NumericFieldDisplayMode>;
 }
 
 function computedPixelValue(styles: CSSStyleDeclaration, property: string): number {
@@ -63,6 +67,35 @@ export function fieldDisplayValue(field: EditableField): string {
   }
 }
 
+export function defaultNumericFieldDisplayMode(field: UrlField): NumericFieldDisplayMode | null {
+  if (field.tokenKind === 'int') return 'decimal';
+  if (field.tokenKind === 'hex') return 'hex';
+  return null;
+}
+
+export function fieldSplitLengthLabel(field: EditableField, privacyMode: boolean): string {
+  if (privacyMode) return 'Length hidden';
+  const length = field.value.length;
+  const unit = field.field.tokenKind === 'int' ? `digit${length === 1 ? '' : 's'}` : `character${length === 1 ? '' : 's'}`;
+  return `Length: ${length} ${unit}`;
+}
+
+export function numericFieldInputDisplayValue(field: UrlField, mode: NumericFieldDisplayMode): string {
+  const value = parseNumericFieldSourceValue(field);
+  if (value === null) return field.value;
+  if (mode === 'decimal') return value.toString(10);
+  if (field.tokenKind === 'hex') return field.value;
+  return `0x${value.toString(16)}`;
+}
+
+export function numericFieldCommitValue(field: UrlField, mode: NumericFieldDisplayMode, raw: string): string | null {
+  const value = parseNumericInput(raw, mode);
+  if (value === null) return null;
+  if (field.tokenKind === 'int') return value.toString(10);
+  if (field.tokenKind === 'hex') return formatHexSourceValue(field.value, value);
+  return raw.trim();
+}
+
 export function fieldDigitWidthInputDisplay(
   field: UrlField,
   digitWidth: number | undefined,
@@ -73,6 +106,45 @@ export function fieldDigitWidthInputDisplay(
     value: digitWidth === undefined ? '' : String(digitWidth),
     placeholder: field.digitWidth === undefined ? 'auto' : String(field.digitWidth),
   };
+}
+
+function parseNumericFieldSourceValue(field: UrlField): bigint | null {
+  if (field.tokenKind === 'int') return parseDecimal(field.value);
+  if (field.tokenKind === 'hex') return parseHex(field.value);
+  return null;
+}
+
+function parseNumericInput(raw: string, mode: NumericFieldDisplayMode): bigint | null {
+  const value = raw.trim();
+  return mode === 'decimal' ? parseDecimal(value) : parseHex(value);
+}
+
+function parseDecimal(value: string): bigint | null {
+  if (!/^\d+$/u.test(value)) return null;
+  try {
+    return BigInt(value);
+  } catch {
+    return null;
+  }
+}
+
+function parseHex(value: string): bigint | null {
+  const digits = value.replace(/^0[xX]/u, '');
+  if (!/^[0-9a-fA-F]+$/u.test(digits)) return null;
+  try {
+    return BigInt(`0x${digits}`);
+  } catch {
+    return null;
+  }
+}
+
+function formatHexSourceValue(source: string, value: bigint): string {
+  const prefix = source.match(/^0[xX]/u)?.[0] ?? '';
+  const sourceDigits = source.replace(/^0[xX]/u, '');
+  const width = sourceDigits.startsWith('0') ? sourceDigits.length : undefined;
+  const raw = value.toString(16).padStart(width ?? 0, '0');
+  const digits = /[A-F]/u.test(sourceDigits) ? raw.toUpperCase() : raw.toLowerCase();
+  return `${prefix}${digits}`;
 }
 
 export function fieldReservesTrailControlSlot(field: UrlField): boolean {
@@ -175,11 +247,14 @@ export function createFieldsView(
     const canUnlock = (isSuccessful || isIncludedInTrail) && reservesTrailControlSlot;
     const canSplit = !isSplitField && field.value.length > 1;
     const fieldLabel = options.privacyMode ? 'Private field' : field.field.label;
+    let numericDisplayMode = options.numericDisplayModes?.get(field.field.id) ?? defaultNumericFieldDisplayMode(field.field);
+    let fieldInputReferenceValue =
+      numericDisplayMode === null ? field.value : numericFieldInputDisplayValue(field.field, numericDisplayMode);
     container.className = `image-trail-panel__field-row${field.field.id === activeFieldId ? ' is-active' : ''}${isSuccessful ? ' is-success' : ''}${isUnchanged ? ' is-unchanged' : ''}${isFailed ? ' is-error' : ''}`;
 
     const value = document.createElement('input');
     value.type = 'text';
-    value.value = options.privacyMode ? 'Private value' : field.value;
+    value.value = options.privacyMode ? 'Private value' : fieldInputReferenceValue;
     value.placeholder = fieldLabel;
     value.className = 'image-trail-panel__field-input';
     if (options.privacyMode) value.classList.add('is-privacy-masked');
@@ -189,10 +264,16 @@ export function createFieldsView(
     value.dataset['fieldId'] = field.field.id;
     let suppressedValueChange: string | null = null;
     const commitValueChange = (): void => {
-      if (value.value === field.value) return;
+      if (value.value === fieldInputReferenceValue) return;
       if (suppressedValueChange === value.value) return;
+      const nextValue = numericDisplayMode === null ? value.value : numericFieldCommitValue(field.field, numericDisplayMode, value.value);
+      if (nextValue === null) {
+        value.value = fieldInputReferenceValue;
+        return;
+      }
+      if (nextValue === field.value) return;
       suppressedValueChange = value.value;
-      callbacks.onValueChange(field.field.id, value.value);
+      callbacks.onValueChange(field.field.id, nextValue);
     };
     value.addEventListener('focus', () => {
       if (field.field.id !== activeFieldId) callbacks.onActivate(field.field.id);
@@ -225,8 +306,31 @@ export function createFieldsView(
     controls.className = `image-trail-panel__field-control${hasStepControls ? ' has-step-controls' : ''}${reservesTrailControlSlot ? ' has-trail-control-slot' : ''}`;
     controls.append(value);
     let splitControls: HTMLSpanElement | null = null;
+    let decimalModeButton: HTMLButtonElement | null = null;
+    let hexModeButton: HTMLButtonElement | null = null;
+
+    const refreshNumericDisplayMode = (): void => {
+      if (numericDisplayMode === null || options.privacyMode) return;
+      fieldInputReferenceValue = numericFieldInputDisplayValue(field.field, numericDisplayMode);
+      value.value = fieldInputReferenceValue;
+      value.title = fieldInputReferenceValue;
+      const decimalActive = numericDisplayMode === 'decimal';
+      decimalModeButton?.classList.toggle('is-active', decimalActive);
+      decimalModeButton?.setAttribute('aria-pressed', String(decimalActive));
+      hexModeButton?.classList.toggle('is-active', !decimalActive);
+      hexModeButton?.setAttribute('aria-pressed', String(!decimalActive));
+    };
 
     if (hasStepControls) {
+      const numericToggle = document.createElement('span');
+      numericToggle.className = 'image-trail-panel__field-radix-toggle';
+      numericToggle.setAttribute('role', 'group');
+      numericToggle.setAttribute('aria-label', options.privacyMode ? 'Private numeric display' : `Display mode for ${field.field.label}`);
+
+      decimalModeButton = createNumericDisplayModeButton('Dec', 'decimal');
+      hexModeButton = createNumericDisplayModeButton('Hex', 'hex');
+      numericToggle.append(decimalModeButton, hexModeButton);
+
       const digitWidthDisplay = fieldDigitWidthInputDisplay(field.field, digitWidth, options.privacyMode === true);
       const digitWidthInput = document.createElement('input');
       digitWidthInput.type = 'text';
@@ -265,7 +369,7 @@ export function createFieldsView(
         event.preventDefault();
       });
       decrement.addEventListener('click', () => {
-        commitAndBlurFocusedValue(value, field.value, options.privacyMode === true, commitValueChange);
+        commitAndBlurFocusedValue(value, fieldInputReferenceValue, options.privacyMode === true, commitValueChange);
         callbacks.onStep(field.field.id, -1);
       });
 
@@ -280,11 +384,11 @@ export function createFieldsView(
         event.preventDefault();
       });
       increment.addEventListener('click', () => {
-        commitAndBlurFocusedValue(value, field.value, options.privacyMode === true, commitValueChange);
+        commitAndBlurFocusedValue(value, fieldInputReferenceValue, options.privacyMode === true, commitValueChange);
         callbacks.onStep(field.field.id, 1);
       });
 
-      controls.append(digitWidthInput, decrement, increment);
+      controls.append(numericToggle, digitWidthInput, decrement, increment);
     }
 
     if (canUnlock) {
@@ -302,7 +406,7 @@ export function createFieldsView(
         event.preventDefault();
       });
       trail.addEventListener('click', () => {
-        commitAndBlurFocusedValue(value, field.value, options.privacyMode === true, commitValueChange);
+        commitAndBlurFocusedValue(value, fieldInputReferenceValue, options.privacyMode === true, commitValueChange);
         const nextIncluded = !trail.classList.contains('is-included');
         trail.classList.toggle('is-included', nextIncluded);
         trail.textContent = nextIncluded ? 'Exclude' : 'Include';
@@ -322,6 +426,12 @@ export function createFieldsView(
       splitControls.className = 'image-trail-panel__field-split-control';
 
       if (canSplit) {
+        splitControls.classList.add('has-split-input');
+        const splitLength = document.createElement('span');
+        splitLength.className = 'image-trail-panel__field-split-length';
+        splitLength.textContent = fieldSplitLengthLabel(field, options.privacyMode === true);
+        splitLength.title = options.privacyMode ? 'Privacy mode is hiding this field length.' : 'Target length for the split pattern.';
+
         const splitPattern = document.createElement('input');
         splitPattern.type = 'text';
         splitPattern.inputMode = 'numeric';
@@ -339,7 +449,7 @@ export function createFieldsView(
         applySplit.title = options.privacyMode ? 'Split private field' : `Split ${field.field.label}`;
         applySplit.setAttribute('aria-label', applySplit.title);
         applySplit.addEventListener('click', () => {
-          commitAndBlurFocusedValue(value, field.value, options.privacyMode === true, commitValueChange);
+          commitAndBlurFocusedValue(value, fieldInputReferenceValue, options.privacyMode === true, commitValueChange);
           callbacks.onApplySplit(field.field.id, splitPattern.value);
         });
         splitPattern.addEventListener('keydown', (event) => {
@@ -349,7 +459,7 @@ export function createFieldsView(
             splitPattern.blur();
           }
         });
-        splitControls.append(splitPattern, applySplit);
+        splitControls.append(splitLength, splitPattern, applySplit);
       }
 
       if (isSplitField && field.field.splitBaseId) {
@@ -362,7 +472,7 @@ export function createFieldsView(
           : `Collapse ${field.field.label} back into one field`;
         clearSplit.setAttribute('aria-label', clearSplit.title);
         clearSplit.addEventListener('click', () => {
-          commitAndBlurFocusedValue(value, field.value, options.privacyMode === true, commitValueChange);
+          commitAndBlurFocusedValue(value, fieldInputReferenceValue, options.privacyMode === true, commitValueChange);
           callbacks.onClearSplit(field.field.splitBaseId ?? field.field.id);
         });
         splitControls.append(clearSplit);
@@ -385,6 +495,27 @@ export function createFieldsView(
         value.blur();
       }
     });
+
+    function createNumericDisplayModeButton(label: string, mode: NumericFieldDisplayMode): HTMLButtonElement {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `image-trail-panel__field-radix-button${numericDisplayMode === mode ? ' is-active' : ''}`;
+      button.textContent = label;
+      button.title = options.privacyMode ? `${label} display for private field` : `Show ${field.field.label} as ${label}`;
+      button.setAttribute('aria-label', button.title);
+      button.setAttribute('aria-pressed', String(numericDisplayMode === mode));
+      button.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        event.preventDefault();
+      });
+      button.addEventListener('click', () => {
+        if (options.privacyMode || numericDisplayMode === mode) return;
+        numericDisplayMode = mode;
+        callbacks.onNumericDisplayModeChange(field.field.id, mode);
+        refreshNumericDisplayMode();
+      });
+      return button;
+    }
 
     container.append(label, meta, controls);
     if (splitControls) container.append(splitControls);

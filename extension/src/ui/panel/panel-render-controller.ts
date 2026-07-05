@@ -54,6 +54,7 @@ export class PanelRenderController {
     fieldsPanelOpen: false,
     fieldsPanelBlockSize: null,
     historyListBlockSize: null,
+    fieldDisplayModes: new Map(),
   };
 
   constructor(private readonly deps: PanelRenderControllerDeps) {}

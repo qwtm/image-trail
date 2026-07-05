@@ -2203,18 +2203,68 @@
 }
 
 .image-trail-panel-root .image-trail-panel__field-control.has-step-controls {
-  grid-template-columns: minmax(0, 1fr) 64px 26px 26px;
+  grid-template-columns: minmax(0, 1fr) minmax(54px, max-content) 64px 26px 26px;
 }
 
 .image-trail-panel-root .image-trail-panel__field-control.has-step-controls.has-trail-control-slot {
-  grid-template-columns: minmax(0, 1fr) 64px 26px 26px minmax(58px, max-content);
+  grid-template-columns: minmax(0, 1fr) minmax(54px, max-content) 64px 26px 26px minmax(58px, max-content);
 }
 
 .image-trail-panel-root .image-trail-panel__field-split-control {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(48px, max-content);
   gap: 4px;
   min-width: 0;
+}
+
+.image-trail-panel-root .image-trail-panel__field-split-control.has-split-input {
+  grid-template-columns: minmax(64px, max-content) minmax(0, 1fr) minmax(48px, max-content);
+}
+
+.image-trail-panel-root .image-trail-panel__field-split-length {
+  display: inline-grid;
+  align-items: center;
+  min-height: 26px;
+  color: #aaa;
+  white-space: nowrap;
+  font:
+    10px system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+.image-trail-panel-root .image-trail-panel__field-radix-toggle {
+  display: inline-grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 54px;
+  min-height: 26px;
+  overflow: hidden;
+  border: 1px solid rgb(255 255 255 / 22%);
+  border-radius: 4px;
+  background: #202020;
+}
+
+.image-trail-panel-root .image-trail-panel__field-radix-button {
+  min-width: 0;
+  min-height: 24px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #aaa;
+  cursor: pointer;
+  font:
+    700 9px system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+}
+
+.image-trail-panel-root .image-trail-panel__field-radix-button.is-active {
+  background: rgb(143 255 221 / 18%);
+  color: #eff;
 }
 
 .image-trail-panel-root .image-trail-panel__field-step-button {
@@ -2240,6 +2290,11 @@
 .image-trail-panel-root .image-trail-panel__field-step-button:hover {
   border-color: #8fd;
   background: #333;
+}
+
+.image-trail-panel-root .image-trail-panel__field-radix-button:hover {
+  background: rgb(255 255 255 / 10%);
+  color: #fff;
 }
 
 .image-trail-panel-root .image-trail-panel__field-trail-button {
@@ -2285,7 +2340,8 @@
   color: rgb(230 255 240);
 }
 
-.image-trail-panel-root .image-trail-panel__field-step-button:focus {
+.image-trail-panel-root .image-trail-panel__field-step-button:focus,
+.image-trail-panel-root .image-trail-panel__field-radix-button:focus {
   outline: 1px solid #8fd;
   outline-offset: 1px;
 }
