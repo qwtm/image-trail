@@ -98,8 +98,13 @@ async function closeSettingsIfOpen(page: Page): Promise<void> {
 }
 
 async function deleteVisibleRecents(page: Page): Promise<void> {
-  const deleteRecents = page.getByRole('button', { name: /Delete recents/u });
-  if ((await deleteRecents.count()) > 0) await deleteRecents.click();
+  // An image load already in flight can re-add a recent right after the delete (worker
+  // contention makes this reliable on CI runners); re-delete until the list stays empty.
+  await expect(async () => {
+    const deleteRecents = page.getByRole('button', { name: /Delete recents/u });
+    if ((await deleteRecents.count()) > 0) await deleteRecents.click();
+    await expect(page.locator('.image-trail-panel__history-item')).toHaveCount(0, { timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
 }
 
 async function clearAllUrlReviewStatus(page: Page): Promise<void> {
