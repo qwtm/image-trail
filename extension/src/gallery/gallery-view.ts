@@ -5,6 +5,7 @@ import { galleryRecordKind, openActionForGalleryRecord } from './gallery-model.j
 export interface GalleryViewState {
   readonly items: readonly ImageDisplayRecord[];
   readonly searchQuery: string;
+  readonly draftSearchQuery: string;
   readonly offset: number;
   readonly limit: number;
   readonly total: number;
@@ -71,15 +72,19 @@ function createSearchField(state: GalleryViewState, handlers: GalleryViewHandler
   const labelText = document.createElement('span');
   labelText.textContent = 'Search gallery';
   const input = document.createElement('input');
+  const inputValue = state.draftSearchQuery;
   input.type = 'search';
-  input.value = state.searchQuery;
+  input.value = inputValue;
   input.placeholder = 'URL, host, filename, label';
   input.autocomplete = 'off';
   input.setAttribute('aria-label', 'Search gallery');
-  input.addEventListener('input', () => handlers.updateSearch(input.value));
   label.append(labelText, input);
 
-  const clear = createPageButton('Clear', state.searchQuery.length > 0 && !state.loading, handlers.clearSearch);
+  const clear = createPageButton('Clear', inputValue.length > 0 && !state.loading, handlers.clearSearch);
+  input.addEventListener('input', () => {
+    clear.disabled = input.value.length === 0 || state.loading;
+    handlers.updateSearch(input.value);
+  });
   const wrapper = document.createElement('div');
   wrapper.className = 'image-trail-gallery__search-row';
   wrapper.append(label, clear);

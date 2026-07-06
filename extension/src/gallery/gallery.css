@@ -187,6 +187,7 @@ button {
   width: 100%;
   height: 148px;
   object-fit: cover;
+  object-position: top;
   background: #1f2937;
 }
 

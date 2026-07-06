@@ -23,6 +23,7 @@ test('gallery view renders durable records in a bounded page grid', () => {
     {
       items: [record],
       searchQuery: '',
+      draftSearchQuery: '',
       offset: 0,
       limit: 72,
       total: 1,
@@ -68,6 +69,7 @@ test('gallery view disables locked private records without exposing metadata', (
     {
       items: [locked],
       searchQuery: '',
+      draftSearchQuery: '',
       offset: 0,
       limit: 72,
       total: 1,
@@ -99,6 +101,7 @@ test('gallery view masks unlocked thumbnails in privacy mode', () => {
     {
       items: [record],
       searchQuery: '',
+      draftSearchQuery: '',
       offset: 0,
       limit: 72,
       total: 1,
@@ -130,6 +133,7 @@ test('gallery paging buttons request bounded windows', () => {
     {
       items: [record],
       searchQuery: '',
+      draftSearchQuery: '',
       offset: 72,
       limit: 72,
       total: 145,
@@ -164,6 +168,7 @@ test('gallery search input and clear control dispatch query changes', () => {
     {
       items: [],
       searchQuery: 'mars',
+      draftSearchQuery: 'mars',
       offset: 0,
       limit: 72,
       total: 0,
@@ -188,8 +193,10 @@ test('gallery search input and clear control dispatch query changes', () => {
 
   const input = view.querySelector<HTMLInputElement>('input[type="search"]');
   assert.ok(input);
+  assert.equal(input.value, 'mars');
   input.value = 'earth';
   input.dispatchEvent(new Event('input', { bubbles: true }));
+  assert.equal(buttonByText(view, 'Clear').disabled, false);
   buttonByText(view, 'Clear').click();
 
   assert.deepEqual(queries, ['earth']);
@@ -203,6 +210,7 @@ test('gallery limit form accepts zero as unlimited', () => {
     {
       items: [record],
       searchQuery: '',
+      draftSearchQuery: '',
       offset: 0,
       limit: 0,
       total: 1,

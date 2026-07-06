@@ -16,11 +16,12 @@ import { createGalleryView, type GalleryViewState } from './gallery-view.js';
 
 const bookmarkStore = new ExtensionBookmarkStore();
 const captureStore = new CaptureController();
-const SEARCH_DEBOUNCE_MS = 180;
+const SEARCH_DEBOUNCE_MS = 500;
 
 let state: GalleryViewState = {
   items: [],
   searchQuery: '',
+  draftSearchQuery: '',
   offset: 0,
   limit: DEFAULT_LOCAL_SETTINGS.galleryPageLimit,
   total: 0,
@@ -60,11 +61,11 @@ function render(options: { readonly focusSearch?: boolean } = {}): void {
   if (options.focusSearch) focusSearchInput();
 }
 
-async function loadPage(offset: number): Promise<void> {
+async function loadPage(offset: number, options: { readonly focusSearch?: boolean } = {}): Promise<void> {
   const generation = (loadGeneration += 1);
   const searchQuery = state.searchQuery;
   state = { ...state, loading: true, message: null };
-  render();
+  render(options);
 
   try {
     const [settings, blobKeyStatus] = await Promise.all([loadLocalSettings(), captureStore.requestBlobKeyStatus()]);
@@ -93,7 +94,7 @@ async function loadPage(offset: number): Promise<void> {
     if (generation !== loadGeneration) return;
     state = { ...state, loading: false, message: 'Gallery could not load durable records.' };
   }
-  render();
+  render(options);
 }
 
 async function loadLocalSettings(): Promise<PlaintextLocalSettings> {
@@ -106,12 +107,12 @@ async function loadLocalSettings(): Promise<PlaintextLocalSettings> {
 
 function updateSearch(query: string): void {
   loadGeneration += 1;
-  state = { ...state, searchQuery: query, offset: 0, message: null };
-  render({ focusSearch: true });
+  state = { ...state, draftSearchQuery: query };
   if (searchTimer !== null) window.clearTimeout(searchTimer);
   searchTimer = window.setTimeout(() => {
     searchTimer = null;
-    void loadPage(0);
+    state = { ...state, searchQuery: query, draftSearchQuery: query, offset: 0, message: null };
+    void loadPage(0, { focusSearch: true });
   }, SEARCH_DEBOUNCE_MS);
 }
 
@@ -119,9 +120,8 @@ function clearSearch(): void {
   loadGeneration += 1;
   if (searchTimer !== null) window.clearTimeout(searchTimer);
   searchTimer = null;
-  state = { ...state, searchQuery: '', offset: 0, message: 'Search cleared.' };
-  render({ focusSearch: true });
-  void loadPage(0);
+  state = { ...state, searchQuery: '', draftSearchQuery: '', offset: 0, message: 'Search cleared.' };
+  void loadPage(0, { focusSearch: true });
 }
 
 async function updatePageLimit(limit: number): Promise<void> {
