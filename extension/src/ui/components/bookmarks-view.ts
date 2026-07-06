@@ -55,7 +55,7 @@ export function createBookmarksView(
   const heading = document.createElement('h3');
   heading.textContent = 'Queue';
   const header = document.createElement('div');
-  header.className = 'image-trail-panel__section-header';
+  header.className = 'image-trail-panel__section-header image-trail-panel__section-header--with-actions';
   header.append(heading);
 
   const add = document.createElement('button');
@@ -352,7 +352,10 @@ export function createBookmarksView(
     selectedIds.length > 0
       ? `${selectedIds.length} queue row(s) selected for export.`
       : 'Cmd/Ctrl-click rows to select queue rows for export. Shift-click selects a range.';
-  section.append(header, toolbar, statusRow, items.length ? selectionMeta : empty);
+  // The toolbar lives in the header row (#430) so the heading line carries the section's actions
+  // instead of leaving a dead row above a full-width button strip.
+  header.append(toolbar);
+  section.append(header, statusRow, items.length ? selectionMeta : empty);
   if (items.length) section.append(list);
   return section;
 }

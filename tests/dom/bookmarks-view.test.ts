@@ -191,3 +191,10 @@ test('Recall is disabled when the queue is empty', () => {
 
   assert.equal(buttonByText(view, 'Recall').disabled, true);
 });
+
+test('the queue toolbar renders inside the section header row (#430)', () => {
+  const actions: unknown[] = [];
+  const view = buildBookmarksView(actions);
+  const toolbar = view.querySelector('.image-trail-panel__section-header--with-actions .image-trail-panel__bookmark-toolbar');
+  assert.ok(toolbar, 'the toolbar lives in the header row, not on a floating row below it');
+});

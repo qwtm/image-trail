@@ -1170,29 +1170,27 @@
   min-width: 0;
 }
 
-.image-trail-panel-root .image-trail-panel__bookmark-toolbar {
+/* Section headers that carry their action toolbar (#430): heading | toolbar | detach columns.
+   The toolbar column can compress, so on narrow panels its buttons wrap right-aligned INSIDE the
+   column while the detach control stays pinned to the top-right column (never orphan-wraps left). */
+.image-trail-panel-root .image-trail-panel__section-header--with-actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(min-content, 1fr) minmax(0, max-content) max-content;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.image-trail-panel-root .image-trail-panel__bookmark-toolbar,
+.image-trail-panel-root .image-trail-panel__history-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 6px;
   min-width: 0;
-  max-width: 100%;
-  padding-block-end: 8px;
 }
 
 .image-trail-panel-root .image-trail-panel__bookmark-toolbar .image-trail-panel__primary-action {
   text-align: center;
-}
-
-.image-trail-panel-root .image-trail-panel__history-toolbar {
-  display: flex;
-  justify-content: flex-end;
-  min-width: 0;
-}
-
-.image-trail-panel-root .image-trail-panel__bookmark-toolbar > button,
-.image-trail-panel-root .image-trail-panel__bookmark-toolbar > .image-trail-panel__queue-menu,
-.image-trail-panel-root .image-trail-panel__bookmark-toolbar .image-trail-panel__queue-menu summary {
-  inline-size: 100%;
 }
 
 .image-trail-panel-root .image-trail-panel__bookmark-status-row {
