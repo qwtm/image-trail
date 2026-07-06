@@ -145,6 +145,7 @@ test('the heading toggle collapses and expands the recents section (#438)', () =
   const toggle = view.querySelector<HTMLButtonElement>('.image-trail-panel__section-heading-toggle');
   assert.ok(toggle);
   assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+  assert.equal(toggle.getAttribute('aria-label'), 'Hide the Recent history list', 'the accessible name carries the action');
 
   toggle.click();
   assert.deepEqual(actions, [{ name: 'panel/history-section-open', open: false }]);
