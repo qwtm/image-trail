@@ -130,24 +130,31 @@
   content: none;
 }
 
+/* The frame rings live on the aside's own box-shadow, not a ::before overlay: the aside is the
+   scroll container, and an absolutely-positioned `inset: 0` ::before anchors to the scroll origin, so
+   its ring scrolls up and its bottom edge cuts across the middle of a scrolled panel. An inset
+   box-shadow is painted on the scrollport frame and stays pinned to the visible panel. */
 .image-trail-panel-root.image-trail-panel.has-buffered-skip-pulse {
+  box-shadow:
+    0 8px 24px rgb(0 0 0 / 45%),
+    inset 0 0 0 1px rgb(255 88 88 / 70%),
+    0 0 18px rgb(255 36 36 / 38%);
   animation: image-trail-error-frame-glow 540ms ease-out 1;
 }
 
 .image-trail-panel-root.image-trail-panel.has-buffered-skip-pulse::before {
-  content: '';
-  box-shadow:
-    inset 0 0 0 1px rgb(255 88 88 / 70%),
-    0 0 18px rgb(255 36 36 / 38%);
-  animation: image-trail-error-frame-pulse 540ms ease-out 1;
+  content: none;
 }
 
 .image-trail-panel-root.image-trail-panel.is-waiting:not(.has-status-error) {
   border-color: rgb(139 246 220 / 44%);
+  box-shadow:
+    0 8px 24px rgb(0 0 0 / 45%),
+    inset 0 0 0 1px rgb(139 246 220 / 20%);
 }
 
 .image-trail-panel-root.image-trail-panel.is-waiting:not(.has-status-error)::before {
-  box-shadow: inset 0 0 0 1px rgb(139 246 220 / 20%);
+  content: none;
 }
 
 .image-trail-panel-root.image-trail-panel.is-minimized {
