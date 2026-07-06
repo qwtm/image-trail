@@ -3,11 +3,15 @@ import { recordDisplayName, recordExtensionLabel, recordMetadataText, recordTitl
 import type { GalleryAlbumSummary } from './gallery-albums.js';
 import { galleryRecordKind, openActionForGalleryRecord } from './gallery-model.js';
 
+const RECORD_DRAG_MIME = 'application/x-image-trail-record-id';
+
 export interface GalleryViewState {
   readonly items: readonly ImageDisplayRecord[];
   readonly albums: readonly GalleryAlbumSummary[];
   readonly selectedAlbumId: string | null;
   readonly missingAlbumRecordCount: number;
+  readonly openAlbumMenuRecordIds: readonly string[];
+  readonly albumMenuSelections: Readonly<Record<string, string>>;
   readonly searchQuery: string;
   readonly draftSearchQuery: string;
   readonly offset: number;
@@ -27,6 +31,8 @@ export interface GalleryViewHandlers {
   readonly selectAlbum: (albumId: string | null) => void;
   readonly renameAlbum: (albumId: string, name: string) => void;
   readonly deleteAlbum: (albumId: string) => void;
+  readonly toggleAlbumMenu: (recordId: string) => void;
+  readonly chooseAlbumForRecord: (recordId: string, albumId: string) => void;
   readonly addRecordToAlbum: (albumId: string, recordId: string) => void;
   readonly removeRecordFromAlbum: (albumId: string, recordId: string) => void;
   readonly updateSearch: (query: string) => void;
@@ -39,13 +45,7 @@ export interface GalleryViewHandlers {
 export function createGalleryView(state: GalleryViewState, handlers: GalleryViewHandlers): HTMLElement {
   const shell = document.createElement('main');
   shell.className = 'image-trail-gallery';
-  shell.append(
-    createHeader(state, handlers),
-    createAlbumControls(state, handlers),
-    createSearchControls(state, handlers),
-    createStatus(state),
-    createGrid(state, handlers),
-  );
+  shell.append(createHeader(state, handlers), createAlbumControls(state, handlers), createStatus(state), createGrid(state, handlers));
   return shell;
 }
 
@@ -71,7 +71,11 @@ function createHeader(state: GalleryViewState, handlers: GalleryViewHandlers): H
   const reload = createPageButton('Reload', !state.loading, handlers.reload);
   controls.append(newer, older, reload);
 
-  header.append(titleGroup, controls);
+  const headerTools = document.createElement('div');
+  headerTools.className = 'image-trail-gallery__header-tools';
+  headerTools.append(createSearchControls(state, handlers), controls);
+
+  header.append(titleGroup, headerTools);
   return header;
 }
 
@@ -115,8 +119,11 @@ function createAlbumPicker(state: GalleryViewState, handlers: GalleryViewHandler
   nav.append(createAlbumSelectButton('All Images', state.selectedAlbumId === null, () => handlers.selectAlbum(null)));
   for (const summary of state.albums) {
     nav.append(
-      createAlbumSelectButton(`${summary.album.name} (${summary.recordIds.length})`, state.selectedAlbumId === summary.album.id, () =>
-        handlers.selectAlbum(summary.album.id),
+      createAlbumSelectButton(
+        `${summary.album.name} (${summary.recordIds.length})`,
+        state.selectedAlbumId === summary.album.id,
+        () => handlers.selectAlbum(summary.album.id),
+        (recordId) => handlers.addRecordToAlbum(summary.album.id, recordId),
       ),
     );
   }
@@ -243,6 +250,8 @@ function createGrid(state: GalleryViewState, handlers: GalleryViewHandlers): HTM
 function createCard(record: ImageDisplayRecord, state: GalleryViewState, handlers: GalleryViewHandlers): HTMLLIElement {
   const item = document.createElement('li');
   item.className = 'image-trail-gallery__card';
+  if (state.openAlbumMenuRecordIds.includes(record.id)) item.classList.add('has-album-popover');
+  item.draggable = true;
 
   const action = openActionForGalleryRecord(record, { blobKeyUnlocked: state.blobKeyUnlocked });
   const disabledReason = action.kind === 'locked' || action.kind === 'unsupported' ? action.message : null;
@@ -251,48 +260,109 @@ function createCard(record: ImageDisplayRecord, state: GalleryViewState, handler
   button.className = 'image-trail-gallery__card-button';
   button.disabled = disabledReason !== null;
   button.title = disabledReason ?? recordTitle(record, state);
-  button.addEventListener('click', () => handlers.openRecord(record));
+  let suppressOpenClick = false;
+  button.addEventListener('click', (event) => {
+    if (suppressOpenClick) {
+      event.preventDefault();
+      suppressOpenClick = false;
+      return;
+    }
+    handlers.openRecord(record);
+  });
+  item.addEventListener('dragstart', (event) => {
+    if (isAlbumControlDragOrigin(event.target)) {
+      event.preventDefault();
+      return;
+    }
+    event.dataTransfer?.setData(RECORD_DRAG_MIME, record.id);
+    event.dataTransfer?.setData('text/plain', record.id);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = 'copy';
+    item.classList.add('is-dragging');
+  });
+  item.addEventListener('dragend', () => {
+    item.classList.remove('is-dragging');
+    suppressOpenClick = true;
+    window.setTimeout(() => {
+      suppressOpenClick = false;
+    }, 0);
+  });
 
   button.append(createVisual(record, state), createBody(record, state, disabledReason));
   item.append(button);
-  const albumActions = createCardAlbumActions(record, state, handlers);
+  const albumActions = createCardAlbumControl(record, state, handlers);
   if (albumActions) item.append(albumActions);
   return item;
 }
 
-function createCardAlbumActions(record: ImageDisplayRecord, state: GalleryViewState, handlers: GalleryViewHandlers): HTMLElement | null {
+function createCardAlbumControl(record: ImageDisplayRecord, state: GalleryViewState, handlers: GalleryViewHandlers): HTMLElement | null {
   if (state.selectedAlbumId) {
-    const actions = document.createElement('div');
-    actions.className = 'image-trail-gallery__card-actions';
-    actions.append(
-      createPageButton('Remove from album', !state.loading, () => handlers.removeRecordFromAlbum(state.selectedAlbumId!, record.id)),
-    );
-    return actions;
+    return createRemoveFromAlbumControl(record, state, handlers);
   }
   if (state.albums.length === 0) return null;
-  const form = document.createElement('form');
-  form.className = 'image-trail-gallery__card-actions';
-  const select = document.createElement('select');
-  select.setAttribute('aria-label', 'Album');
-  const placeholder = document.createElement('option');
-  placeholder.value = '';
-  placeholder.textContent = 'Choose album';
-  select.append(placeholder);
+  return createAddToAlbumPopover(record, state, handlers);
+}
+
+function createRemoveFromAlbumControl(record: ImageDisplayRecord, state: GalleryViewState, handlers: GalleryViewHandlers): HTMLElement {
+  const actions = document.createElement('div');
+  actions.className = 'image-trail-gallery__card-album-control';
+  const remove = createIconButton('-', `Remove ${recordDisplayName(record, state)} from selected album`, !state.loading, () =>
+    handlers.removeRecordFromAlbum(state.selectedAlbumId!, record.id),
+  );
+  remove.classList.add('image-trail-gallery__card-album-toggle');
+  actions.append(remove);
+  return actions;
+}
+
+function createAddToAlbumPopover(record: ImageDisplayRecord, state: GalleryViewState, handlers: GalleryViewHandlers): HTMLElement {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'image-trail-gallery__card-album-control';
+  const open = state.openAlbumMenuRecordIds.includes(record.id);
+  const selectedAlbumId = state.albumMenuSelections[record.id] ?? null;
+  const toggle = createIconButton('+', `Add ${recordDisplayName(record, state)} to album`, !state.loading, () => {
+    handlers.toggleAlbumMenu(record.id);
+  });
+  toggle.classList.add('image-trail-gallery__card-album-toggle');
+  toggle.setAttribute('aria-expanded', String(open));
+  wrapper.append(toggle);
+  if (open) wrapper.append(createAlbumPopover(record, state, handlers, selectedAlbumId));
+  return wrapper;
+}
+
+function createAlbumPopover(
+  record: ImageDisplayRecord,
+  state: GalleryViewState,
+  handlers: GalleryViewHandlers,
+  selectedAlbumId: string | null,
+): HTMLElement {
+  const panel = document.createElement('div');
+  panel.className = 'image-trail-gallery__album-popover';
+  panel.setAttribute('role', 'group');
+  panel.setAttribute('aria-label', `Albums for ${recordDisplayName(record, state)}`);
+  const choices = document.createElement('div');
+  choices.className = 'image-trail-gallery__album-popover-list';
   for (const summary of state.albums) {
-    const option = document.createElement('option');
-    option.value = summary.album.id;
-    option.textContent = summary.album.name;
-    select.append(option);
+    choices.append(createAlbumChoiceButton(record.id, summary, selectedAlbumId, handlers));
   }
-  const add = createPageButton('Add to album', !state.loading, () => {
-    if (select.value) handlers.addRecordToAlbum(select.value, record.id);
+  const apply = createPageButton('Apply', selectedAlbumId !== null && !state.loading, () => {
+    if (selectedAlbumId) handlers.addRecordToAlbum(selectedAlbumId, record.id);
   });
-  form.addEventListener('submit', (event) => {
-    event.preventDefault();
-    add.click();
-  });
-  form.append(select, add);
-  return form;
+  apply.classList.add('image-trail-gallery__album-popover-apply');
+  panel.append(choices, apply);
+  return panel;
+}
+
+function createAlbumChoiceButton(
+  recordId: string,
+  summary: GalleryAlbumSummary,
+  selectedAlbumId: string | null,
+  handlers: GalleryViewHandlers,
+): HTMLButtonElement {
+  const choice = createPageButton(`${summary.album.name} (${summary.recordIds.length})`, true, () =>
+    handlers.chooseAlbumForRecord(recordId, summary.album.id),
+  );
+  choice.className = 'image-trail-gallery__album-choice';
+  choice.setAttribute('aria-pressed', String(summary.album.id === selectedAlbumId));
+  return choice;
 }
 
 function createVisual(record: ImageDisplayRecord, state: GalleryViewState): HTMLElement {
@@ -342,11 +412,59 @@ function createPageButton(label: string, enabled: boolean, onClick: () => void):
   return button;
 }
 
-function createAlbumSelectButton(label: string, selected: boolean, onClick: () => void): HTMLButtonElement {
+function createIconButton(label: string, ariaLabel: string, enabled: boolean, onClick: () => void): HTMLButtonElement {
+  const button = createPageButton(label, enabled, onClick);
+  button.setAttribute('aria-label', ariaLabel);
+  button.title = ariaLabel;
+  return button;
+}
+
+function createAlbumSelectButton(
+  label: string,
+  selected: boolean,
+  onClick: () => void,
+  onDropRecord?: (recordId: string) => void,
+): HTMLButtonElement {
   const button = createPageButton(label, true, onClick);
   button.className = selected ? 'is-selected' : '';
   button.setAttribute('aria-pressed', String(selected));
+  if (onDropRecord) installAlbumDropTarget(button, onDropRecord);
   return button;
+}
+
+function installAlbumDropTarget(button: HTMLButtonElement, onDropRecord: (recordId: string) => void): void {
+  button.addEventListener('dragover', (event) => {
+    if (!hasDraggedRecord(event)) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+  });
+  button.addEventListener('dragenter', (event) => {
+    if (!hasDraggedRecord(event)) return;
+    event.preventDefault();
+    button.classList.add('is-drop-target');
+  });
+  button.addEventListener('dragleave', () => {
+    button.classList.remove('is-drop-target');
+  });
+  button.addEventListener('drop', (event) => {
+    const recordId = dragRecordId(event);
+    button.classList.remove('is-drop-target');
+    if (!recordId) return;
+    event.preventDefault();
+    onDropRecord(recordId);
+  });
+}
+
+function dragRecordId(event: DragEvent): string | null {
+  return event.dataTransfer?.getData(RECORD_DRAG_MIME) || event.dataTransfer?.getData('text/plain') || null;
+}
+
+function hasDraggedRecord(event: DragEvent): boolean {
+  return Array.from(event.dataTransfer?.types ?? []).includes(RECORD_DRAG_MIME);
+}
+
+function isAlbumControlDragOrigin(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest('.image-trail-gallery__card-album-control') !== null;
 }
 
 function pageText(state: GalleryViewState): string {

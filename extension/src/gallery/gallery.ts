@@ -26,6 +26,8 @@ let state: GalleryViewState = {
   albums: [],
   selectedAlbumId: null,
   missingAlbumRecordCount: 0,
+  openAlbumMenuRecordIds: [],
+  albumMenuSelections: {},
   searchQuery: '',
   draftSearchQuery: '',
   offset: 0,
@@ -64,6 +66,8 @@ function render(options: { readonly focusSearch?: boolean } = {}): void {
       deleteAlbum: (albumId) => {
         void deleteAlbum(albumId);
       },
+      toggleAlbumMenu,
+      chooseAlbumForRecord,
       addRecordToAlbum: (albumId, recordId) => {
         void addRecordToAlbum(albumId, recordId);
       },
@@ -120,6 +124,7 @@ async function loadPage(offset: number, options: { readonly focusSearch?: boolea
       message: options.message ?? null,
       blobKeyUnlocked: blobKeyStatus.unlocked,
       privacyMode: settings.privacyModeEnabled,
+      ...albumMenuStateFor(albums),
     };
   } catch {
     if (generation !== loadGeneration) return;
@@ -197,7 +202,7 @@ async function createAlbum(name: string): Promise<void> {
 
 async function selectAlbum(albumId: string | null): Promise<void> {
   if (albumId === state.selectedAlbumId) return;
-  state = { ...state, selectedAlbumId: albumId, offset: 0 };
+  state = { ...state, selectedAlbumId: albumId, offset: 0, openAlbumMenuRecordIds: [] };
   await loadPage(0);
 }
 
@@ -214,13 +219,55 @@ async function deleteAlbum(albumId: string): Promise<void> {
 
 async function addRecordToAlbum(albumId: string, recordId: string): Promise<void> {
   const memberships = await albumStore.addRecords(albumId, [recordId]);
+  clearAlbumMenuForRecord(recordId);
   await loadPage(state.offset, { message: memberships.length > 0 ? 'Added record to album.' : 'Record is already in that album.' });
 }
 
 async function removeRecordFromAlbum(albumId: string, recordId: string): Promise<void> {
   const removed = await albumStore.removeRecord(albumId, recordId);
+  clearAlbumMenuForRecord(recordId);
   const nextOffset = state.items.length <= 1 ? Math.max(0, state.offset - state.limit) : state.offset;
   await loadPage(nextOffset, { message: removed ? 'Removed record from album.' : 'Record was not in the album.' });
+}
+
+function toggleAlbumMenu(recordId: string): void {
+  const open = state.openAlbumMenuRecordIds.includes(recordId);
+  state = {
+    ...state,
+    openAlbumMenuRecordIds: open
+      ? state.openAlbumMenuRecordIds.filter((id) => id !== recordId)
+      : [...state.openAlbumMenuRecordIds, recordId],
+  };
+  render();
+}
+
+function chooseAlbumForRecord(recordId: string, albumId: string): void {
+  state = {
+    ...state,
+    albumMenuSelections: { ...state.albumMenuSelections, [recordId]: albumId },
+    openAlbumMenuRecordIds: state.openAlbumMenuRecordIds.includes(recordId)
+      ? state.openAlbumMenuRecordIds
+      : [...state.openAlbumMenuRecordIds, recordId],
+  };
+  render();
+}
+
+function clearAlbumMenuForRecord(recordId: string): void {
+  const nextSelections = { ...state.albumMenuSelections };
+  delete nextSelections[recordId];
+  state = {
+    ...state,
+    albumMenuSelections: nextSelections,
+    openAlbumMenuRecordIds: state.openAlbumMenuRecordIds.filter((id) => id !== recordId),
+  };
+}
+
+function albumMenuStateFor(
+  albums: readonly GalleryViewState['albums'][number][],
+): Pick<GalleryViewState, 'albumMenuSelections' | 'openAlbumMenuRecordIds'> {
+  const albumIds = new Set(albums.map((summary) => summary.album.id));
+  const albumMenuSelections = Object.fromEntries(Object.entries(state.albumMenuSelections).filter(([, albumId]) => albumIds.has(albumId)));
+  return { albumMenuSelections, openAlbumMenuRecordIds: state.openAlbumMenuRecordIds };
 }
 
 async function refreshSettingsFromStorage(options: { readonly reloadOnChange?: boolean } = {}): Promise<void> {
