@@ -13,6 +13,13 @@ const record: ImageDisplayRecord = {
   source: 'history',
 };
 
+const bookmark: ImageDisplayRecord = {
+  ...record,
+  id: 'bookmark-1',
+  url: 'https://images.example.test/bookmark/photo_0042.jpg',
+  source: 'bookmark',
+};
+
 interface Harness {
   readonly root: HTMLElement;
   readonly detachedRoot: HTMLElement;
@@ -307,6 +314,49 @@ test('a plain re-render never seeds a collapsible list from a stale parked offse
   assert.ok(same);
   assert.equal(same.scrollTop, 30, 'an open list follows its live offset across ordinary re-renders');
 });
+
+test('Queue rows anchor panel scroll when sparse Recents grow above them (#446)', (t) => {
+  const nativeRect = HTMLElement.prototype.getBoundingClientRect;
+  HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
+    if (this.dataset['imageTrailScrollAnchor'] === 'bookmark:bookmark-1') {
+      const root = this.closest('.image-trail-panel-root') ?? this.parentElement;
+      const recentCount = root?.querySelectorAll('.image-trail-panel__history-item').length ?? 0;
+      return rect({ top: 80 + recentCount * 126, bottom: 200 + recentCount * 126 });
+    }
+    return rect({ top: 0, bottom: 500 });
+  };
+  t.after(() => {
+    HTMLElement.prototype.getBoundingClientRect = nativeRect;
+  });
+
+  const harness = createHarness();
+  harness.root.className = 'image-trail-panel-root image-trail-panel';
+  harness.render(panelState({ bookmarks: [bookmark] }));
+  harness.root.scrollTop = 300;
+
+  harness.render(
+    panelState({
+      history: [record, { ...record, id: 'recent-2', url: 'https://images.example.test/recent/photo_0043.jpg' }],
+      bookmarks: [bookmark],
+    }),
+  );
+
+  assert.equal(harness.root.scrollTop, 426, 'the panel scroll tracks the visible Queue row as Recents grows');
+});
+
+function rect(input: Pick<DOMRect, 'top' | 'bottom'>): DOMRect {
+  return {
+    x: 0,
+    y: input.top,
+    top: input.top,
+    right: 320,
+    bottom: input.bottom,
+    left: 0,
+    width: 320,
+    height: input.bottom - input.top,
+    toJSON: () => ({}),
+  };
+}
 
 test('the Settings header renders a detach control that dispatches section/detach', () => {
   const harness = createHarness();
