@@ -263,6 +263,25 @@ test('no parsed fields renders the empty state', () => {
   assert.equal(empty.textContent, 'No parsed fields available yet.');
 });
 
+test('the failed-field ring renders unless showFieldFailure is false (Mute) (#450)', () => {
+  const calls: CallbackCall[] = [];
+  const errorRows = (view: HTMLElement): number => view.querySelectorAll('.image-trail-panel__field-row.is-error').length;
+
+  const shown = createFieldsView([pageField], null, 'query-page', [], [], [], [], recordingCallbacks(calls), {
+    open: true,
+    blockSize: null,
+    showFieldFailure: true,
+  });
+  assert.equal(errorRows(shown), 1, 'Display/Alert paints the red ring for the failed field');
+
+  const muted = createFieldsView([pageField], null, 'query-page', [], [], [], [], recordingCallbacks(calls), {
+    open: true,
+    blockSize: null,
+    showFieldFailure: false,
+  });
+  assert.equal(errorRows(muted), 0, 'Mute hides the ring even though failedFieldId is set');
+});
+
 test('privacy mode masks the field and blocks value commits', () => {
   const calls: CallbackCall[] = [];
   const view = buildFieldsView(calls, { options: { open: true, blockSize: null, privacyMode: true } });

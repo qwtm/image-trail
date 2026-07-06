@@ -123,6 +123,7 @@ export function createSettingsSection(
       radius: state.neighborPreloadRadius,
       cacheLimit: state.neighborPreloadCacheLimit,
       probeMethod: state.neighborPreloadProbeMethod,
+      feedback: state.loadFailureFeedback,
     },
     state.restoreWorkspaceLayoutEnabled,
     [

@@ -10,6 +10,7 @@ import {
   imageNavigationSnapshot,
   openFixturePage,
   panelStatus,
+  setLoadFailureFeedback,
   test,
   togglePanelFromExtensionAction,
 } from './fixtures.js';
@@ -371,6 +372,8 @@ test('previewing a recent after a failed load updates the URL editor and parsed 
 
   await togglePanelFromExtensionAction(page, serviceWorker);
   await expectPanelOpen(page);
+  // Alert mode so the fail-closed apply surfaces the HTTP-error status this test waits on (#450).
+  await setLoadFailureFeedback(page, 'alert');
   await applyUrlInEditor(page, fixtureUrl(fixtureAssetPaths.assetOne));
   await expectPanelStatusMessage(page, /Loaded .*asset-one\.svg/u);
   await applyUrlInEditor(page, fixtureUrl(fixtureAssetPaths.assetTwo));
@@ -393,6 +396,8 @@ test('failed projection keeps the previous successful host image', async ({ page
 
   await togglePanelFromExtensionAction(page, serviceWorker);
   await expectPanelOpen(page);
+  // Alert mode so the failed projection surfaces the red error status this test asserts (#450).
+  await setLoadFailureFeedback(page, 'alert');
   await applyUrlInEditor(page, fixtureUrl(fixtureAssetPaths.assetTwo));
   await expectPanelStatusMessage(page, /Loaded .*asset-two\.svg/u);
   const successful = await imageNavigationSnapshot(page, primaryImage);

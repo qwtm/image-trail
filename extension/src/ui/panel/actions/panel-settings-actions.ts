@@ -124,7 +124,7 @@ export function buildPanelSettingsActionEntries(deps: PanelActionDeps): ActionEn
     },
     'settings/update-neighbor-preload': {
       handle(action) {
-        deps.updateNeighborPreload(action.enabled, action.radius, action.cacheLimit, action.probeMethod);
+        deps.updateNeighborPreload(action.enabled, action.radius, action.cacheLimit, action.probeMethod, action.loadFailureFeedback);
       },
     },
     'neighbor-preload/manual': {

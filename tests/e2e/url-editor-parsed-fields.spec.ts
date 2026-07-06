@@ -13,6 +13,7 @@ import {
   imageNavigationSnapshot,
   openFixturePage,
   panelStatus,
+  setLoadFailureFeedback,
   test,
   togglePanelFromExtensionAction,
 } from './fixtures.js';
@@ -200,6 +201,8 @@ test('URL editor and parsed fields load, fail closed, navigate, learn templates,
   await installDynamicImageRoute(page, ['404']);
   await openPanel(page, serviceWorker);
   await setRequestThrottle(page, { minimumIntervalMs: '0', maxRequests: '100', windowMs: '1000' });
+  // Alert mode so the direct fail-closed apply below still surfaces the red status + HTTP error (#450).
+  await setLoadFailureFeedback(page, 'alert');
   await closeSettingsIfOpen(page);
 
   await applyUrlInEditor(page, fixtureUrl('/dynamic-image.svg?frame=1'));
@@ -287,6 +290,8 @@ test('previewing a recent clears the red failed-field marker left by a failed st
   });
   await openPanel(page, serviceWorker);
   await setRequestThrottle(page, { minimumIntervalMs: '0', maxRequests: '100', windowMs: '1000' });
+  // Display mode so the failed step paints the red field ring this test then clears (#450).
+  await setLoadFailureFeedback(page, 'display');
   await closeSettingsIfOpen(page);
 
   await applyUrlInEditor(page, fixtureUrl('/dynamic-image.svg?set=50&frame=97'));
@@ -329,6 +334,9 @@ test('a Next step that skips a dead run leaves no stray red field outline on the
   });
   await openPanel(page, serviceWorker);
   await setRequestThrottle(page, { minimumIntervalMs: '0', maxRequests: '100', windowMs: '1000' });
+  // Display mode: the red ring CAN appear while skipping, so this test meaningfully proves it is
+  // reconciled away at rest rather than trivially absent (Mute would hide it either way) (#450).
+  await setLoadFailureFeedback(page, 'display');
   await closeSettingsIfOpen(page);
 
   await applyUrlInEditor(page, fixtureUrl('/dynamic-image.svg?frame=500'));
@@ -348,6 +356,30 @@ test('a Next step that skips a dead run leaves no stray red field outline on the
   // The field rests on the last-good value and carries no stranded red outline.
   await expect(page.locator('.image-trail-panel__field-row.is-error')).toHaveCount(0);
   await expectFrame(page, '501');
+});
+
+test('Mute (default) hides the red ring and error status a failed apply would show in Alert (#450)', async ({ page, serviceWorker }) => {
+  // Frames 404 and 405 are dead; the mode governs whether their failure is visible.
+  await installDynamicImageRoute(page, ['404', '405']);
+  await openPanel(page, serviceWorker);
+  await setRequestThrottle(page, { minimumIntervalMs: '0', maxRequests: '100', windowMs: '1000' });
+  await closeSettingsIfOpen(page);
+
+  await applyUrlInEditor(page, fixtureUrl('/dynamic-image.svg?frame=1'));
+  await expectPanelStatusMessage(page, /Loaded .*dynamic-image\.svg\?frame=1/u);
+  await openParsedFields(page);
+
+  // Default Mute: a failed apply surfaces nothing — no red field ring, no error status.
+  await applyUrlInEditor(page, fixtureUrl('/dynamic-image.svg?frame=404'));
+  await expect(page.locator('.image-trail-panel__field-row.is-error')).toHaveCount(0);
+  await expect(panelStatus(page)).not.toHaveClass(/is-error/u);
+
+  // The same class of failure in Alert DOES surface, proving Mute suppressed real feedback (not a
+  // no-op): a distinct dead frame so no cached success can shadow it.
+  await setLoadFailureFeedback(page, 'alert');
+  await applyUrlInEditor(page, fixtureUrl('/dynamic-image.svg?frame=405'));
+  await expect(panelStatus(page)).toHaveClass(/is-error/u);
+  await expectPanelStatusMessage(page, /HTTP 404/u);
 });
 
 test('Prev/Next steps every included field together into one combined URL', async ({ page, serviceWorker }) => {
@@ -388,6 +420,8 @@ test('URL review status export/import round trips without image-record side effe
   await installDynamicImageRoute(page, ['404']);
   await openPanel(page, serviceWorker);
   await setRequestThrottle(page, { minimumIntervalMs: '0', maxRequests: '100', windowMs: '1000' });
+  // Alert mode so the fail-closed apply surfaces the HTTP-error status this test waits on (#450).
+  await setLoadFailureFeedback(page, 'alert');
   await clearAllUrlReviewStatus(page);
   await closeSettingsIfOpen(page);
 

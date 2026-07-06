@@ -208,6 +208,7 @@ function panelState(overrides: Partial<PanelState> = {}): PanelState {
     neighborPreloadRadius: 5,
     neighborPreloadCacheLimit: 20,
     neighborPreloadProbeMethod: 'get',
+    loadFailureFeedback: 'mute',
     secondaryControlsOpen: false,
     detachedSections: [],
     hasOlderBookmarks: false,

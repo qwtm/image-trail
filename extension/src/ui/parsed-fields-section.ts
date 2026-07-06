@@ -62,6 +62,7 @@ export function createParsedFieldsSection(
         activeUrl,
       ),
       resetAllAvailable: parsedFieldResetAllAvailable(state, activeUrl),
+      showFieldFailure: state.loadFailureFeedback !== 'mute',
     },
   );
 }

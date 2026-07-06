@@ -82,6 +82,7 @@ export class PanelSettingsController {
       neighborPreloadRadius: settings.neighborPreloadRadius,
       neighborPreloadCacheLimit: settings.neighborPreloadCacheLimit,
       neighborPreloadProbeMethod: settings.neighborPreloadProbeMethod,
+      loadFailureFeedback: settings.loadFailureFeedback,
       secondaryControlsOpen: settings.secondaryControlsOpen,
       restoreWorkspaceLayoutEnabled: settings.restoreWorkspaceLayout,
       lastUpdatedAt: Date.now(),
@@ -232,6 +233,7 @@ export class PanelSettingsController {
     radius: number,
     cacheLimit: number,
     probeMethod = this.deps.getLocalSettings().neighborPreloadProbeMethod,
+    loadFailureFeedback = this.deps.getLocalSettings().loadFailureFeedback,
   ): void {
     if (
       !Number.isInteger(radius) ||
@@ -243,12 +245,20 @@ export class PanelSettingsController {
       (enabled === this.deps.getState().neighborPreloadEnabled &&
         radius === this.deps.getState().neighborPreloadRadius &&
         cacheLimit === this.deps.getState().neighborPreloadCacheLimit &&
-        probeMethod === this.deps.getState().neighborPreloadProbeMethod)
+        probeMethod === this.deps.getState().neighborPreloadProbeMethod &&
+        loadFailureFeedback === this.deps.getState().loadFailureFeedback)
     ) {
       return;
     }
     this.deps.setState(
-      reducePanelAction(this.deps.getState(), { name: 'settings/update-neighbor-preload', enabled, radius, cacheLimit, probeMethod }),
+      reducePanelAction(this.deps.getState(), {
+        name: 'settings/update-neighbor-preload',
+        enabled,
+        radius,
+        cacheLimit,
+        probeMethod,
+        loadFailureFeedback,
+      }),
     );
     this.saveLocalSettings({
       ...this.deps.getLocalSettings(),
@@ -256,6 +266,7 @@ export class PanelSettingsController {
       neighborPreloadRadius: radius,
       neighborPreloadCacheLimit: cacheLimit,
       neighborPreloadProbeMethod: probeMethod,
+      loadFailureFeedback,
     });
     if (!enabled || radius === 0) {
       this.deps.neighborPreload().invalidate();

@@ -106,7 +106,6 @@ export class ProjectionApplicationController {
       readonly reason?: ProjectionReason;
       readonly preloadDirection?: NeighborPreloadDirection;
       readonly resetFieldState?: boolean;
-      readonly quietFailure?: boolean;
     } = {},
   ): Promise<boolean> {
     const session = this.beginProjectionSession(options.reason ?? this.applySelectedUrlReason(attemptedFieldIds), nextUrl);
@@ -134,18 +133,20 @@ export class ProjectionApplicationController {
         nextUrl,
         { preserveMessage: true },
       );
-      // Arrow / next / prev traversal skips past bad URLs, so it mutes the alert: keep the failure in
-      // field/review state (which drives the skip) but leave the previous status/message so we don't
-      // flash a red error or churn the panel on every skipped image. The +/- single step still shows
-      // the error, briefly.
-      if (options.quietFailure) {
-        const state = this.deps.getState();
-        this.deps.setState({ ...failedState, status: state.status, message: state.message, lastUpdatedAt: state.lastUpdatedAt });
-      } else {
+      // The failure-feedback mode (#450) governs how loudly a load failure surfaces. Alert flashes
+      // the status error and arms the finite reset; Display/Mute keep the previous status/message so
+      // the panel does not churn or flash red on every skipped image. `failedFieldId`/`draftUrl`
+      // stay set regardless (they re-base the next step off the last-good URL and back the review
+      // record); the red field ring is separately render-gated so Mute hides it. The failure is
+      // always captured (review status + logs) in every mode.
+      if (this.deps.getState().loadFailureFeedback === 'alert') {
         this.deps.setState(failedState);
         this.deps.scheduleFiniteCaptureErrorReset(this.deps.getState().lastUpdatedAt, 'status', FIELD_LOAD_ERROR_DISPLAY_MS);
-        this.deps.render();
+      } else {
+        const state = this.deps.getState();
+        this.deps.setState({ ...failedState, status: state.status, message: state.message, lastUpdatedAt: state.lastUpdatedAt });
       }
+      this.deps.render();
       void this.deps.saveUrlReviewStatus('failed', nextUrl, attemptedFieldIds, preload.message);
       void this.deps.saveFieldState();
       if (session.reason === 'parsed-field-navigation') this.deps.refreshBufferedNavPreloads();

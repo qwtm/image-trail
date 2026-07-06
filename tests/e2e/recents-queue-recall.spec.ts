@@ -13,6 +13,7 @@ import {
   installDownloadRequestLog,
   openFixturePage,
   readDownloadRequestLog,
+  setLoadFailureFeedback,
   test,
   togglePanelFromExtensionAction,
 } from './fixtures.js';
@@ -169,6 +170,8 @@ function filenameFromAssetPath(assetPath: string): string {
 test('successful loads add Recents while failed loads do not', async ({ page, serviceWorker }) => {
   await openPanel(page, serviceWorker);
   await deleteVisibleRecents(page);
+  // Alert mode so the failed apply surfaces the HTTP-error status this test waits on (#450).
+  await setLoadFailureFeedback(page, 'alert');
 
   await applyUrlInEditor(page, fixtureUrl(fixtureAssetPaths.assetOne));
   await expectPanelStatusMessage(page, /Loaded .*asset-one\.svg|Image loaded but did not change\.|Applied .*asset-one\.svg/u);
