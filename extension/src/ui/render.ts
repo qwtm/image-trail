@@ -249,7 +249,12 @@ function restoreFocusedTextControl(target: PanelRenderTarget, snapshot: FocusedT
 
 function scrollSnapshots(root: HTMLElement, layoutState: PanelLayoutState, scrollAnchorId?: string | null): readonly ScrollSnapshot[] {
   const snapshots: ScrollSnapshot[] = [
-    { selector: null, scrollTop: root.scrollTop, scrollLeft: root.scrollLeft, anchor: scrollAnchor(root, scrollAnchorId) },
+    {
+      selector: null,
+      scrollTop: root.scrollTop,
+      scrollLeft: root.scrollLeft,
+      anchor: scrollAnchor(root, scrollAnchorId) ?? visibleScrollAnchor(root),
+    },
   ];
   for (const selector of SCROLL_SNAPSHOT_SELECTORS) {
     const element = root.querySelector<HTMLElement>(selector);
