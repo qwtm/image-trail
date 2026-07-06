@@ -71,6 +71,24 @@
       ]
     },
     {
+      "id": "gallery-search",
+      "acceptance": "Gallery search",
+      "repoPath": "tests/gallery-search.test.ts",
+      "wiki": "https://github.com/qwtm/image-trail/wiki/Acceptance-Test-Gallery-Search",
+      "coverage": [
+        {
+          "type": "unit-dom",
+          "paths": ["tests/gallery-search.test.ts", "tests/dom/gallery-view.test.ts", "tests/data-crypto.test.ts"],
+          "notes": "Covers gallery metadata matching, privacy-mode search masking, matched-result queue order, zero-as-unlimited gallery limit migration, and the gallery search/page-limit controls."
+        },
+        {
+          "type": "manual",
+          "reason": "Extension-page search over real durable IndexedDB records remains manual until the gallery page gets a focused Playwright extension-page spec.",
+          "notes": "Load the built extension, open the gallery, save a finite gallery page limit and then 0, type host/filename/label/extension queries, verify results stay in queue order, no-match and cleared states are explicit, privacy mode hides URL/label matches, and queue/Recents/Recall/pCloud/import-export state does not change."
+        }
+      ]
+    },
+    {
       "id": "host-image-projection-ownership",
       "acceptance": "Host image projection ownership",
       "repoPath": "docs/acceptance-tests/host-image-projection-ownership.md",

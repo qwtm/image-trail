@@ -22,6 +22,7 @@ test('gallery view renders durable records in a bounded page grid', () => {
   const view = createGalleryView(
     {
       items: [record],
+      searchQuery: '',
       offset: 0,
       limit: 72,
       total: 1,
@@ -34,6 +35,9 @@ test('gallery view renders durable records in a bounded page grid', () => {
     },
     {
       openRecord: (item) => opened.push(item),
+      updateSearch: () => assert.fail('unexpected search'),
+      clearSearch: () => assert.fail('unexpected clear'),
+      updatePageLimit: () => assert.fail('unexpected limit update'),
       loadPage: () => assert.fail('unexpected page load'),
       reload: () => assert.fail('unexpected reload'),
     },
@@ -63,6 +67,7 @@ test('gallery view disables locked private records without exposing metadata', (
   const view = createGalleryView(
     {
       items: [locked],
+      searchQuery: '',
       offset: 0,
       limit: 72,
       total: 1,
@@ -75,6 +80,9 @@ test('gallery view disables locked private records without exposing metadata', (
     },
     {
       openRecord: () => assert.fail('locked record should not open'),
+      updateSearch: () => assert.fail('unexpected search'),
+      clearSearch: () => assert.fail('unexpected clear'),
+      updatePageLimit: () => assert.fail('unexpected limit update'),
       loadPage: () => assert.fail('unexpected page load'),
       reload: () => assert.fail('unexpected reload'),
     },
@@ -90,6 +98,7 @@ test('gallery view masks unlocked thumbnails in privacy mode', () => {
   const view = createGalleryView(
     {
       items: [record],
+      searchQuery: '',
       offset: 0,
       limit: 72,
       total: 1,
@@ -102,6 +111,9 @@ test('gallery view masks unlocked thumbnails in privacy mode', () => {
     },
     {
       openRecord: () => assert.fail('unexpected open'),
+      updateSearch: () => assert.fail('unexpected search'),
+      clearSearch: () => assert.fail('unexpected clear'),
+      updatePageLimit: () => assert.fail('unexpected limit update'),
       loadPage: () => assert.fail('unexpected page load'),
       reload: () => assert.fail('unexpected reload'),
     },
@@ -117,6 +129,7 @@ test('gallery paging buttons request bounded windows', () => {
   const view = createGalleryView(
     {
       items: [record],
+      searchQuery: '',
       offset: 72,
       limit: 72,
       total: 145,
@@ -129,6 +142,9 @@ test('gallery paging buttons request bounded windows', () => {
     },
     {
       openRecord: () => assert.fail('unexpected open'),
+      updateSearch: () => assert.fail('unexpected search'),
+      clearSearch: () => assert.fail('unexpected clear'),
+      updatePageLimit: () => assert.fail('unexpected limit update'),
       loadPage: (offset) => loads.push(offset),
       reload: () => loads.push(72),
     },
@@ -139,4 +155,80 @@ test('gallery paging buttons request bounded windows', () => {
   buttonByText(view, 'Reload').click();
 
   assert.deepEqual(loads, [0, 144, 72]);
+});
+
+test('gallery search input and clear control dispatch query changes', () => {
+  const queries: string[] = [];
+  let cleared = false;
+  const view = createGalleryView(
+    {
+      items: [],
+      searchQuery: 'mars',
+      offset: 0,
+      limit: 72,
+      total: 0,
+      hasOlder: false,
+      hasNewer: false,
+      loading: false,
+      message: null,
+      blobKeyUnlocked: false,
+      privacyMode: false,
+    },
+    {
+      openRecord: () => assert.fail('unexpected open'),
+      updateSearch: (query) => queries.push(query),
+      clearSearch: () => {
+        cleared = true;
+      },
+      updatePageLimit: () => assert.fail('unexpected limit update'),
+      loadPage: () => assert.fail('unexpected page load'),
+      reload: () => assert.fail('unexpected reload'),
+    },
+  );
+
+  const input = view.querySelector<HTMLInputElement>('input[type="search"]');
+  assert.ok(input);
+  input.value = 'earth';
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  buttonByText(view, 'Clear').click();
+
+  assert.deepEqual(queries, ['earth']);
+  assert.equal(cleared, true);
+  assert.match(view.textContent ?? '', /No gallery matches/u);
+});
+
+test('gallery limit form accepts zero as unlimited', () => {
+  const limits: number[] = [];
+  const view = createGalleryView(
+    {
+      items: [record],
+      searchQuery: '',
+      offset: 0,
+      limit: 0,
+      total: 1,
+      hasOlder: false,
+      hasNewer: false,
+      loading: false,
+      message: null,
+      blobKeyUnlocked: false,
+      privacyMode: false,
+    },
+    {
+      openRecord: () => assert.fail('unexpected open'),
+      updateSearch: () => assert.fail('unexpected search'),
+      clearSearch: () => assert.fail('unexpected clear'),
+      updatePageLimit: (limit) => limits.push(limit),
+      loadPage: () => assert.fail('unexpected page load'),
+      reload: () => assert.fail('unexpected reload'),
+    },
+  );
+
+  const input = view.querySelector<HTMLInputElement>('input[type="number"]');
+  assert.ok(input);
+  assert.equal(input.value, '0');
+  input.value = '24';
+  input.form?.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+
+  assert.deepEqual(limits, [24]);
+  assert.match(view.textContent ?? '', /0 shows all/u);
 });
