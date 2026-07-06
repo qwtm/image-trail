@@ -160,36 +160,43 @@ test('previewRecord fails with guidance when no selectable host image exists in 
   document.body.replaceChildren();
   const harness = createHarness();
   await harness.controller.previewRecord('https://images.example.test/img/other.jpg', undefined, 'row-anchor');
+  assert.ok(!harness.log.some((entry) => entry.startsWith('beginGuarded')), 'the guard needs no projection session');
   assert.equal(harness.getState().status, 'error');
   assert.equal(harness.getState().message, 'Select a host image before previewing an image.');
-  assert.ok(harness.log.includes('update:failed'));
   assert.equal(harness.controller.previewScrollAnchorId, null);
 });
 
-test('previewRecord projects a plain URL into the selected host element and clears the scroll anchor', async () => {
+test('previewRecord loads a plain URL through the applySelectedUrl pipeline and clears the scroll anchor', async () => {
   document.body.replaceChildren();
   mountSelectedImage('handle-1');
   const harness = createHarness();
   await harness.controller.previewRecord('https://images.example.test/img/other.jpg', undefined, 'row-anchor');
-  assert.equal(harness.getState().message, 'Projected image into selected host element.');
+  // The preview is a real record-preview load, not a side-channel projection: same session
+  // reason, same projection application, and the same field-state persistence as the URL editor
+  // and field +/- steps — which is what resets stale failure markers from the previous URL (#429).
+  assert.ok(harness.log.includes('beginGuarded:record-preview'));
   const preloadingIndex = harness.log.indexOf('update:preloading');
   const applyingIndex = harness.log.indexOf('update:applying');
   const applyIndex = harness.log.findIndex((entry) => entry.startsWith('applyUrlToSelected'));
   assert.ok(preloadingIndex >= 0 && applyingIndex > preloadingIndex && applyIndex > applyingIndex);
+  assert.ok(harness.log.includes('saveFieldState'), 'the preview persists field state like every other load');
+  assert.equal(harness.getState().draftUrl, null);
   assert.equal(harness.controller.previewScrollAnchorId, null);
 });
 
-test('previewRecord clears a stale failed draft so the URL editor and fields follow the projected URL (#429)', async () => {
+test('previewRecord clears a stale failed draft and failure markers from the previous URL (#429)', async () => {
   document.body.replaceChildren();
   mountSelectedImage('handle-1');
   const harness = createHarness();
-  // A failed load leaves its address in draftUrl; the editor/fields derive from draftUrl first.
-  harness.patchState({ draftUrl: 'https://images.example.test/img/missing.jpg' });
+  // A failed load leaves its address in draftUrl and marks the stepped field as failed; the
+  // editor/fields derive from draftUrl first and the marker renders the field red.
+  harness.patchState({ draftUrl: 'https://images.example.test/img/missing.jpg', failedFieldId: 'field-1', activeFieldId: 'field-1' });
 
   await harness.controller.previewRecord('https://images.example.test/img/other.jpg');
 
-  assert.equal(harness.getState().message, 'Projected image into selected host element.');
   assert.equal(harness.getState().draftUrl, null, 'a successful preview supersedes the failed draft');
+  assert.equal(harness.getState().failedFieldId, null, 'the failed marker from the previous URL is reset');
+  assert.equal(harness.getState().activeFieldId, null, 'field interaction state rebuilds from the projected URL');
 });
 
 test('applySelectedUrl pushes the visible URL only for same-origin loads', async () => {

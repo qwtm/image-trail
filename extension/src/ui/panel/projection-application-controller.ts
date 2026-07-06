@@ -284,17 +284,28 @@ export class ProjectionApplicationController {
         this.applyAlreadyProjectedPreviewMessage();
         return;
       }
+      if (!blobId || !captureStore) {
+        // Plain-URL previews load through the SAME pipeline as the URL editor and the field +/-
+        // steps instead of a parallel projection path (#429): applySelectedUrl owns the field
+        // bookkeeping, so stale failure markers from the previous URL are reset, the draft is
+        // superseded, splits are pruned for the new shape, and the state is persisted — projecting
+        // was previously a side channel that left all of that stale.
+        if (!this.canProjectToSelectedImage()) {
+          const state = this.deps.getState();
+          this.deps.setState({
+            ...state,
+            message: 'Select a host image before previewing an image.',
+            status: 'error',
+            lastUpdatedAt: Date.now(),
+          });
+          this.deps.render();
+          return;
+        }
+        await this.applySelectedUrl(url, [], { reason: 'record-preview', resetFieldState: true });
+        return;
+      }
       session = this.beginProjectionSession('record-preview', url);
       if (!session) return;
-      if (!blobId) {
-        await this.previewUrl(url, session);
-        return;
-      }
-
-      if (!captureStore) {
-        await this.previewUrl(url, session);
-        return;
-      }
       const retrieved = await captureStore.requestRetrieveBlob(blobId);
       if (!this.isCurrentProjectionSession(session)) return;
       if (!retrieved.ok) {
@@ -331,34 +342,6 @@ export class ProjectionApplicationController {
       this.deps.render();
     } finally {
       if (!session || this.isCurrentProjectionSession(session)) this.previewScrollAnchorIdValue = null;
-    }
-  }
-
-  private async previewUrl(url: string, session: ProjectionSession): Promise<void> {
-    if (!this.canProjectToSelectedImage()) {
-      if (!this.isCurrentProjectionSession(session)) return;
-      this.deps.projections().update(session, { status: 'failed' });
-      const state = this.deps.getState();
-      this.deps.setState({
-        ...state,
-        message: 'Select a host image before previewing an image.',
-        status: 'error',
-        lastUpdatedAt: Date.now(),
-      });
-      this.deps.render();
-      return;
-    }
-
-    if (await this.projectUrlToSelectedImage(url, session)) {
-      if (!this.isCurrentProjectionSession(session)) return;
-      const state = this.deps.getState();
-      this.deps.setState({ ...state, message: 'Projected image into selected host element.', lastUpdatedAt: Date.now() });
-      // Parity with the applySelectedUrl success path (#429): rewrite the persisted field-state
-      // record from the projected reality, so a record tainted by an earlier FAILED load (its
-      // sourceUrl is the dead draft URL) cannot be restored over this projection later.
-      void this.deps.saveFieldState();
-      this.deps.render();
-      return;
     }
   }
 

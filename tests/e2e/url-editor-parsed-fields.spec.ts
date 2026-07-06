@@ -279,6 +279,39 @@ test('Reset all stays available across successful steps instead of flickering aw
   await expect(page.getByRole('button', { name: /Reset (all parsed fields|private parsed fields)/u })).toHaveCount(0);
 });
 
+test('previewing a recent clears the red failed-field marker left by a failed step (#429)', async ({ page, serviceWorker }) => {
+  await installMultiParamImageRoute(page);
+  // Registered after the catch-all so it wins: frame=99 is a dead neighbor.
+  await page.context().route(/\/dynamic-image\.svg\?set=50&frame=99/u, async (route) => {
+    await route.fulfill({ status: 404, contentType: 'text/plain', body: 'missing frame' });
+  });
+  await openPanel(page, serviceWorker);
+  await setRequestThrottle(page, { minimumIntervalMs: '0', maxRequests: '100', windowMs: '1000' });
+  await closeSettingsIfOpen(page);
+
+  await applyUrlInEditor(page, fixtureUrl('/dynamic-image.svg?set=50&frame=97'));
+  await expectPanelStatusMessage(page, /Loaded .*dynamic-image\.svg\?set=50&frame=97/u);
+  await applyUrlInEditor(page, fixtureUrl('/dynamic-image.svg?set=50&frame=98'));
+  await expectPanelStatusMessage(page, /Loaded .*dynamic-image\.svg\?set=50&frame=98/u);
+
+  // Step the frame field into the dead neighbor: the field goes red and the draft holds the URL.
+  await openParsedFields(page);
+  await page.getByRole('button', { name: /Increment .*frame/u }).click();
+  await expect(page.locator('.image-trail-panel__field-row.is-error')).toHaveCount(1);
+  await expect(page.locator('.image-trail-panel__full-url-input')).toHaveValue(fixtureUrl('/dynamic-image.svg?set=50&frame=99'));
+
+  // Double-click projecting an earlier recent loads through the same pipeline as the URL editor
+  // and +/- steps: the editor, the parsed fields, AND the failure marker all follow the record.
+  // Recents rows show the filename; match the target row by its URL title.
+  const frame97Recent = page
+    .locator('.image-trail-panel__history-item')
+    .filter({ has: page.locator('[title*="frame=97"]') })
+    .first();
+  await frame97Recent.dblclick();
+  await expect(page.locator('.image-trail-panel__full-url-input')).toHaveValue(fixtureUrl('/dynamic-image.svg?set=50&frame=97'));
+  await expect(page.locator('.image-trail-panel__field-row.is-error')).toHaveCount(0);
+});
+
 test('Prev/Next steps every included field together into one combined URL', async ({ page, serviceWorker }) => {
   // #263: prev/next (and arrows) are the automation tier — one press applies the same ±1 step to
   // ALL included fields at once, the same result as clicking each field's +/- individually.
