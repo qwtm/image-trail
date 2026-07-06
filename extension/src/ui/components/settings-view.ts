@@ -1,5 +1,6 @@
 import type { StorageUsageSummary } from '../../core/image/capture-result.js';
 import type { ImageProbeMethod } from '../../core/image/request-policy.js';
+import { isLoadFailureFeedback, type LoadFailureFeedback } from '../../core/settings.js';
 import { buildIdentityRows, type BuildIdentity } from '../../core/build-info.js';
 import type { PanelAction, PinSaveStoragePreference, RecentHistoryOverflowBehavior } from '../../core/types.js';
 import { createPanelLayoutSettingsView } from './panel-layout-settings-view.js';
@@ -77,6 +78,7 @@ export function createSettingsView(
     readonly radius: number;
     readonly cacheLimit: number;
     readonly probeMethod: ImageProbeMethod;
+    readonly feedback: LoadFailureFeedback;
   },
   restoreWorkspaceLayoutEnabled: boolean,
   utilityChildren: readonly HTMLElement[],
@@ -301,6 +303,7 @@ function createNeighborPreloadSettingsView(
     readonly radius: number;
     readonly cacheLimit: number;
     readonly probeMethod: ImageProbeMethod;
+    readonly feedback: LoadFailureFeedback;
   },
   dispatch: (action: PanelAction) => void,
 ): HTMLElement {
@@ -368,6 +371,26 @@ function createNeighborPreloadSettingsView(
   }
   probeMethodLabel.append(probeMethodText, probeMethodSelect);
 
+  const feedbackLabel = document.createElement('label');
+  feedbackLabel.className = 'image-trail-panel__settings-field';
+  const feedbackText = document.createElement('span');
+  feedbackText.textContent = 'Failure feedback';
+  const feedbackSelect = document.createElement('select');
+  feedbackSelect.className = 'image-trail-panel__settings-select';
+  for (const option of [
+    { value: 'alert' as const, label: 'Alert' },
+    { value: 'display' as const, label: 'Display' },
+    { value: 'mute' as const, label: 'Mute' },
+  ]) {
+    const element = document.createElement('option');
+    element.value = option.value;
+    element.textContent = option.label;
+    element.selected = state.feedback === option.value;
+    feedbackSelect.append(element);
+  }
+  feedbackLabel.append(feedbackText, feedbackSelect);
+  const parsedFeedback = (): LoadFailureFeedback => (isLoadFailureFeedback(feedbackSelect.value) ? feedbackSelect.value : state.feedback);
+
   const apply = document.createElement('button');
   apply.type = 'submit';
   apply.textContent = 'Apply';
@@ -402,6 +425,7 @@ function createNeighborPreloadSettingsView(
       radius,
       cacheLimit,
       probeMethod: probeMethodSelect.value === 'head' ? 'head' : 'get',
+      loadFailureFeedback: parsedFeedback(),
     });
   };
 
@@ -416,9 +440,13 @@ function createNeighborPreloadSettingsView(
       radius: parsedRadius() ?? state.radius,
       cacheLimit: parsedCacheLimit() ?? state.cacheLimit,
       probeMethod: probeMethodSelect.value === 'head' ? 'head' : 'get',
+      loadFailureFeedback: parsedFeedback(),
     });
   });
   probeMethodSelect.addEventListener('change', dispatchCurrent);
+  // Failure feedback governs all parsed-field load-failure UI, so it applies immediately on change
+  // even when preloading is off (the setting is not gated on `enabled`).
+  feedbackSelect.addEventListener('change', dispatchCurrent);
   manual.addEventListener('click', () => {
     const radius = parsedRadius();
     const cacheLimit = parsedCacheLimit();
@@ -430,6 +458,7 @@ function createNeighborPreloadSettingsView(
       radius,
       cacheLimit,
       probeMethod: probeMethodSelect.value === 'head' ? 'head' : 'get',
+      loadFailureFeedback: parsedFeedback(),
     });
     dispatch({ name: 'neighbor-preload/manual', radius, cacheLimit });
   });
@@ -439,7 +468,7 @@ function createNeighborPreloadSettingsView(
   meta.textContent =
     'Warms this many parsed-field URLs ahead and behind. Speculative loads stay in this page session only and never add Recents, URL review records, panel messages, pins, or Recall entries. Cache 0 keeps all entries without eviction.';
 
-  form.append(enabledLabel, radiusLabel, cacheLimitLabel, probeMethodLabel, apply, manual);
+  form.append(enabledLabel, radiusLabel, cacheLimitLabel, probeMethodLabel, feedbackLabel, apply, manual);
   wrapper.append(heading, form, meta);
   return wrapper;
 }

@@ -296,7 +296,9 @@ export class ParsedFieldNavigationController {
     const loaded = await this.deps.projectionApplication().applySelectedUrl(
       nextUrl,
       navigableFields.map((field) => field.id),
-      { preloadDirection: delta, quietFailure: true },
+      {
+        preloadDirection: delta,
+      },
     );
     if (loaded) {
       void this.deps.saveUrlTemplateFromCurrentFields();

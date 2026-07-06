@@ -2,6 +2,7 @@ import type { FetchDecodedBufferedImageResult, ProbeBufferedImageResult } from '
 import type { checkImageRequestPolicy } from '../../content/image-request-policy.js';
 import { imageResourceUrlsEqual } from '../../core/image/image-navigation.js';
 import type { ImageProbeMethod, ImageRequestIntent } from '../../core/image/request-policy.js';
+import type { LoadFailureFeedback } from '../../core/settings.js';
 import {
   ImageStatus,
   ManifestStatus,
@@ -32,6 +33,7 @@ export interface BufferedNavigationLocalSettings {
   readonly neighborPreloadEnabled: boolean;
   readonly neighborPreloadRadius: number;
   readonly neighborPreloadProbeMethod: ImageProbeMethod;
+  readonly loadFailureFeedback: LoadFailureFeedback;
 }
 
 export interface BufferedNavigationDebugSnapshot {
@@ -390,7 +392,7 @@ export class BufferedNavigationController {
       const result = await this.deps.probeImage(url, 8000, { contextKey, probeMethod });
       if (!this.isCurrentRun(queued.runId)) return;
       const skippableProbeFailure = !result.ok && (probeMethod === 'get' || this.isSkippableHeadFailure(result.status));
-      if (skippableProbeFailure) this.deps.onToast('Skipped a failed image candidate.');
+      if (skippableProbeFailure) this.emitSkipToast();
       this.navigation = reduceBufferedImageNavigation(this.navigation!, {
         type: 'SET_MANIFEST',
         index,
@@ -481,7 +483,7 @@ export class BufferedNavigationController {
       } else {
         this.navigation = reduceBufferedImageNavigation(this.navigation!, { type: 'SET_IMAGE', index, status: ImageStatus.FAILED_GET });
         console.debug('Image Trail buffered navigation skipped unavailable candidate image.', { index, url, message: result.message });
-        this.deps.onToast('Skipped a failed image candidate.');
+        this.emitSkipToast();
       }
       if (queued.advanceOnResolve) this.navigation = reduceBufferedImageNavigation(this.navigation, { type: 'ADVANCE' });
       this.deps.onDebugChanged();
@@ -545,6 +547,13 @@ export class BufferedNavigationController {
 
   private isSkippableHeadFailure(status: number | undefined): boolean {
     return status === 400 || status === 404 || status === 410;
+  }
+
+  // The "Skipped a failed image candidate" toast is failure feedback, so only the Alert mode shows
+  // it; Display/Mute skip past silently (the skip itself is unaffected — it is driven by the
+  // request-policy cache, not this toast) (#450).
+  private emitSkipToast(): void {
+    if (this.deps.getLocalSettings().loadFailureFeedback === 'alert') this.deps.onToast('Skipped a failed image candidate.');
   }
 
   private schedulePreloads(): void {

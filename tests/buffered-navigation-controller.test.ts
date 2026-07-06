@@ -44,7 +44,12 @@ function createHarness(overrides: Partial<BufferedNavigationControllerDeps> = {}
   let fetchCount = 0;
 
   const deps: BufferedNavigationControllerDeps = {
-    getLocalSettings: () => ({ neighborPreloadEnabled: true, neighborPreloadRadius: 3, neighborPreloadProbeMethod: 'get' }),
+    getLocalSettings: () => ({
+      neighborPreloadEnabled: true,
+      neighborPreloadRadius: 3,
+      neighborPreloadProbeMethod: 'get',
+      loadFailureFeedback: 'alert',
+    }),
     currentNavigationBaseRawUrl: () => BASE_URL,
     currentNavigationBaseModel: () => baseModel(),
     includedNavigationFields: (fields) => fields,
@@ -98,7 +103,12 @@ test('a later step() invalidates a still-pending earlier one so it resolves bloc
   let deferredIssued = false;
   let radius = 3;
   const { controller, landed } = createHarness({
-    getLocalSettings: () => ({ neighborPreloadEnabled: true, neighborPreloadRadius: radius, neighborPreloadProbeMethod: 'get' }),
+    getLocalSettings: () => ({
+      neighborPreloadEnabled: true,
+      neighborPreloadRadius: radius,
+      neighborPreloadProbeMethod: 'get',
+      loadFailureFeedback: 'alert',
+    }),
     // Only the first probe of the landing candidate (image=11) hangs; every other probe -
     // including the second run's own probe of the same candidate - resolves immediately.
     checkRequestPolicy: async (url) => {
@@ -163,6 +173,31 @@ test('step() skips a failed neighbor (decoded GET) and lands on the next good on
   assert.equal(result, 'loaded');
   assert.equal(landed.length, 1);
   assert.match(landed[0]!.nextUrl, /image=12$/);
+});
+
+test('a skipped candidate toasts in Alert mode but stays silent in Mute mode, still skipping to the next good one (#450)', async () => {
+  const probeImage = async (url: string) =>
+    url.endsWith('image=11')
+      ? { ok: false as const, status: 404, message: 'not found' }
+      : { ok: true as const, status: 200, finalUrl: url };
+
+  const alert = createHarness({ probeImage });
+  await alert.controller.step(baseModel(), navigableFields(baseModel()), 1);
+  assert.ok(alert.toasts.includes('Skipped a failed image candidate.'), 'Alert mode surfaces the skip toast');
+
+  const mute = createHarness({
+    probeImage,
+    getLocalSettings: () => ({
+      neighborPreloadEnabled: true,
+      neighborPreloadRadius: 3,
+      neighborPreloadProbeMethod: 'get',
+      loadFailureFeedback: 'mute',
+    }),
+  });
+  const result = await mute.controller.step(baseModel(), navigableFields(baseModel()), 1);
+  assert.equal(result, 'loaded', 'Mute still skips past the failed neighbor to the next good candidate');
+  assert.equal(mute.landed.at(-1)?.nextUrl.endsWith('image=12'), true);
+  assert.ok(!mute.toasts.includes('Skipped a failed image candidate.'), 'Mute does not surface the skip toast');
 });
 
 test('dispose() settles an in-flight step() instead of leaving it hanging forever', async () => {
@@ -238,7 +273,12 @@ test('the GET the user is blocked on bypasses the prefetch concurrency cap (#373
   const fetchGates = new Map<string, (result: { ok: true; blobUrl: string; imgElement: HTMLImageElement; sha256: string }) => void>();
   const failedProbe = (url: string): boolean => /image=1[1-4]$/.test(url);
   const { controller, landed } = createHarness({
-    getLocalSettings: () => ({ neighborPreloadEnabled: true, neighborPreloadRadius: 4, neighborPreloadProbeMethod: 'get' }),
+    getLocalSettings: () => ({
+      neighborPreloadEnabled: true,
+      neighborPreloadRadius: 4,
+      neighborPreloadProbeMethod: 'get',
+      loadFailureFeedback: 'alert',
+    }),
     probeImage: async (url): Promise<ProbeBufferedImageResult> =>
       failedProbe(url) ? { ok: false, status: 404, message: 'not found' } : { ok: true, status: 200, finalUrl: url },
     fetchDecodedImage: (url) => {

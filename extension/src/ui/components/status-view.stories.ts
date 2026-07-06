@@ -257,6 +257,7 @@ function panelState(overrides: Partial<PanelState> = {}): PanelState {
     neighborPreloadRadius: 5,
     neighborPreloadCacheLimit: 20,
     neighborPreloadProbeMethod: 'get',
+    loadFailureFeedback: 'mute',
     hasOlderBookmarks: false,
     hasNewerBookmarks: false,
     captureInProgress: false,

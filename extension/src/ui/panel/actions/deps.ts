@@ -4,6 +4,7 @@ import type { PlaintextLocalSettings } from '../../../content/panel-services.js'
 import type { Retry404 } from '../../../core/automation/retry-404.js';
 import type { Slideshow } from '../../../core/automation/slideshow.js';
 import type { ImageProbeMethod } from '../../../core/image/request-policy.js';
+import type { LoadFailureFeedback } from '../../../core/settings.js';
 import type { CaptureSourceType, FieldTransformPanelAction, PanelAction, PanelState } from '../../../core/types.js';
 import type { BufferedNavigationController } from '../buffered-navigation-controller.js';
 import type { PanelMount } from '../panel-mount.js';
@@ -75,7 +76,13 @@ export interface PanelActionDeps {
   updatePinSaveStoragePreference(value: PlaintextLocalSettings['pinSaveStoragePreference']): void;
   updateUrlReviewStatusRetention(limit: number, clearAfterExport: boolean): Promise<void>;
   updateRequestThrottle(minimumIntervalMs: number, maxRequests: number, windowMs: number): void;
-  updateNeighborPreload(enabled: boolean, radius: number, cacheLimit: number, probeMethod: ImageProbeMethod): void;
+  updateNeighborPreload(
+    enabled: boolean,
+    radius: number,
+    cacheLimit: number,
+    probeMethod: ImageProbeMethod,
+    loadFailureFeedback: LoadFailureFeedback,
+  ): void;
   preloadMoreNeighbors(radius: number, cacheLimit: number): void;
   resetPanelPosition(): Promise<void>;
   updateWorkspaceLayoutRestore(enabled: boolean): void;

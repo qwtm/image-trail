@@ -261,6 +261,7 @@ const fixtures: { readonly [N in RegisteredPanelActionName]: PanelActionFor<N> }
     radius: 2,
     cacheLimit: 10,
     probeMethod: 'get',
+    loadFailureFeedback: 'mute',
   },
   'neighbor-preload/manual': { name: 'neighbor-preload/manual', radius: 2, cacheLimit: 10 },
   'settings/reset-panel-position': { name: 'settings/reset-panel-position' },

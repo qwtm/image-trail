@@ -52,7 +52,7 @@ function makeSnapshot(selected: { readonly url: string; readonly handleId: strin
 interface ApplyCall {
   readonly url: string;
   readonly attemptedFieldIds: readonly string[];
-  readonly options: { readonly preloadDirection?: 1 | -1; readonly quietFailure?: boolean } | undefined;
+  readonly options: { readonly preloadDirection?: 1 | -1 } | undefined;
 }
 
 interface HarnessOptions {
@@ -132,10 +132,11 @@ function createHarness(options: HarnessOptions = {}): Harness {
         const callIndex = applyCalls.length;
         applyCalls.push({ url, attemptedFieldIds: attemptedFieldIds ?? [], options: opts });
         const ok = options.applyResult ? await options.applyResult(url, callIndex) : true;
-        // Mirror projection-application-controller's quiet failure: a skipped candidate marks the
-        // field failed (so mid-drain steps re-base off the last-good URL) and stashes the failed
-        // draft, without a visible status change.
-        if (!ok && opts?.quietFailure) {
+        // Mirror projection-application-controller: a failed load marks the field failed (so
+        // mid-drain steps re-base off the last-good URL) and stashes the failed draft. This
+        // functional marker is set regardless of the failure-feedback mode (#450); the mode only
+        // gates the visible ring/toast, which this controller test does not render.
+        if (!ok) {
           state = { ...state, failedFieldId: (attemptedFieldIds ?? [])[0] ?? null, draftUrl: url };
         }
         return ok;
@@ -168,7 +169,7 @@ async function until(predicate: () => boolean, timeoutMs = 2000): Promise<void> 
   while (!predicate() && Date.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 5));
 }
 
-test('the candidate scan applies the nearest neighbor as a quiet, direction-tagged parsed-field load', async () => {
+test('the candidate scan applies the nearest neighbor as a direction-tagged parsed-field load', async () => {
   const harness = createHarness();
   harness.patchState({ unlockedFieldIds: [intFieldId()] });
 
@@ -178,7 +179,7 @@ test('the candidate scan applies the nearest neighbor as a quiet, direction-tagg
   assert.equal(harness.applyCalls.length, 1);
   assert.match(harness.applyCalls[0]!.url, /image=11$/);
   assert.deepEqual(harness.applyCalls[0]!.attemptedFieldIds, [intFieldId()]);
-  assert.deepEqual(harness.applyCalls[0]!.options, { preloadDirection: 1, quietFailure: true });
+  assert.deepEqual(harness.applyCalls[0]!.options, { preloadDirection: 1 });
   assert.ok(harness.log.includes('saveUrlTemplate'));
 });
 
@@ -201,7 +202,7 @@ test('one press steps every included field into a single combined URL (the image
   assert.equal(harness.applyCalls[0]!.url, 'https://example.test/gallery?album=4&image=11');
   assert.deepEqual([...harness.applyCalls[0]!.attemptedFieldIds].sort(), [...fieldIds].sort());
   // Automation navigation stays quiet on failures; they land in URL history, not a red status.
-  assert.deepEqual(harness.applyCalls[0]!.options, { preloadDirection: 1, quietFailure: true });
+  assert.deepEqual(harness.applyCalls[0]!.options, { preloadDirection: 1 });
 });
 
 test('a throttled governor makes the drain wait and retry instead of dropping the step', async () => {

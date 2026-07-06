@@ -13,6 +13,9 @@ import {
   REQUEST_THROTTLE_WINDOW_LIMITS,
   URL_REVIEW_STATUS_LIMITS,
   VISIBLE_BOOKMARK_SOFT_MAX_LIMITS,
+  DEFAULT_LOAD_FAILURE_FEEDBACK,
+  isLoadFailureFeedback,
+  type LoadFailureFeedback,
 } from '../core/settings.js';
 import { DEFAULT_GOVERNOR_CONFIG } from '../core/automation/types.js';
 import type { ImageProbeMethod } from '../core/image/request-policy.js';
@@ -43,6 +46,7 @@ export interface PlaintextLocalSettings {
   readonly neighborPreloadRadius: number;
   readonly neighborPreloadCacheLimit: number;
   readonly neighborPreloadProbeMethod: ImageProbeMethod;
+  readonly loadFailureFeedback: LoadFailureFeedback;
   readonly secondaryControlsOpen: boolean;
   readonly restoreWorkspaceLayout: boolean;
 }
@@ -71,6 +75,7 @@ export const DEFAULT_LOCAL_SETTINGS: PlaintextLocalSettings = {
   neighborPreloadRadius: DEFAULT_NEIGHBOR_PRELOAD_RADIUS,
   neighborPreloadCacheLimit: DEFAULT_NEIGHBOR_PRELOAD_CACHE_LIMIT,
   neighborPreloadProbeMethod: 'get',
+  loadFailureFeedback: DEFAULT_LOAD_FAILURE_FEEDBACK,
   secondaryControlsOpen: false,
   restoreWorkspaceLayout: false,
 };
@@ -159,6 +164,9 @@ export function migrateLocalSettings(input: Partial<PlaintextLocalSettings>): Pl
     neighborPreloadProbeMethod: isImageProbeMethod(input.neighborPreloadProbeMethod)
       ? input.neighborPreloadProbeMethod
       : DEFAULT_LOCAL_SETTINGS.neighborPreloadProbeMethod,
+    loadFailureFeedback: isLoadFailureFeedback(input.loadFailureFeedback)
+      ? input.loadFailureFeedback
+      : DEFAULT_LOCAL_SETTINGS.loadFailureFeedback,
     secondaryControlsOpen: input.secondaryControlsOpen === true,
     restoreWorkspaceLayout: input.restoreWorkspaceLayout === true,
   };

@@ -214,6 +214,22 @@ export async function applyUrlInEditor(page: Page, url: string): Promise<void> {
   await editor.press('Enter');
 }
 
+// Sets the parsed-field load-failure feedback mode (#450). The control lives in Settings → Automation
+// → Preload; the default is Mute, so tests that assert a red field ring or an HTTP-error status must
+// opt into Display/Alert. Self-contained: opens Settings, selects the mode, then closes Settings so
+// it can be dropped into any test without disturbing the surrounding panel interactions.
+export async function setLoadFailureFeedback(page: Page, mode: 'alert' | 'display' | 'mute'): Promise<void> {
+  const showSettings = page.getByRole('button', { name: 'Show settings' });
+  if ((await showSettings.count()) > 0) await showSettings.click();
+  const group = page.getByRole('heading', { name: 'Automation' }).locator('xpath=ancestor::details[1]');
+  if (!(await group.evaluate((element) => element.hasAttribute('open')))) {
+    await page.getByRole('heading', { name: 'Automation' }).click();
+  }
+  await page.getByLabel('Failure feedback').selectOption(mode);
+  const hideSettings = page.getByRole('button', { name: 'Hide settings' });
+  if ((await hideSettings.count()) > 0) await hideSettings.click();
+}
+
 export async function imageNavigationSnapshot(page: Page, imageSelector: string, sourceSelector?: string) {
   return page.locator(imageSelector).evaluate((image, selector) => {
     const source = selector ? document.querySelector(selector) : null;

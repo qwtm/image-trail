@@ -44,7 +44,12 @@ function createHarness(overrides: Partial<BufferedNavigationControllerDeps> = {}
   let currentRawUrl = BASE_URL;
 
   const deps: BufferedNavigationControllerDeps = {
-    getLocalSettings: () => ({ neighborPreloadEnabled: true, neighborPreloadRadius: 3, neighborPreloadProbeMethod: 'get' }),
+    getLocalSettings: () => ({
+      neighborPreloadEnabled: true,
+      neighborPreloadRadius: 3,
+      neighborPreloadProbeMethod: 'get',
+      loadFailureFeedback: 'alert',
+    }),
     currentNavigationBaseRawUrl: () => currentRawUrl,
     currentNavigationBaseModel: () => baseModel(),
     includedNavigationFields: (fields) => fields,
@@ -120,7 +125,12 @@ test('a later step() invalidates a still-pending earlier one so it resolves bloc
   let deferredIssued = false;
   let radius = 3;
   const { controller, landed } = createHarness({
-    getLocalSettings: () => ({ neighborPreloadEnabled: true, neighborPreloadRadius: radius, neighborPreloadProbeMethod: 'get' }),
+    getLocalSettings: () => ({
+      neighborPreloadEnabled: true,
+      neighborPreloadRadius: radius,
+      neighborPreloadProbeMethod: 'get',
+      loadFailureFeedback: 'alert',
+    }),
     // Only the first probe of the landing candidate (image=11) hangs; every other probe -
     // including the second run's own probe of the same candidate - resolves immediately.
     checkRequestPolicy: async (url) => {

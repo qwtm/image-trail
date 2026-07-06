@@ -632,8 +632,8 @@ export class ImageTrailPanel {
         this.panelSettings.updateUrlReviewStatusRetention(limit, clearAfterExport),
       updateRequestThrottle: (minimumIntervalMs, maxRequests, windowMs) =>
         this.panelSettings.updateRequestThrottle(minimumIntervalMs, maxRequests, windowMs),
-      updateNeighborPreload: (enabled, radius, cacheLimit, probeMethod) =>
-        this.panelSettings.updateNeighborPreload(enabled, radius, cacheLimit, probeMethod),
+      updateNeighborPreload: (enabled, radius, cacheLimit, probeMethod, loadFailureFeedback) =>
+        this.panelSettings.updateNeighborPreload(enabled, radius, cacheLimit, probeMethod, loadFailureFeedback),
       preloadMoreNeighbors: (radius, cacheLimit) => this.panelSettings.preloadMoreNeighbors(radius, cacheLimit),
       resetPanelPosition: () => this.panelPosition.resetPanelPosition(),
       updateWorkspaceLayoutRestore: (enabled) => this.workspaceLayout.updateWorkspaceLayoutRestore(enabled),

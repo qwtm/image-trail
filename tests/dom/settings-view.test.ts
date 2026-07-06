@@ -53,7 +53,7 @@ test('recents settings dispatches visible and max kept limits', () => {
     { identity: null, overlayVisible: true },
     { limit: 5_000, clearAfterExport: false },
     { minimumIntervalMs: 0, maxRequests: 3, windowMs: 10_000 },
-    { enabled: false, radius: 3, cacheLimit: 24, probeMethod: 'get' },
+    { enabled: false, radius: 3, cacheLimit: 24, probeMethod: 'get', feedback: 'mute' },
     false,
     [],
     (action) => actions.push(action),
@@ -84,6 +84,40 @@ test('recents settings dispatches visible and max kept limits', () => {
   });
 });
 
+test('the Failure feedback control dispatches the selected mode (#450)', () => {
+  const actions: PanelAction[] = [];
+  const view = createSettingsView(
+    30,
+    { limit: 2, retainedLimit: 3, overflowBehavior: 'keep-session' },
+    false,
+    [],
+    [],
+    null,
+    [],
+    { pinSaveStoragePreference: 'encrypted', blobKeyUnlocked: false, blobKeyAvailable: false },
+    { visibleQueueCount: 0, recallCount: 0, busy: false },
+    null,
+    { identity: null, overlayVisible: true },
+    { limit: 5_000, clearAfterExport: false },
+    { minimumIntervalMs: 0, maxRequests: 3, windowMs: 10_000 },
+    { enabled: false, radius: 3, cacheLimit: 24, probeMethod: 'get', feedback: 'mute' },
+    false,
+    [],
+    (action) => actions.push(action),
+  );
+
+  const feedbackLabel = Array.from(view.querySelectorAll('label')).find((label) => label.textContent?.includes('Failure feedback'));
+  assert.ok(feedbackLabel, 'expected a Failure feedback control');
+  const select = feedbackLabel.querySelector('select');
+  assert.ok(select instanceof HTMLSelectElement, 'expected the feedback select');
+  select.value = 'alert';
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+
+  const last = actions.at(-1);
+  assert.equal(last?.name, 'settings/update-neighbor-preload');
+  assert.equal((last as { readonly loadFailureFeedback?: string }).loadFailureFeedback, 'alert');
+});
+
 test('settings exposes browser, panel, and legacy shortcut decisions', () => {
   const view = createSettingsView(
     30,
@@ -99,7 +133,7 @@ test('settings exposes browser, panel, and legacy shortcut decisions', () => {
     { identity: null, overlayVisible: true },
     { limit: 5_000, clearAfterExport: false },
     { minimumIntervalMs: 0, maxRequests: 3, windowMs: 10_000 },
-    { enabled: false, radius: 3, cacheLimit: 24, probeMethod: 'get' },
+    { enabled: false, radius: 3, cacheLimit: 24, probeMethod: 'get', feedback: 'mute' },
     false,
     [],
     () => {},

@@ -31,6 +31,7 @@ export const plaintextLocalSettingsSchema = v.object({
   neighborPreloadRadius: v.number(),
   neighborPreloadCacheLimit: v.number(),
   neighborPreloadProbeMethod: v.picklist(['get', 'head']),
+  loadFailureFeedback: v.picklist(['alert', 'display', 'mute']),
   secondaryControlsOpen: v.boolean(),
   restoreWorkspaceLayout: v.boolean(),
 });

@@ -55,3 +55,18 @@ export const REQUEST_THROTTLE_MAX_REQUESTS_LIMITS = {
   min: 1,
   max: 1_000,
 } as const;
+
+// How much visible feedback a parsed-field image-load failure produces (#450). The failure is always
+// captured under the hood (saved URL review status + logs) and always drives skip-to-next-good
+// navigation regardless of this setting; it only governs the visible red field ring and the
+// toast/status error.
+//   - 'alert'   red field ring + toast/status error
+//   - 'display' red field ring only, no toast/status error
+//   - 'mute'    nothing visible (default)
+export type LoadFailureFeedback = 'alert' | 'display' | 'mute';
+
+export const DEFAULT_LOAD_FAILURE_FEEDBACK: LoadFailureFeedback = 'mute';
+
+export function isLoadFailureFeedback(value: unknown): value is LoadFailureFeedback {
+  return value === 'alert' || value === 'display' || value === 'mute';
+}

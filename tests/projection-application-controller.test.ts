@@ -212,37 +212,38 @@ test('applySelectedUrl for parsed-field navigation disables the cache, forwards 
   assert.equal(harness.log[harness.log.length - 1], 'primeBufferedNav');
 });
 
-test('applySelectedUrl quiet failure keeps the previous status/message, skips render and error reset, and refreshes nav preloads', async () => {
+test('applySelectedUrl failure in a non-alert mode keeps the previous status/message, skips the error reset, and refreshes nav preloads (#450)', async () => {
   const harness = createHarness({
     preloadResults: [{ ok: false, message: 'Image failed to load: offline' }],
   });
-  harness.patchState({ status: 'ready', message: 'Previous message.', lastUpdatedAt: 123 });
-  const loaded = await harness.controller.applySelectedUrl('https://example.test/bad.jpg', ['field-1'], { quietFailure: true });
+  harness.patchState({ status: 'ready', message: 'Previous message.', lastUpdatedAt: 123, loadFailureFeedback: 'display' });
+  const loaded = await harness.controller.applySelectedUrl('https://example.test/bad.jpg', ['field-1'], { preloadDirection: 1 });
   assert.equal(loaded, false);
   const state = harness.getState();
   assert.equal(state.status, 'ready');
   assert.equal(state.message, 'Previous message.');
   assert.equal(state.lastUpdatedAt, 123);
-  // The failure still lands in field/review state even though the alert is muted.
+  // The failure still lands in field/review state even though the status error is muted.
   assert.equal(state.failedFieldId, 'field-1');
   assert.equal(state.draftUrl, 'https://example.test/bad.jpg');
   assert.ok(harness.log.includes('update:failed'));
   assert.ok(harness.log.includes('saveUrlReviewStatus:failed:https://example.test/bad.jpg:field-1:Image failed to load: offline'));
   assert.ok(harness.log.includes('saveFieldState'));
   assert.ok(harness.log.includes('refreshBufferedNavPreloads'));
-  assert.ok(!harness.log.includes('render'));
   assert.ok(!harness.log.some((entry) => entry.startsWith('scheduleFiniteCaptureErrorReset')));
 });
 
-test('applySelectedUrl quiet failure outside parsed-field navigation does not refresh nav preloads', async () => {
+test('applySelectedUrl failure outside parsed-field navigation does not refresh nav preloads (#450)', async () => {
   const harness = createHarness({ preloadResults: [{ ok: false, message: 'Image failed to load: offline' }] });
-  const loaded = await harness.controller.applySelectedUrl('https://example.test/bad.jpg', [], { quietFailure: true });
+  harness.patchState({ loadFailureFeedback: 'display' });
+  const loaded = await harness.controller.applySelectedUrl('https://example.test/bad.jpg', []);
   assert.equal(loaded, false);
   assert.ok(!harness.log.includes('refreshBufferedNavPreloads'));
 });
 
-test('applySelectedUrl loud failure replaces state, schedules the 1500 ms status reset, and renders', async () => {
+test('applySelectedUrl failure in Alert replaces state, schedules the 1500 ms status reset, and renders (#450)', async () => {
   const harness = createHarness({ preloadResults: [{ ok: false, message: 'Image failed to load: offline' }] });
+  harness.patchState({ loadFailureFeedback: 'alert' });
   const loaded = await harness.controller.applySelectedUrl('https://example.test/bad.jpg', ['field-1']);
   assert.equal(loaded, false);
   const state = harness.getState();

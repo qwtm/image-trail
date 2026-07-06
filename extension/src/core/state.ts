@@ -1,5 +1,10 @@
 import type { AutomationState, PanelState, RecallState, TargetState } from './types.js';
-import { DEFAULT_NEIGHBOR_PRELOAD_CACHE_LIMIT, DEFAULT_NEIGHBOR_PRELOAD_RADIUS, DEFAULT_URL_REVIEW_STATUS_LIMIT } from './settings.js';
+import {
+  DEFAULT_LOAD_FAILURE_FEEDBACK,
+  DEFAULT_NEIGHBOR_PRELOAD_CACHE_LIMIT,
+  DEFAULT_NEIGHBOR_PRELOAD_RADIUS,
+  DEFAULT_URL_REVIEW_STATUS_LIMIT,
+} from './settings.js';
 import { DEFAULT_GOVERNOR_CONFIG } from './automation/types.js';
 import { DEFAULT_PREVIEW_OBJECT_FIT } from './preview-style.js';
 
@@ -70,6 +75,7 @@ export function createInitialPanelState(now = Date.now()): PanelState {
     neighborPreloadRadius: DEFAULT_NEIGHBOR_PRELOAD_RADIUS,
     neighborPreloadCacheLimit: DEFAULT_NEIGHBOR_PRELOAD_CACHE_LIMIT,
     neighborPreloadProbeMethod: 'get',
+    loadFailureFeedback: DEFAULT_LOAD_FAILURE_FEEDBACK,
     secondaryControlsOpen: false,
     historySectionOpen: true,
     bookmarksSectionOpen: true,

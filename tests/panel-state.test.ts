@@ -698,6 +698,7 @@ test('updating neighbor preload settings only changes preload policy state', () 
     radius: 2,
     cacheLimit: 0,
     probeMethod: 'head',
+    loadFailureFeedback: 'display',
   });
 
   assert.equal(updated.neighborPreloadEnabled, true);

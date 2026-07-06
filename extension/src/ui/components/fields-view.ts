@@ -29,6 +29,10 @@ export interface FieldsViewOptions {
   readonly numericDisplayModes?: ReadonlyMap<string, NumericFieldDisplayMode>;
   readonly resettableFieldIds?: ReadonlySet<string>;
   readonly resetAllAvailable?: boolean;
+  // Failure-feedback mode (#450): when false (Mute), a field that failed to load is not painted with
+  // the red `is-error` ring. `failedFieldId` itself stays set (it re-bases navigation); this only
+  // gates the visible ring.
+  readonly showFieldFailure?: boolean;
 }
 
 function computedPixelValue(styles: CSSStyleDeclaration, property: string): number {
@@ -254,7 +258,7 @@ export function createFieldsView(
     const item = document.createElement('li');
     item.className = 'image-trail-panel__field-item';
     const container = document.createElement('div');
-    const isFailed = field.field.id === failedFieldId;
+    const isFailed = options.showFieldFailure !== false && field.field.id === failedFieldId;
     const isSuccessful = successfulFieldIds.includes(field.field.id);
     const isUnchanged = unchangedFieldIds.includes(field.field.id);
     const isIncludedInTrail = unlockedFieldIds.includes(field.field.id);
