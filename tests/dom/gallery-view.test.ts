@@ -12,6 +12,12 @@ const record: ImageDisplayRecord = {
   timestamp: '2026-07-01T00:00:00.000Z',
 };
 
+const secondRecord: ImageDisplayRecord = {
+  ...record,
+  id: 'pin-2',
+  url: 'https://images.example.test/second.jpg',
+};
+
 const album: GalleryAlbumSummary = {
   album: {
     schemaVersion: 1,
@@ -23,12 +29,23 @@ const album: GalleryAlbumSummary = {
   recordIds: ['pin-1'],
 };
 
+const secondAlbum: GalleryAlbumSummary = {
+  album: {
+    ...album.album,
+    id: 'album-2',
+    name: 'Archive',
+  },
+  recordIds: ['pin-2'],
+};
+
 function galleryState(overrides: Partial<GalleryViewState> = {}): GalleryViewState {
   return {
     items: [],
     albums: [],
     selectedAlbumId: null,
     missingAlbumRecordCount: 0,
+    openAlbumMenuRecordIds: [],
+    albumMenuSelections: {},
     searchQuery: '',
     draftSearchQuery: '',
     offset: 0,
@@ -51,6 +68,8 @@ function galleryHandlers(overrides: Partial<GalleryViewHandlers> = {}): GalleryV
     selectAlbum: () => assert.fail('unexpected album select'),
     renameAlbum: () => assert.fail('unexpected album rename'),
     deleteAlbum: () => assert.fail('unexpected album delete'),
+    toggleAlbumMenu: () => assert.fail('unexpected album menu toggle'),
+    chooseAlbumForRecord: () => assert.fail('unexpected album choice'),
     addRecordToAlbum: () => assert.fail('unexpected album add'),
     removeRecordFromAlbum: () => assert.fail('unexpected album remove'),
     updateSearch: () => assert.fail('unexpected search'),
@@ -174,6 +193,7 @@ test('gallery search input and clear control dispatch query changes', () => {
 
   const input = view.querySelector<HTMLInputElement>('input[type="search"]');
   assert.ok(input);
+  assert.ok(input.closest('.image-trail-gallery__header'));
   assert.equal(input.value, 'mars');
   input.value = 'earth';
   input.dispatchEvent(new Event('input', { bubbles: true }));
@@ -247,17 +267,23 @@ test('gallery record cards add and remove album memberships', () => {
     galleryState({
       items: [record],
       albums: [album],
+      openAlbumMenuRecordIds: ['pin-1'],
+      albumMenuSelections: { 'pin-1': 'album-1' },
       total: 1,
     }),
     galleryHandlers({
+      toggleAlbumMenu: (recordId) => log.push(`toggle:${recordId}`),
+      chooseAlbumForRecord: (recordId, albumId) => log.push(`choose:${recordId}:${albumId}`),
       addRecordToAlbum: (albumId, recordId) => log.push(`add:${albumId}:${recordId}`),
     }),
   );
 
-  const select = allImagesView.querySelector<HTMLSelectElement>('.image-trail-gallery__card-actions select');
-  assert.ok(select);
-  select.value = 'album-1';
-  buttonByText(allImagesView, 'Add to album').click();
+  const choice = allImagesView.querySelector<HTMLButtonElement>('.image-trail-gallery__album-choice');
+  assert.ok(choice);
+  choice.click();
+  const add = allImagesView.querySelector<HTMLButtonElement>('.image-trail-gallery__album-popover-apply');
+  assert.ok(add);
+  add.click();
 
   const albumView = createGalleryView(
     galleryState({
@@ -270,9 +296,35 @@ test('gallery record cards add and remove album memberships', () => {
       removeRecordFromAlbum: (albumId, recordId) => log.push(`remove:${albumId}:${recordId}`),
     }),
   );
-  buttonByText(albumView, 'Remove from album').click();
+  const remove = albumView.querySelector<HTMLButtonElement>('.image-trail-gallery__card-album-toggle');
+  assert.ok(remove);
+  remove.click();
 
-  assert.deepEqual(log, ['add:album-1:pin-1', 'remove:album-1:pin-1']);
+  assert.deepEqual(log, ['choose:pin-1:album-1', 'add:album-1:pin-1', 'remove:album-1:pin-1']);
+});
+
+test('gallery record album choices remain independent per card', () => {
+  const log: string[] = [];
+  const view = createGalleryView(
+    galleryState({
+      items: [record, secondRecord],
+      albums: [album, secondAlbum],
+      openAlbumMenuRecordIds: ['pin-1', 'pin-2'],
+      albumMenuSelections: { 'pin-1': 'album-1', 'pin-2': 'album-2' },
+      total: 2,
+    }),
+    galleryHandlers({
+      addRecordToAlbum: (albumId, recordId) => log.push(`add:${albumId}:${recordId}`),
+      chooseAlbumForRecord: (recordId, albumId) => log.push(`choose:${recordId}:${albumId}`),
+    }),
+  );
+
+  assert.equal(view.querySelectorAll('.image-trail-gallery__album-choice[aria-pressed="true"]').length, 2);
+  const applyButtons = Array.from(view.querySelectorAll<HTMLButtonElement>('.image-trail-gallery__album-popover-apply'));
+  assert.equal(applyButtons.length, 2);
+  applyButtons[0]?.click();
+
+  assert.deepEqual(log, ['add:album-1:pin-1']);
 });
 
 test('gallery selected album status reports missing durable records', () => {
