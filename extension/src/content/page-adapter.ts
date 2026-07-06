@@ -131,6 +131,7 @@ export class PageAdapter {
   private selectedOriginalUrl: string | null = null;
   private selectedOriginalSnapshot: ImageNavigationSnapshot | null = null;
   private selectedActiveUrl: string | null = null;
+  private selectedConfirmedUrl: string | null = null;
   private selectedDisplayUrl: string | null = null;
   private selectedProjectionId: string | null = null;
   private selectedProjectionReason: ProjectionReason | null = null;
@@ -650,6 +651,7 @@ export class PageAdapter {
     this.selectedOriginalUrl = originalUrl;
     this.selectedOriginalSnapshot = originalSnapshot;
     this.selectedActiveUrl = originalUrl;
+    this.selectedConfirmedUrl = originalUrl;
     this.selectedDisplayUrl = originalUrl;
     this.selectedProjectionId = null;
     this.selectedProjectionReason = null;
@@ -677,6 +679,7 @@ export class PageAdapter {
     this.selectedOriginalUrl = null;
     this.selectedOriginalSnapshot = null;
     this.selectedActiveUrl = null;
+    this.selectedConfirmedUrl = null;
     this.selectedDisplayUrl = null;
     this.selectedProjectionId = null;
     this.selectedProjectionReason = null;
@@ -739,8 +742,13 @@ export class PageAdapter {
     const failedActiveUrl = this.pendingLoadActiveUrl;
     const failedProjectionId = this.pendingLoadProjectionId;
     if (image === this.pendingLoadTarget) this.clearPendingLoadTarget();
-    if (image !== this.selected || !failedActiveUrl || failedActiveUrl !== this.selectedActiveUrl) return;
+    const selected = this.selected;
+    if (!selected || image !== selected || !failedActiveUrl || failedActiveUrl !== this.selectedActiveUrl) return;
     if ((failedProjectionId ?? null) !== this.selectedProjectionId) return;
+    this.selectedActiveUrl = this.selectedConfirmedUrl ?? createTargetImageInfo(selected)?.url ?? null;
+    this.selectedDisplayUrl = this.selectedActiveUrl;
+    this.selectedProjectionId = null;
+    this.selectedProjectionReason = null;
     this.emit(failedActiveUrl.startsWith('data:') ? 'Failed to load data URL.' : `Failed to load ${failedActiveUrl}`);
   };
 
@@ -762,6 +770,7 @@ export class PageAdapter {
     const reportedTarget = image === this.selected && this.selectedActiveUrl ? { ...target, url: this.selectedActiveUrl } : target;
     if (image === this.selected) {
       this.selectedActiveUrl = reportedTarget.url;
+      this.selectedConfirmedUrl = reportedTarget.url;
       this.emit(reportedTarget.url.startsWith('data:') ? 'Loaded data URL' : `Loaded ${reportedTarget.url}`);
     }
     const thumbnail = (await createThumbnailDataUrlFromImage(image)) ?? undefined;

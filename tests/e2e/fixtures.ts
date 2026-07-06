@@ -27,6 +27,7 @@ const fixtureBaseUrl = 'http://127.0.0.1:4173';
 const fixturePaths = {
   singleImage: '/single-image.html',
   multipleImages: '/multiple-images.html',
+  numericMultipleImages: '/numeric-multiple-images.html',
   brokenImage: '/broken-image.html',
   gallerySequence: '/gallery-sequence.html',
   oversizedImage: '/oversized-image.html',

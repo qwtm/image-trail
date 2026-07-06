@@ -7,7 +7,7 @@ export function shouldRestoreParsedFieldState(
   selectedHandleId: string | null,
   currentPageUrl?: string,
 ): boolean {
-  if (currentPageUrl && record.pageUrl === currentPageUrl) return true;
+  if (currentPageUrl && record.pageUrl === currentPageUrl && !currentSelectedUrl) return true;
   if (record.sourceUrl === currentSelectedUrl) return true;
   if (record.pageUrl === currentSelectedUrl && (!record.selectedHandleId || record.selectedHandleId === selectedHandleId)) return true;
   if (!record.selectedHandleId || record.selectedHandleId !== selectedHandleId) return false;

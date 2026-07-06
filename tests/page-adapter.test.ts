@@ -267,6 +267,39 @@ test('selected image error emits failed projection snapshot', () => {
   }
 });
 
+test('selected image error rolls active URL back to the last confirmed successful URL', async () => {
+  const image = new FakeImageElement();
+  const restoreDom = installFakeDom(image);
+  const adapter = new PageAdapter();
+  const snapshots: TargetSelectionSnapshot[] = [];
+
+  try {
+    adapter.subscribe((snapshot) => snapshots.push(snapshot));
+    adapter.autoSelectSingleImage();
+
+    image.complete = false;
+    image.naturalHeight = 0;
+    image.naturalWidth = 0;
+    adapter.applyUrlToSelected('https://example.test/confirmed.jpg', 'data:image/jpeg;base64,confirmed');
+    image.complete = true;
+    image.naturalHeight = 480;
+    image.naturalWidth = 640;
+    image.dispatchEvent(new Event('load'));
+    await Promise.resolve();
+
+    image.complete = false;
+    image.naturalHeight = 0;
+    image.naturalWidth = 0;
+    adapter.applyUrlToSelected('https://example.test/2.jpg', 'data:image/jpeg;base64,broken');
+    image.dispatchEvent(new Event('error'));
+
+    assert.equal(snapshots.at(-1)?.message, 'Failed to load https://example.test/2.jpg');
+    assert.equal(snapshots.at(-1)?.selected?.url, 'https://example.test/confirmed.jpg');
+  } finally {
+    restoreDom();
+  }
+});
+
 test('selected image load ignores reverted host URL after projection', async () => {
   const image = new FakeImageElement();
   const restoreDom = installFakeDom(image);

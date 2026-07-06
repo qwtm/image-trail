@@ -186,6 +186,83 @@ test('restore() falls back to the source record when the page record does not ma
   assert.equal(harness.appliedRestores[0]!.record.activeFieldId, 'from-source');
 });
 
+test('restore() ignores stale same-page records after selecting a different image', async () => {
+  const stalePageRecord = createRecord({
+    sourceUrl: 'https://cdn.example.test/image-0003.jpg',
+    selectedUrl: 'https://cdn.example.test/image-0003.jpg',
+    selectedHandleId: 'target-1',
+    activeFieldId: 'stale-field',
+  });
+  const harness = createHarness(
+    {
+      currentSelectedUrl: () => 'https://cdn.example.test/image-0024.jpg',
+      selectedHandleId: () => 'target-2',
+    },
+    {
+      load: async () => stalePageRecord,
+      loadForSource: async () => null,
+    },
+  );
+
+  await harness.sync.restore();
+
+  assert.equal(harness.appliedRestores.length, 0);
+});
+
+test('restore() prefers the current image source record over a stale same-page record', async () => {
+  const sourceRecord = createRecord({
+    pageUrl: 'https://example.test/other-page',
+    sourceUrl: 'https://cdn.example.test/image-0024.jpg',
+    selectedUrl: 'https://cdn.example.test/image-0024.jpg',
+    selectedHandleId: 'target-2',
+    activeFieldId: 'current-field',
+  });
+  const harness = createHarness(
+    {
+      currentSelectedUrl: () => 'https://cdn.example.test/image-0024.jpg',
+      selectedHandleId: () => 'target-2',
+    },
+    {
+      load: async () =>
+        createRecord({
+          sourceUrl: 'https://cdn.example.test/image-0003.jpg',
+          selectedUrl: 'https://cdn.example.test/image-0003.jpg',
+          selectedHandleId: 'target-1',
+          activeFieldId: 'stale-field',
+        }),
+      loadForSource: async () => sourceRecord,
+    },
+  );
+
+  await harness.sync.restore();
+
+  assert.equal(harness.appliedRestores.length, 1);
+  assert.equal(harness.appliedRestores[0]!.record.activeFieldId, 'current-field');
+});
+
+test('restore() rejects stale same-page records during explicit panel reopen restore when another image is selected', async () => {
+  const harness = createHarness(
+    {
+      currentSelectedUrl: () => 'https://cdn.example.test/site-default.jpg',
+      selectedHandleId: () => 'target-new-tab',
+    },
+    {
+      load: async () =>
+        createRecord({
+          sourceUrl: 'https://cdn.example.test/image-0009.jpg',
+          selectedUrl: 'https://cdn.example.test/image-0008.jpg',
+          selectedHandleId: 'target-previous-tab',
+          activeFieldId: 'saved-field',
+        }),
+      loadForSource: async () => null,
+    },
+  );
+
+  await harness.sync.restore({ projectSavedSource: true });
+
+  assert.equal(harness.appliedRestores.length, 0);
+});
+
 test('restore() no-ops when no candidate record passes the match check', async () => {
   const harness = createHarness(
     {},
@@ -207,7 +284,10 @@ test('restore() no-ops when no candidate record passes the match check', async (
 });
 
 test('restore() passes projectSavedSource through and reports a different source', async () => {
-  const harness = createHarness({ currentSelectedUrl: () => 'https://cdn.example.test/image-0002.jpg' });
+  const harness = createHarness(
+    { currentSelectedUrl: () => 'https://cdn.example.test/image-0002.jpg' },
+    { load: async (hostname, pageUrl) => createRecord({ hostname, pageUrl, selectedUrl: 'https://cdn.example.test/image-0002.jpg' }) },
+  );
 
   await harness.sync.restore({ projectSavedSource: true });
 

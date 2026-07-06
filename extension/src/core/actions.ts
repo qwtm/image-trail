@@ -308,10 +308,11 @@ export function reducePanelAction(state: PanelState, action: PanelAction): Panel
       return state;
     case 'history/add-loaded': {
       const existing = state.history.find((entry) => entry.url === action.url);
+      const { label: _existingLabel, title: _existingTitle, ...existingState } = existing ?? {};
       const item = createDisplayRecord({
-        ...existing,
+        ...existingState,
         url: action.url,
-        title: action.title ?? existing?.title,
+        title: action.title,
         timestamp: action.timestamp,
         thumbnail: action.thumbnail ?? existing?.thumbnail,
         width: action.width ?? existing?.width,

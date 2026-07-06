@@ -173,6 +173,7 @@ test('successful loads add Recents while failed loads do not', async ({ page, se
   await applyUrlInEditor(page, fixtureUrl(fixtureAssetPaths.assetOne));
   await expectPanelStatusMessage(page, /Loaded .*asset-one\.svg|Image loaded but did not change\.|Applied .*asset-one\.svg/u);
   await expect(page.locator('.image-trail-panel__history-item')).toHaveCount(1);
+  await expect(page.locator('.image-trail-panel__history-item', { hasText: 'asset-one.svg' })).toHaveCount(1);
 
   await applyUrlInEditor(page, fixtureUrl(fixtureAssetPaths.missingImage));
   await expectPanelStatusMessage(page, /Image failed to load: HTTP 404/u);
@@ -182,6 +183,33 @@ test('successful loads add Recents while failed loads do not', async ({ page, se
   await applyUrlInEditor(page, fixtureUrl(fixtureAssetPaths.assetTwo));
   await expectPanelStatusMessage(page, /Loaded .*asset-two\.svg/u);
   await expect(page.locator('.image-trail-panel__history-item')).toHaveCount(2);
+  await expect(page.locator('.image-trail-panel__history-item', { hasText: 'asset-two.svg' })).toHaveCount(1);
+  await expect(page.locator('.image-trail-panel__history-item', { hasText: 'missing-image.png' })).toHaveCount(0);
+});
+
+test('Recents recover on a different page URL after a failed draft', async ({ page, serviceWorker }) => {
+  await openPanel(page, serviceWorker);
+  await deleteVisibleRecents(page);
+
+  await applyUrlInEditor(page, fixtureUrl(fixtureAssetPaths.assetTwo));
+  await expectPanelStatusMessage(page, /Loaded .*asset-two\.svg/u);
+  await expect(page.locator('.image-trail-panel__history-item', { hasText: 'asset-two.svg' })).toHaveCount(1);
+
+  await applyUrlInEditor(page, fixtureUrl(fixtureAssetPaths.missingImage));
+  await expectPanelStatusMessage(page, /Image failed to load: HTTP 404/u);
+  await expect(page.locator('.image-trail-panel__history-item', { hasText: 'missing-image.png' })).toHaveCount(0);
+
+  await page.goto(fixtureUrl('/single-image.html?recent-scope=after-failure'));
+  await page.waitForLoadState('load');
+  await togglePanelFromExtensionAction(page, serviceWorker);
+  await expectPanelOpen(page);
+  await deleteVisibleRecents(page);
+
+  await applyUrlInEditor(page, fixtureUrl(fixtureAssetPaths.assetThree));
+  await expectPanelStatusMessage(page, /Loaded .*asset-three\.svg/u);
+  await expect(page.locator('.image-trail-panel__history-item')).toHaveCount(1);
+  await expect(page.locator('.image-trail-panel__history-item', { hasText: 'asset-three.svg' })).toHaveCount(1);
+  await expect(page.locator('.image-trail-panel__history-item', { hasText: 'missing-image.png' })).toHaveCount(0);
 });
 
 test('Recents retention settings hide overflow rows without persisting them', async ({ page, serviceWorker }) => {

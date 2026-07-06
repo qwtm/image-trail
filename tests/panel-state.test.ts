@@ -773,6 +773,30 @@ test('deleting recents drops transient history and selections', () => {
   assert.equal(deleted.bookmarks, state.bookmarks);
 });
 
+test('adding a loaded recent rederives a stale filename label from the loaded URL', () => {
+  const state = {
+    ...createInitialPanelState(),
+    history: [
+      {
+        id: 'history-1',
+        url: 'https://example.test/24.jpg',
+        label: '2.jpg',
+        timestamp: '2026-06-20T00:00:00.000Z',
+        source: 'history' as const,
+      },
+    ],
+  };
+
+  const updated = reducePanelAction(state, {
+    name: 'history/add-loaded',
+    url: 'https://example.test/24.jpg',
+    timestamp: '2026-06-20T00:00:01.000Z',
+  });
+
+  assert.equal(updated.history[0]?.url, 'https://example.test/24.jpg');
+  assert.equal(updated.history[0]?.label, '24.jpg');
+});
+
 test('recall delete count is derived from durable queue totals', () => {
   assert.equal(recallDeleteCountForQueue({ bookmarkTotal: 47, bookmarkLimit: 3 }), 44);
   assert.equal(recallDeleteCountForQueue({ bookmarkTotal: 2, bookmarkLimit: 3 }), 0);
@@ -1299,10 +1323,13 @@ test('parsed field state restore can replay edits from the original image page U
 
   assert.equal(shouldRestoreParsedFieldState(record, record.pageUrl, 'image-trail-target-1'), true);
   assert.equal(shouldRestoreParsedFieldState(record, 'https://example.test/other-image.jpg', 'image-trail-target-2'), false);
-  assert.equal(shouldRestoreParsedFieldState(record, 'https://example.test/other-image.jpg', 'image-trail-target-2', record.pageUrl), true);
+  assert.equal(
+    shouldRestoreParsedFieldState(record, 'https://example.test/other-image.jpg', 'image-trail-target-2', record.pageUrl),
+    false,
+  );
 });
 
-test('parsed field state restore can replay saved projection when the browser page URL matches', () => {
+test('parsed field state restore does not replay saved projection over another selected image', () => {
   const record = {
     schemaVersion: 1 as const,
     hostname: 'example.test',
@@ -1324,7 +1351,7 @@ test('parsed field state restore can replay saved projection when the browser pa
   assert.equal(shouldRestoreParsedFieldState(record, 'https://cdn.example.test/site-default.jpg', 'target-new-tab'), false);
   assert.equal(
     shouldRestoreParsedFieldState(record, 'https://cdn.example.test/site-default.jpg', 'target-new-tab', 'https://example.test/gallery'),
-    true,
+    false,
   );
 });
 

@@ -41,6 +41,23 @@ async function installDynamicImageRoute(page: Page, failedFrames: readonly strin
   });
 }
 
+async function installFrameImageRoute(page: Page, failedFrames: readonly string[] = []): Promise<void> {
+  const failures = new Set(failedFrames);
+  await page.context().route(/\/frames\/(?<frame>[^/]+)\.jpg$/u, async (route) => {
+    const match = /\/frames\/(?<frame>[^/]+)\.jpg$/u.exec(new URL(route.request().url()).pathname);
+    const frame = match?.groups?.['frame'] ?? 'unknown';
+    if (failures.has(frame)) {
+      await route.fulfill({ status: 404, contentType: 'text/plain', body: 'missing fixture frame' });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'image/svg+xml',
+      body: dynamicSvg(frame),
+    });
+  });
+}
+
 async function openPanel(page: Page, serviceWorker: Worker): Promise<void> {
   await openFixturePage(page, fixturePaths.singleImage);
   await togglePanelFromExtensionAction(page, serviceWorker);
@@ -212,8 +229,10 @@ test('URL editor and parsed fields load, fail closed, navigate, learn templates,
   await expectFrame(page, '2');
 
   const recentCountBeforeFailure = await page.locator('.image-trail-panel__history-item').count();
-  await page.getByLabel(/Edit .*frame/u).fill('404');
-  await page.getByLabel(/Edit .*frame/u).press('Enter');
+  const frameInput = page.getByLabel(/Edit .*frame/u);
+  await frameInput.fill('');
+  await frameInput.fill('404');
+  await frameInput.press('Enter');
   await expect(panelStatus(page)).toHaveClass(/is-error/u);
   await expectPanelStatusMessage(page, /HTTP 404/u);
   await expect(page.locator('.image-trail-panel__history-item')).toHaveCount(recentCountBeforeFailure);
@@ -245,6 +264,31 @@ test('URL editor and parsed fields load, fail closed, navigate, learn templates,
   await closeSettingsIfOpen(page);
   await openParsedFields(page);
   await expect(page.getByLabel(/Edit .*frame/u)).toHaveValue('2');
+});
+
+test('same-page image picking refreshes URL editor and parsed fields after a stale failed draft', async ({ page, serviceWorker }) => {
+  await installFrameImageRoute(page, ['2']);
+  await openFixturePage(page, fixturePaths.numericMultipleImages);
+  await togglePanelFromExtensionAction(page, serviceWorker);
+  await expectPanelOpen(page);
+
+  await page.getByRole('button', { name: 'Set host image' }).click();
+  await page.locator('#fixture-image-frame-3').dispatchEvent('click', { button: 0, bubbles: true, cancelable: true });
+  await openParsedFields(page);
+  await expect(page.getByLabel('Edit file 0')).toHaveValue('3');
+
+  await applyUrlInEditor(page, fixtureUrl('/frames/2.jpg'));
+  await expectPanelStatusMessage(page, /HTTP 404/u);
+
+  await page.getByRole('button', { name: 'Release host image' }).click();
+  await page.getByRole('button', { name: 'Set host image' }).click();
+  await page.locator('#fixture-image-frame-24').dispatchEvent('click', { button: 0, bubbles: true, cancelable: true });
+  await expect(page.locator('#fixture-image-frame-24')).toHaveAttribute('data-image-trail-selected', 'true');
+  await expect(page.locator('.image-trail-panel__target-url')).toHaveText(fixtureUrl('/frames/24.jpg'));
+  await expect(page.locator('.image-trail-panel__full-url-input')).toHaveValue(fixtureUrl('/frames/24.jpg'));
+  await expect(page.getByLabel('Edit file 0')).toHaveValue('24');
+  await expect(page.locator('.image-trail-panel__history-item').first()).toContainText('24.jpg');
+  await expect(page.locator('.image-trail-panel__history-item').first()).not.toContainText('2.jpg');
 });
 
 test('Prev/Next steps every included field together into one combined URL', async ({ page, serviceWorker }) => {
