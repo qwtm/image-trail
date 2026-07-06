@@ -129,3 +129,10 @@ test('stored recent rows render the original indicator', () => {
 
   assert.ok(row.querySelector('.image-trail-panel__stored-original-dot'));
 });
+
+test('the recents toolbar renders inside the section header row (#430)', () => {
+  const actions: unknown[] = [];
+  const view = buildHistoryView(actions);
+  const toolbar = view.querySelector('.image-trail-panel__section-header--with-actions .image-trail-panel__history-toolbar');
+  assert.ok(toolbar, 'the toolbar lives in the header row, not on a floating row below it');
+});

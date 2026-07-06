@@ -35,7 +35,7 @@ export function createHistoryView(
   const heading = document.createElement('h3');
   heading.textContent = 'Recent history';
   const header = document.createElement('div');
-  header.className = 'image-trail-panel__section-header';
+  header.className = 'image-trail-panel__section-header image-trail-panel__section-header--with-actions';
   header.append(heading);
 
   const toolbar = document.createElement('div');
@@ -238,7 +238,10 @@ export function createHistoryView(
     selectedIds.length > 0
       ? `${selectedIds.length} recent item(s) selected for export.`
       : 'Cmd/Ctrl-click rows to select recent items for export. Shift-click selects a range.';
-  section.append(header, toolbar, items.length ? selectionMeta : empty);
+  // The toolbar lives in the header row (#430) so the heading line carries the section's actions
+  // instead of leaving a dead row above a floating button strip.
+  header.append(toolbar);
+  section.append(header, items.length ? selectionMeta : empty);
   if (items.length) section.append(list);
   return section;
 }
