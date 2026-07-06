@@ -1,4 +1,5 @@
-import { MESSAGE_PROTOCOL_VERSION, MessageType, type OpenGalleryResultMessage } from '../background/messages.js';
+import type { OpenGalleryResultMessage } from '../background/gallery-messages.js';
+import { MESSAGE_PROTOCOL_VERSION, MessageType } from '../background/message-protocol.js';
 import { sendRuntimeMessage } from './runtime-message.js';
 
 export async function openGalleryTab(): Promise<OpenGalleryResultMessage['payload']> {

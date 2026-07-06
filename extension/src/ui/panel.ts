@@ -63,8 +63,8 @@ import { dispatchPanelAction } from './panel/action-dispatch.js';
 import { buildPanelActionRegistry } from './panel/actions/registry.js';
 import type { PanelActionDeps } from './panel/actions/deps.js';
 import { DEFAULT_LOCAL_SETTINGS, type LocalSettingsStore, type PlaintextLocalSettings } from '../content/panel-services.js';
-import { openGalleryTab } from '../content/gallery-client.js';
 import { hostnameFromLocation } from './panel-position.js';
+import { galleryOpenErrorState, openGalleryErrorMessage } from './panel/gallery-action.js';
 
 function addItems(items: readonly string[], nextItems: readonly string[]): readonly string[] {
   return [...items, ...nextItems.filter((item) => !items.includes(item))];
@@ -594,7 +594,12 @@ export class ImageTrailPanel {
       pinRecentHistory: (id) => this.recordLibrary.pinRecentHistory(id),
       loadBookmark: (id) => this.recordLibrary.loadBookmark(id),
       removeBookmark: (id) => this.recordLibrary.removeBookmark(id),
-      openGallery: () => this.openGallery(),
+      openGallery: async () => {
+        const message = await openGalleryErrorMessage();
+        if (!message) return;
+        this.state = galleryOpenErrorState(this.state, message);
+        this.render();
+      },
       loadBookmarkPage: (offset, options) => this.panelDataLoad.loadBookmarkPage(offset, options),
       refreshBookmarkThumbnails: () => this.recordLibrary.refreshBookmarkThumbnails(),
       deleteVisibleBookmarks: () => this.recordLibrary.deleteVisibleBookmarks(),
@@ -626,20 +631,6 @@ export class ImageTrailPanel {
       navigateBy: (delta) => this.parsedFieldNavigation.navigateBy(delta),
       cancelQueuedSlideshowNavigation: () => this.parsedFieldNavigation.cancelQueuedSlideshowNavigation(),
     };
-  }
-
-  private async openGallery(): Promise<void> {
-    const result = await openGalleryTab();
-    if (!result.ok) this.showGalleryOpenError(result.message);
-  }
-
-  private showGalleryOpenError(message: string): void {
-    this.state = {
-      ...this.state,
-      message,
-      lastUpdatedAt: Date.now(),
-    };
-    this.render();
   }
 
   // The former dispatch chain's fall-through tail, kept verbatim: `toggle-panel`/`close-panel` and

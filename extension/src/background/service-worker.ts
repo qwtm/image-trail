@@ -24,7 +24,6 @@ import type { UrlReviewStatusClearFilter } from '../core/types.js';
 import { BROWSER_COMMAND_SHORTCUTS } from '../core/keyboard-shortcuts.js';
 import { fetchImageBytes } from './fetch-image.js';
 import {
-  MESSAGE_PROTOCOL_VERSION,
   MessageType,
   createCaptureImageMessage,
   createCaptureResultMessage,
@@ -96,7 +95,6 @@ import type {
   CreateDataUrlPreviewMessage,
   LoadBuildIdentityMessage,
   LoadLocalSettingsMessage,
-  OpenGalleryMessage,
   LoadParsedFieldStateBySourceMessage,
   StorageUsageRequestMessage,
 } from './messages.js';
@@ -105,6 +103,7 @@ import { createPanelPositionMessageRegistry } from './handlers/panel-position-ha
 import { createRecentHistoryMessageRegistry } from './handlers/recent-history-handlers.js';
 import { createRecallMessageRegistry } from './handlers/recall-handlers.js';
 import { createBlobKeyMessageRegistry } from './handlers/blob-key-handlers.js';
+import { createGalleryMessageRegistry } from './handlers/gallery-page-handler.js';
 import { createPCloudMessageRegistry } from './handlers/pcloud-handlers.js';
 import { createUrlTemplateMessageRegistry } from './handlers/url-template-handlers.js';
 import { normalizeHostname } from './handlers/hostname.js';
@@ -112,7 +111,6 @@ import type { ServiceWorkerContext } from './service-worker-context.js';
 import { createShortcutActionMessage } from './shortcut-action-message.js';
 
 const CONTENT_SCRIPT_FILE = 'src/content/content-script.js';
-const GALLERY_PAGE_FILE = 'src/gallery/gallery.html';
 const TOGGLE_BUILD_IDENTITY_COMMAND = 'toggle-build-info-overlay';
 const BROWSER_COMMAND_ACTIONS = new Map(BROWSER_COMMAND_SHORTCUTS.map((shortcut) => [shortcut.command, shortcut.action]));
 const SUPPORTED_PAGE_PATTERN = /^https?:\/\//u;
@@ -856,16 +854,6 @@ async function handleLoadBuildIdentity(): Promise<ReturnType<typeof createLoadBu
   }
 }
 
-async function handleOpenGallery(): Promise<import('./messages.js').OpenGalleryResultMessage['payload']> {
-  try {
-    const url = chrome.runtime.getURL(GALLERY_PAGE_FILE);
-    const tab = await chrome.tabs.create({ url });
-    return { ok: true, url, tabId: tab.id };
-  } catch {
-    return { ok: false, message: 'Gallery tab could not be opened.' };
-  }
-}
-
 type DispatchedRequestType = Exclude<
   ExtensionRequest['type'],
   typeof MessageType.TogglePanel | typeof MessageType.ToggleBuildIdentityOverlay | typeof MessageType.Ping
@@ -888,16 +876,7 @@ const messageRegistry = {
     respond: (result) => createLoadBuildIdentityResultMessage(result),
     fallback: () => createLoadBuildIdentityResultMessage({ ok: false, identity: null, message: 'Build identity could not be loaded.' }),
   }),
-  [MessageType.OpenGallery]: defineMessage({
-    requestSchema: requestSchemas.emptyPayloadSchema,
-    handle: (_message: OpenGalleryMessage) => handleOpenGallery(),
-    respond: (payload) => ({ type: MessageType.OpenGalleryResult, version: MESSAGE_PROTOCOL_VERSION, payload }),
-    fallback: () => ({
-      type: MessageType.OpenGalleryResult,
-      version: MESSAGE_PROTOCOL_VERSION,
-      payload: { ok: false, message: 'Gallery tab could not be opened.' },
-    }),
-  }),
+  ...createGalleryMessageRegistry(),
   [MessageType.CaptureImage]: defineMessage({
     requestSchema: requestSchemas.captureImageRequestSchema,
     handle: (message: CaptureImageMessage) => handleCaptureImage(message),

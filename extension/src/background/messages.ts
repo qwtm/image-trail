@@ -4,6 +4,7 @@ import { storageUsageSummarySchema } from '../core/image/capture-result.schema.j
 import type { ImageProbeMethod, ImageRequestIntent, ImageSourceProfile } from '../core/image/request-policy.js';
 import { MESSAGE_DIRECTION, MESSAGE_PROTOCOL_VERSION, MessageType } from './message-protocol.js';
 import type { MessageType as ProtocolMessageType } from './message-protocol.js';
+import type { OpenGalleryMessage, OpenGalleryResultMessage } from './gallery-messages.js';
 
 export { MESSAGE_DIRECTION, MESSAGE_PROTOCOL_VERSION, MessageType } from './message-protocol.js';
 
@@ -43,10 +44,6 @@ export interface LoadBuildIdentityResultMessage {
     { readonly ok: true; readonly identity: BuildIdentity } | { readonly ok: false; readonly identity: null; readonly message: string };
 }
 
-// prettier-ignore
-export type OpenGalleryMessage = { readonly type: typeof MessageType.OpenGallery; readonly version: typeof MESSAGE_PROTOCOL_VERSION; readonly payload: Record<string, never> };
-// prettier-ignore
-export type OpenGalleryResultMessage = { readonly type: typeof MessageType.OpenGalleryResult; readonly version: typeof MESSAGE_PROTOCOL_VERSION; readonly payload: { readonly ok: true; readonly url: string; readonly tabId?: number | undefined } | { readonly ok: false; readonly message: string } };
 export interface StatusMessage {
   readonly type: typeof MessageType.Status;
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;

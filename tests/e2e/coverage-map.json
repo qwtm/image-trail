@@ -51,6 +51,7 @@
       "id": "durable-gallery-tab",
       "acceptance": "Dedicated durable gallery tab",
       "repoPath": "tests/dom/gallery-view.test.ts",
+      "wiki": "https://github.com/qwtm/image-trail/wiki/Acceptance-Test-Dedicated-Durable-Gallery-Tab",
       "coverage": [
         {
           "type": "unit-dom",
@@ -64,6 +65,7 @@
         },
         {
           "type": "manual",
+          "reason": "Cross-extension-tab activation and browser tab focus are covered manually until this flow is promoted to a focused Playwright extension-page spec.",
           "notes": "Load the built extension, open the Queue menu, choose Open gallery, verify a dedicated extension tab lists only durable pins/bookmarks, URL-only rows open their saved URL, unlocked captured originals use encrypted preview, locked originals stay disabled, and Queue/Recents/Recall/pCloud/import-export state does not change while browsing."
         }
       ]
