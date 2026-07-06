@@ -42,6 +42,9 @@ export function createHistoryView(
   headingToggle.className = 'image-trail-panel__section-heading-toggle';
   headingToggle.textContent = 'Recent history';
   headingToggle.setAttribute('aria-expanded', String(sectionOpen));
+  // The visible text stays the section name; the accessible name carries the action so assistive
+  // tech (and role-based tests) see what the button does.
+  headingToggle.setAttribute('aria-label', sectionOpen ? 'Hide the Recent history list' : 'Show the Recent history list');
   headingToggle.title = sectionOpen ? 'Hide the Recent history list' : 'Show the Recent history list';
   headingToggle.addEventListener('click', (event) => {
     event.preventDefault();

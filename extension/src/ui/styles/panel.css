@@ -1196,6 +1196,12 @@
   cursor: pointer;
 }
 
+/* Collapsible headers add a fourth explicit column for the hint; without it the generated
+   ::after auto-places onto a new grid ROW below the header. */
+.image-trail-panel-root .image-trail-panel__section-header--collapsible {
+  grid-template-columns: minmax(min-content, 1fr) minmax(0, max-content) max-content max-content;
+}
+
 .image-trail-panel-root .image-trail-panel__section-header--collapsible::after {
   content: 'Show';
   inline-size: 30px;
