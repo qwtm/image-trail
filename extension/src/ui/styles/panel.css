@@ -2363,6 +2363,8 @@
 }
 
 .image-trail-panel-root .image-trail-panel__history-section .image-trail-panel__record-list {
+  grid-auto-rows: minmax(120px, max-content);
+  align-content: start;
   max-block-size: calc(120px * 3 + 6px * 2);
   overflow-x: hidden;
   overflow-y: auto;
@@ -2373,7 +2375,7 @@
 }
 
 .image-trail-panel-root .image-trail-panel__history-section .image-trail-panel__record-list.is-user-resized {
-  block-size: var(--image-trail-history-size);
+  block-size: max(120px, var(--image-trail-history-size));
   max-block-size: none;
 }
 
