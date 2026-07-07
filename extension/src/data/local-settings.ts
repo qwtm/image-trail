@@ -101,6 +101,10 @@ export interface LocalSettingsStore {
   save(settings: PlaintextLocalSettings): Promise<void>;
 }
 
+export type LocalSettingsMigrationInput = {
+  readonly [Key in keyof PlaintextLocalSettings]?: PlaintextLocalSettings[Key] | undefined;
+};
+
 export class LocalSettingsRepository {
   constructor(private readonly storage: StringStorage = globalThis.localStorage) {}
 
@@ -120,7 +124,7 @@ export class LocalSettingsRepository {
   }
 }
 
-export function migrateLocalSettings(input: Partial<PlaintextLocalSettings>): PlaintextLocalSettings {
+export function migrateLocalSettings(input: LocalSettingsMigrationInput): PlaintextLocalSettings {
   const recentHistoryLimit = isSafeRecentHistoryLimit(input.recentHistoryLimit)
     ? input.recentHistoryLimit
     : DEFAULT_LOCAL_SETTINGS.recentHistoryLimit;

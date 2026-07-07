@@ -12,7 +12,11 @@ import {
   isStorageUsageResponseMessage,
 } from '../extension/src/background/messages.js';
 import type { SaveBookmarkMessage, SaveBookmarkResultMessage } from '../extension/src/background/messages.js';
-import { emptyPayloadSchema, saveBookmarkRequestSchema } from '../extension/src/background/message-schemas.js';
+import {
+  emptyPayloadSchema,
+  saveBookmarkRequestSchema,
+  saveLocalSettingsRequestSchema,
+} from '../extension/src/background/message-schemas.js';
 
 import { imageDisplayRecordSchema } from '../extension/src/core/display-records.schema.js';
 import { parsedFieldStateRecordSchema, urlReviewStatusClearFilterSchema } from '../extension/src/core/types.schema.js';
@@ -169,6 +173,12 @@ test('record schemas accept canonical fixtures and reject corrupted mutants with
 
   assert.equal(v.is(plaintextLocalSettingsSchema, DEFAULT_LOCAL_SETTINGS), true);
   assert.equal(v.is(plaintextLocalSettingsSchema, { ...DEFAULT_LOCAL_SETTINGS, panelDock: 'up' }), false);
+  assert.equal(v.is(saveLocalSettingsRequestSchema, { settings: DEFAULT_LOCAL_SETTINGS }), true);
+  assert.equal(v.is(saveLocalSettingsRequestSchema, { settings: omitKey(DEFAULT_LOCAL_SETTINGS, 'recentSparseRowDisplayMode') }), true);
+  assert.equal(
+    v.is(saveLocalSettingsRequestSchema, { settings: { ...DEFAULT_LOCAL_SETTINGS, recentSparseRowDisplayMode: 'stretchy' } }),
+    false,
+  );
 
   assert.equal(v.is(urlReviewStatusClearFilterSchema, { scope: 'all' }), true);
   assert.equal(v.is(urlReviewStatusClearFilterSchema, { scope: 'page', hostname: 'h', pageUrl: 'p' }), true);
@@ -190,6 +200,11 @@ test('record schemas accept canonical fixtures and reject corrupted mutants with
   // Thumbnails are not portable originals.
   assert.equal(v.is(portableStoredBlobRecordSchema, { ...portableBlob, kind: 'thumbnail' }), false);
 });
+
+function omitKey<T extends object, K extends keyof T>(record: T, key: K): Omit<T, K> {
+  const { [key]: _omitted, ...rest } = record;
+  return rest;
+}
 
 test('storedKeyRecordSchema quarantines a row whose reference disagrees with kind/uuid', () => {
   const base = {
