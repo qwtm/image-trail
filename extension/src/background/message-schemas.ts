@@ -9,7 +9,7 @@ import {
 import { grabSourcePatternSchema, urlTemplateRecordSchema } from '../core/url/templates.schema.js';
 import { workspaceLayoutSchema } from '../core/workspace-layout.schema.js';
 import { pcloudBackupDownloadInputSchema, pcloudBackupUploadInputSchema } from '../core/cloud/pcloud-provider.schema.js';
-import { plaintextLocalSettingsSchema } from '../data/local-settings.schema.js';
+import { saveLocalSettingsPayloadSchema } from '../data/local-settings.schema.js';
 import { portableStoredBlobRecordSchema } from '../data/import-export/full-backup.schema.js';
 
 /**
@@ -151,7 +151,7 @@ export const deleteGrabSourcePatternRequestSchema = v.object({ hostname: v.strin
 
 export const loadLocalSettingsRequestSchema = v.object({ requestedAt: v.number() });
 
-export const saveLocalSettingsRequestSchema = v.object({ settings: plaintextLocalSettingsSchema });
+export const saveLocalSettingsRequestSchema = v.object({ settings: saveLocalSettingsPayloadSchema });
 
 export const uploadPCloudBackupRequestSchema = pcloudBackupUploadInputSchema;
 

@@ -732,10 +732,18 @@ export interface LoadLocalSettingsResultMessage {
     | { readonly ok: false; readonly message: string };
 }
 
+export type SaveLocalSettingsPayloadSettings = Omit<
+  import('../data/local-settings.js').PlaintextLocalSettings,
+  'recentSparseRowDisplayMode'
+> & {
+  readonly recentSparseRowDisplayMode?:
+    import('../data/local-settings.js').PlaintextLocalSettings['recentSparseRowDisplayMode'] | undefined;
+};
+
 export interface SaveLocalSettingsMessage {
   readonly type: typeof MessageType.SaveLocalSettings;
   readonly version: typeof MESSAGE_PROTOCOL_VERSION;
-  readonly payload: { readonly settings: import('../data/local-settings.js').PlaintextLocalSettings };
+  readonly payload: { readonly settings: SaveLocalSettingsPayloadSettings };
 }
 
 export interface SaveLocalSettingsResultMessage {

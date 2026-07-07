@@ -7,7 +7,9 @@ import type { PlaintextLocalSettings } from './local-settings.js';
  * clamping stays in `migrateLocalSettings`, which is the single place that
  * repairs out-of-range values into safe defaults.
  */
-export const plaintextLocalSettingsSchema = v.object({
+const recentSparseRowDisplayModeSchema = v.picklist(['adaptive', 'full', 'half', 'compact']);
+
+const plaintextLocalSettingsEntries = {
   schemaVersion: v.literal(1),
   showHistoryThumbnails: v.boolean(),
   requestThrottleMs: v.number(),
@@ -19,7 +21,7 @@ export const plaintextLocalSettingsSchema = v.object({
   recentHistoryLimit: v.number(),
   recentHistoryRetainedLimit: v.number(),
   recentHistoryOverflowBehavior: v.picklist(['drop-oldest', 'keep-session']),
-  recentSparseRowDisplayMode: v.picklist(['adaptive', 'full', 'half', 'compact']),
+  recentSparseRowDisplayMode: recentSparseRowDisplayModeSchema,
   bookmarkVisibilityScope: v.picklist(['global', 'site']),
   pinSaveStoragePreference: v.picklist(['encrypted', 'plaintext']),
   privacyModeEnabled: v.boolean(),
@@ -40,6 +42,13 @@ export const plaintextLocalSettingsSchema = v.object({
   loadFailureFeedback: v.picklist(['alert', 'display', 'mute']),
   secondaryControlsOpen: v.boolean(),
   restoreWorkspaceLayout: v.boolean(),
+};
+
+export const plaintextLocalSettingsSchema = v.object(plaintextLocalSettingsEntries);
+
+export const saveLocalSettingsPayloadSchema = v.object({
+  ...plaintextLocalSettingsEntries,
+  recentSparseRowDisplayMode: v.optional(recentSparseRowDisplayModeSchema),
 });
 
 type _AssertPlaintextLocalSettings = Assert<MutuallyAssignable<v.InferOutput<typeof plaintextLocalSettingsSchema>, PlaintextLocalSettings>>;
