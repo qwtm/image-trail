@@ -60,11 +60,20 @@ test('recents settings dispatches visible and max kept limits', () => {
     (action) => actions.push(action),
   );
   const recents = recentsSettings(view);
+  const recentsFieldLabels = Array.from(recents.querySelectorAll('label > span')).map((label) => label.textContent);
+  assert.deepEqual(recentsFieldLabels, ['Recent layout', 'Visible recents', 'Max kept recents', 'Overflow']);
+  assert.ok(
+    recents.querySelector('.image-trail-panel__settings-field--wide select'),
+    'expected the row layout selector to be immediately visible as the first Recents field',
+  );
   const inputs = recents.querySelectorAll<HTMLInputElement>('input[type="number"]');
   assert.equal(inputs.length, 2);
   inputs[0]!.value = '4';
   inputs[1]!.value = '7';
-  recents.querySelector<HTMLSelectElement>('select')!.value = 'drop-oldest';
+  const selects = Array.from(recents.querySelectorAll<HTMLSelectElement>('select'));
+  const overflowSelect = selects.find((select) => Array.from(select.options).some((option) => option.value === 'drop-oldest'));
+  assert.ok(overflowSelect);
+  overflowSelect.value = 'drop-oldest';
 
   recents.querySelector<HTMLFormElement>('form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
 
@@ -84,7 +93,7 @@ test('recents settings dispatches visible and max kept limits', () => {
     overflowBehavior: 'keep-session',
   });
 
-  const sparseMode = Array.from(recents.querySelectorAll<HTMLSelectElement>('select')).find((select) => select.value === 'adaptive');
+  const sparseMode = selects.find((select) => Array.from(select.options).some((option) => option.value === 'adaptive'));
   assert.ok(sparseMode);
   sparseMode.value = 'compact';
   sparseMode.dispatchEvent(new Event('change'));
