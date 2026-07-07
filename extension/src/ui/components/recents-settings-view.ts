@@ -74,11 +74,14 @@ export function createRecentsSettingsView(
   meta.className = 'image-trail-panel__settings-empty';
   meta.textContent = 'Recents stay transient. Hidden overflow is kept only for the current extension session up to the max kept count.';
 
+  const sparseModeField = createField('Recent layout', sparseModeSelect);
+  sparseModeField.classList.add('image-trail-panel__settings-field--wide');
+
   form.append(
+    sparseModeField,
     createField('Visible recents', limitInput),
     createField('Max kept recents', retainedLimitInput),
     createField('Overflow', overflowSelect),
-    createField('Sparse rows', sparseModeSelect),
     apply,
     showHidden,
   );

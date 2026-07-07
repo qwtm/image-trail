@@ -1875,6 +1875,10 @@
     sans-serif;
 }
 
+.image-trail-panel-root .image-trail-panel__settings-field--wide {
+  min-width: 144px;
+}
+
 .image-trail-panel-root .image-trail-panel__settings-templates {
   display: grid;
   gap: 7px;

@@ -84,7 +84,11 @@ async function setVisibleRecents(
     .locator('input[type="number"]')
     .nth(1)
     .fill(input.retainedLimit ?? input.limit);
-  await recents.locator('select').selectOption({ label: input.overflow });
+  await recents
+    .locator('label')
+    .filter({ hasText: /^Overflow/u })
+    .locator('select')
+    .selectOption({ label: input.overflow });
   await recents.locator('button', { hasText: 'Apply' }).click();
   if (input.expectedVisibleCount !== undefined) {
     await expect(page.locator('.image-trail-panel__history-item')).toHaveCount(input.expectedVisibleCount);
