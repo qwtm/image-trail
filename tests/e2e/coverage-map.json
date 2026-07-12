@@ -248,7 +248,7 @@
             "tests/parsed-field-state-sync.test.ts",
             "tests/field-transforms.test.ts",
             "tests/field-editor-controller.test.ts",
-            "tests/panel-state.test.ts",
+            "tests/panel-state-parsed-fields.test.ts",
             "tests/dom/fields-view.test.ts"
           ],
           "notes": "Covers parsed-field state sync plus Parsed fields UI controls, including empty and delimiter-changing commits, split-invalidating and invalid-numeric rejection feedback, split length hints, Dec/Hex display toggles, alternate-base edit commits, reset-field/reset-structure/reset-all baseline restoration, preserved valid field settings, digit-width and split reset behavior, privacy-safe reset labels, stable reset layout, reset-before-Include/Exclude ordering, stale cached numeric-mode isolation, and privacy masking."
@@ -289,7 +289,7 @@
       "coverage": [
         {
           "type": "unit-dom",
-          "paths": ["tests/invariants.test.ts", "tests/panel-state.test.ts", "tests/dom/recall-restore-controller.test.ts"]
+          "paths": ["tests/invariants.test.ts", "tests/panel-state-queue-recents.test.ts", "tests/dom/recall-restore-controller.test.ts"]
         },
         {
           "type": "playwright-e2e",
@@ -308,7 +308,8 @@
           "type": "unit-dom",
           "paths": [
             "tests/invariants.test.ts",
-            "tests/panel-state.test.ts",
+            "tests/panel-state-queue-recents.test.ts",
+            "tests/panel-state-settings.test.ts",
             "tests/recent-history-cache.test.ts",
             "tests/panel-settings-controller.test.ts",
             "tests/data-crypto.test.ts",
@@ -361,7 +362,7 @@
         {
           "type": "unit-dom",
           "paths": [
-            "tests/panel-state.test.ts",
+            "tests/panel-state-queue-recents.test.ts",
             "tests/dom/history-view.test.ts",
             "tests/dom/bookmarks-view.test.ts",
             "tests/dom/recall-drawer-view.test.ts"
