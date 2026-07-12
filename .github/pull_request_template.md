@@ -18,6 +18,7 @@
 <!-- Coverage travels with the change — see the wiki Testing Strategy page. -->
 
 - [ ] **Considered acceptance-flow impact.** If this PR adds or changes a user-facing flow, I updated `tests/e2e/coverage-map.json` — automated (`playwright-e2e` / `storybook` / `unit-dom`), or `manual` (with a `reason`) / `deferred` (with an `issue`). If it doesn't, there's no acceptance impact. (CI enforces this; opt out with a `no-acceptance-impact` note or label.)
+- [ ] **Reviewed the file-size report.** Oversized touched files did not grow; any extraction isolates a coherent responsibility and preserves module boundaries rather than moving code into arbitrary helpers.
 
 ## Manual Testing
 
