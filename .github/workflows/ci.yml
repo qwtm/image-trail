@@ -72,6 +72,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Version policy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: npm run check:version-policy
+
       - name: Lint
         run: npm run lint
 
