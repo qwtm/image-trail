@@ -1,5 +1,11 @@
 # image-trail
 
+## 0.2.1
+
+### Patch Changes
+
+- 93209dc: Clear stale pCloud backup details from Settings when persisted backup history is empty.
+
 ## 0.2.0
 
 ### Minor Changes
