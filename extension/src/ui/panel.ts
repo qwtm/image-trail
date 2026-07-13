@@ -184,6 +184,7 @@ export class ImageTrailPanel {
     setUrlTemplates: (templates, activeId) => this.pageAdapter.setUrlTemplates(templates, activeId),
     setGrabSourcePatterns: (patterns) => this.pageAdapter.setGrabSourcePatterns(patterns),
     loadGrabSettings: (options) => this.panelDataLoad.loadGrabSettings(options),
+    saveParsedFieldState: () => this.fieldStateSync.save(),
   });
   private readonly recallExport = new RecallExportController({
     getState: () => this.state,
@@ -474,7 +475,6 @@ export class ImageTrailPanel {
     void this.recallExport.refreshPCloudProviderStatus();
 
     this.keyboard = new KeyboardRouter((action) => this.handleShortcutAction(action));
-
     this.slideshow = new Slideshow(
       (direction) => this.parsedFieldNavigation.navigateBy(direction, 'slideshow'),
       (phase, count) => {

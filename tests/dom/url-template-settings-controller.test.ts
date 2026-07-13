@@ -62,6 +62,7 @@ function createHarness(model: ParsedUrlModel | typeof NO_MODEL): Harness {
       pagePatterns.push(patterns);
     },
     loadGrabSettings: async () => {},
+    saveParsedFieldState: async () => {},
   };
 
   return {
