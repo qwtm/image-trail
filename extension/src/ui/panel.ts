@@ -650,6 +650,7 @@ export class ImageTrailPanel {
       enqueueSelectedUrlApply: (url) => this.fieldEditor.enqueueSelectedUrlApply(url),
       rejectUrlEditorInput: () => this.fieldEditor.rejectUrlEditorInput(),
       captureImage: (url, sourceType, sourceRecordId) => this.capturedOriginals.captureImage(url, sourceType, sourceRecordId),
+      retryCaptureWithPermission: (request) => this.capturedOriginals.retryCaptureWithPermission(request),
       deleteCapturedBlob: (recordId, blobId) => this.capturedOriginals.deleteCapturedBlob(recordId, blobId),
       cleanupOrphanedBlobs: () => this.capturedOriginals.cleanupOrphanedBlobs(),
       previewRecord: (url, blobId, scrollAnchorId) => this.projectionApplication.previewRecord(url, blobId, scrollAnchorId),

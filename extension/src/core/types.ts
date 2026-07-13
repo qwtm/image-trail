@@ -376,6 +376,7 @@ export type PanelActionName =
   | 'grab-source-pattern/update-settings'
   | 'parsed-field-state/restore'
   | 'capture/request'
+  | 'capture/permission-retry'
   | 'capture/start'
   | 'capture/complete'
   | 'capture/clear'

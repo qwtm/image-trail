@@ -114,6 +114,7 @@ function createHarness(): Harness {
     enqueueSelectedUrlApply: noop,
     rejectUrlEditorInput: noop,
     captureImage: noopAsync,
+    retryCaptureWithPermission: noopAsync,
     deleteCapturedBlob: noopAsync,
     cleanupOrphanedBlobs: noopAsync,
     previewRecord: noopAsync,

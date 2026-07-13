@@ -3,6 +3,7 @@ import type { PanelActionDeps } from './deps.js';
 
 export type TransferActionName =
   | 'capture/request'
+  | 'capture/permission-retry'
   | 'capture/delete'
   | 'capture/cleanup-orphans'
   | 'capture/preview'
@@ -45,6 +46,12 @@ export function buildTransferActionEntries(deps: PanelActionDeps): ActionEntries
     'capture/request': {
       handle(action) {
         void deps.captureImage(action.url, action.sourceType, action.sourceRecordId);
+      },
+    },
+    'capture/permission-retry': {
+      handle() {
+        const request = deps.getState().captureRetryRequest;
+        if (request) void deps.retryCaptureWithPermission(request);
       },
     },
     'capture/delete': {

@@ -8,8 +8,8 @@ import {
   withoutStoredOriginal,
 } from '../../core/display-records.js';
 import type { ImageDisplayRecord } from '../../core/display-records.js';
-import { isCapturedResult } from '../../core/image/capture-result.js';
-import type { BookmarkStore, CaptureSourceType, PanelState } from '../../core/types.js';
+import { isCapturedResult, type CaptureResult } from '../../core/image/capture-result.js';
+import type { BookmarkStore, CaptureRetryRequest, CaptureSourceType, PanelState } from '../../core/types.js';
 import { bookmarkSaveMessage, recordHasBlobId } from './record-export-helpers.js';
 
 function parseDimensionText(value: string | null): { readonly width?: number; readonly height?: number } {
@@ -105,9 +105,27 @@ export class CapturedOriginalsController {
       await this.useExistingStoredOriginal(url, sourceType, sourceRecordId, existingSavedRecord);
       return;
     }
-    this.deps.setState(reducePanelAction(this.deps.getState(), { name: 'capture/start' }));
+    const request: CaptureRetryRequest = { url, sourceType, sourceRecordId };
+    this.deps.setState(reducePanelAction(this.deps.getState(), { name: 'capture/start', request }));
     this.deps.render();
     const result = await captureStore.requestCapture(url, sourceType, sourceRecordId);
+    await this.completeCapture(result, url, sourceType, sourceRecordId);
+  }
+
+  /**
+   * Starts with the permission request so Chrome sees it in the button's user-gesture call stack;
+   * unlike a normal capture, this path must not await bookmark preflight first.
+   */
+  async retryCaptureWithPermission(request: CaptureRetryRequest): Promise<void> {
+    const captureStore = this.deps.captureStore();
+    if (!captureStore || this.deps.getState().captureInProgress || this.capturePreflightInProgress) return;
+    this.deps.setState(reducePanelAction(this.deps.getState(), { name: 'capture/start', request }));
+    this.deps.render();
+    const result = await captureStore.requestPermissionAndRetry(request.url, request.sourceType, request.sourceRecordId);
+    await this.completeCapture(result, request.url, request.sourceType, request.sourceRecordId);
+  }
+
+  private async completeCapture(result: CaptureResult, url: string, sourceType: CaptureSourceType, sourceRecordId?: string): Promise<void> {
     this.deps.setState(reducePanelAction(this.deps.getState(), { name: 'capture/complete', result, sourceRecordId }));
     let queueChanged = false;
     const finiteCaptureResultError =
