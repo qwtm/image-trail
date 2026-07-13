@@ -28,6 +28,10 @@ interface Harness {
   readonly pageTemplates: { readonly templates: readonly UrlTemplateRecord[]; readonly activeId: string | null }[];
   readonly pagePatterns: (readonly GrabSourcePattern[])[];
   readonly loadOptions: ({ readonly render?: boolean; readonly primeBufferedNav?: boolean } | undefined)[];
+  readonly savedFieldStates: {
+    readonly activeUrlTemplateId: string | null;
+    readonly unlockedFieldIds: readonly string[];
+  }[];
   renderCount(): number;
   loadCount(): number;
 }
@@ -47,6 +51,10 @@ function createHarness(model: ParsedUrlModel = parseUrl(SOURCE_URL)): Harness {
   const pageTemplates: { readonly templates: readonly UrlTemplateRecord[]; readonly activeId: string | null }[] = [];
   const pagePatterns: (readonly GrabSourcePattern[])[] = [];
   const loadOptions: ({ readonly render?: boolean; readonly primeBufferedNav?: boolean } | undefined)[] = [];
+  const savedFieldStates: {
+    readonly activeUrlTemplateId: string | null;
+    readonly unlockedFieldIds: readonly string[];
+  }[] = [];
   let renders = 0;
   let loads = 0;
 
@@ -109,6 +117,12 @@ function createHarness(model: ParsedUrlModel = parseUrl(SOURCE_URL)): Harness {
       controller.syncGrabSettings();
       loads += 1;
     },
+    saveParsedFieldState: async () => {
+      savedFieldStates.push({
+        activeUrlTemplateId: state.activeUrlTemplateId,
+        unlockedFieldIds: [...state.unlockedFieldIds],
+      });
+    },
   };
   const controller = new UrlTemplateSettingsController(deps);
 
@@ -133,6 +147,7 @@ function createHarness(model: ParsedUrlModel = parseUrl(SOURCE_URL)): Harness {
     pageTemplates,
     pagePatterns,
     loadOptions,
+    savedFieldStates,
     renderCount: () => renders,
     loadCount: () => loads,
   };
@@ -161,6 +176,7 @@ test('saveUrlTemplateFromCurrentFields persists a record and activates the best 
 test('saveSteppingPreset persists reviewed fields through the existing template store', async () => {
   const harness = createHarness();
   const fields = collectUrlFields(parseUrl(SOURCE_URL));
+  harness.patchState({ unlockedFieldIds: ['stale-field'] });
 
   await harness.controller.saveSteppingPreset('numbered-filename');
 
@@ -176,6 +192,12 @@ test('saveSteppingPreset persists reviewed fields through the existing template 
   assert.match(harness.getState().message, /Saved numbered filename preset with 1 field\./u);
   assert.equal(harness.loadCount(), 1);
   assert.deepEqual(harness.loadOptions, [{ render: false, primeBufferedNav: false }]);
+  assert.deepEqual(harness.savedFieldStates, [
+    {
+      activeUrlTemplateId: harness.saveLog[0]!.id,
+      unlockedFieldIds: harness.saveLog[0]!.fields.map((field) => field.id),
+    },
+  ]);
   assert.equal(harness.renderCount(), 1);
 });
 

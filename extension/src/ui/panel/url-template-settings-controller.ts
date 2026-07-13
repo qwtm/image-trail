@@ -37,6 +37,7 @@ export interface UrlTemplateSettingsControllerDeps {
   setUrlTemplates(templates: readonly UrlTemplateRecord[], activeTemplateId: string | null): void;
   setGrabSourcePatterns(patterns: readonly GrabSourcePattern[]): void;
   loadGrabSettings(options?: { readonly render?: boolean; readonly primeBufferedNav?: boolean }): Promise<void>;
+  saveParsedFieldState(): Promise<void>;
 }
 
 export class UrlTemplateSettingsController {
@@ -59,6 +60,7 @@ export class UrlTemplateSettingsController {
     if (!template) return;
     await store.save(template);
     await this.deps.loadGrabSettings({ render: false, primeBufferedNav: false });
+    await this.deps.saveParsedFieldState();
     this.deps.setState({
       ...this.deps.getState(),
       message: `Saved ${preset.label.toLowerCase()} preset with ${preset.fieldIds.length} field${preset.fieldIds.length === 1 ? '' : 's'}.`,
