@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -115,4 +118,38 @@ test('ignores tests, Storybook-only files, and repository tooling', () => {
   });
   assert.equal(result.ok, true);
   assert.deepEqual(result.productFiles, []);
+});
+
+test('version workflow creates a ready Changesets PR without publishing or merging', () => {
+  const workflow = readFileSync('.github/workflows/version-pr.yml', 'utf8');
+
+  assert.match(workflow, /uses: changesets\/action@v1/u);
+  assert.match(workflow, /version: npm run changeset:version/u);
+  assert.match(workflow, /pull-requests: write/u);
+  assert.doesNotMatch(workflow, /^\s+publish:/mu);
+  assert.doesNotMatch(workflow, /^\s+prDraft:/mu);
+  assert.doesNotMatch(workflow, /gh pr merge|auto-merge/u);
+});
+
+test('required CI runs the version-policy gate', () => {
+  const workflow = readFileSync('.github/workflows/ci.yml', 'utf8');
+
+  assert.match(workflow, /run: npm run check:version-policy/u);
+});
+
+test('manifest sync copies valid package versions and refuses invalid Chrome versions', (t) => {
+  const directory = mkdtempSync(join(tmpdir(), 'image-trail-version-sync-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  mkdirSync(join(directory, 'extension'));
+  const manifestPath = join(directory, 'extension/manifest.json');
+  const syncScript = join(process.cwd(), 'scripts/sync-manifest-version.mjs');
+
+  writeFileSync(join(directory, 'package.json'), '{"version":"1.2.3"}\n');
+  writeFileSync(manifestPath, '{\n  "version": "1.2.2"\n}\n');
+  execFileSync(process.execPath, [syncScript], { cwd: directory });
+  assert.equal(JSON.parse(readFileSync(manifestPath, 'utf8')).version, '1.2.3');
+
+  writeFileSync(join(directory, 'package.json'), '{"version":"1.2.3-beta.1"}\n');
+  assert.throws(() => execFileSync(process.execPath, [syncScript], { cwd: directory, stdio: 'pipe' }));
+  assert.equal(JSON.parse(readFileSync(manifestPath, 'utf8')).version, '1.2.3');
 });
