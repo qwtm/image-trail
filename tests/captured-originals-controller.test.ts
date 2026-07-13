@@ -26,6 +26,7 @@ interface HarnessOptions {
   readonly captureStore?: Partial<CaptureStore> | null;
   readonly bookmarkStore?: Partial<BookmarkStore> | null;
   readonly captureResult?: CaptureResult;
+  readonly permissionRetryResult?: CaptureResult;
   readonly deleteBlobThrows?: boolean;
 }
 
@@ -38,6 +39,10 @@ function createHarness(options: HarnessOptions = {}): Harness {
     requestCapture: async (url, sourceType) => {
       log.push(`requestCapture:${url}:${sourceType}`);
       return options.captureResult ?? CAPTURED;
+    },
+    requestPermissionAndRetry: async (url, sourceType, sourceRecordId) => {
+      log.push(`requestPermissionAndRetry:${url}:${sourceType}:${sourceRecordId ?? ''}`);
+      return options.permissionRetryResult ?? CAPTURED;
     },
     requestDeleteBlob: async (blobId) => {
       log.push(`requestDeleteBlob:${blobId}`);
@@ -169,6 +174,36 @@ test('captureImage refreshes the blob-key status on an encryption-locked failure
     'scheduleFiniteCaptureErrorReset:capture-result',
     'render:true',
   ]);
+});
+
+test('retryCaptureWithPermission preserves context after denial', async () => {
+  const request = { url: 'https://cdn.example.test/pic.jpg', sourceType: 'history' as const, sourceRecordId: 'recent-1' };
+  const harness = createHarness({
+    permissionRetryResult: { status: 'failed', reason: 'permission-needed', message: 'Permission was not granted.' },
+  });
+
+  await harness.controller.retryCaptureWithPermission(request);
+
+  assert.equal(harness.getState().captureInProgress, false);
+  assert.deepEqual(harness.getState().captureRetryRequest, request);
+  assert.deepEqual(harness.log, [
+    'render:true',
+    'requestPermissionAndRetry:https://cdn.example.test/pic.jpg:history:recent-1',
+    'refreshStorageUsage:false',
+    'render:true',
+  ]);
+});
+
+test('retryCaptureWithPermission uses normal target completion after grant', async () => {
+  const request = { url: 'https://cdn.example.test/pic.jpg', sourceType: 'target' as const };
+  const harness = createHarness();
+
+  await harness.controller.retryCaptureWithPermission(request);
+
+  assert.equal(harness.getState().captureRetryRequest, null);
+  assert.ok(harness.log.includes('requestPermissionAndRetry:https://cdn.example.test/pic.jpg:target:'));
+  assert.ok(harness.log.includes('bookmarkSave:https://cdn.example.test/pic.jpg'));
+  assert.equal(harness.log.at(-1), 'renderPanelAndRefreshRecall');
 });
 
 test('captureImage skips target capture when a saved row already has an original', async () => {

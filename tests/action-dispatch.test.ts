@@ -199,6 +199,7 @@ function createHarness(
     enqueueSelectedUrlApply: () => record('enqueueSelectedUrlApply'),
     rejectUrlEditorInput: () => record('rejectUrlEditorInput'),
     captureImage: () => recordAsync('captureImage'),
+    retryCaptureWithPermission: () => recordAsync('retryCaptureWithPermission'),
     deleteCapturedBlob: () => recordAsync('deleteCapturedBlob'),
     cleanupOrphanedBlobs: () => recordAsync('cleanupOrphanedBlobs'),
     previewRecord: () => recordAsync('previewRecord'),
@@ -321,6 +322,7 @@ const fixtures: { readonly [N in RegisteredPanelActionName]: PanelActionFor<N> }
   'grab-source-pattern/update-settings': { name: 'grab-source-pattern/update-settings', id: 'pattern-1' },
   'grab-source-pattern/remove': { name: 'grab-source-pattern/remove', id: 'pattern-1' },
   'capture/request': { name: 'capture/request', url: 'https://example.com/image-1.jpg', sourceType: 'target' },
+  'capture/permission-retry': { name: 'capture/permission-retry' },
   'capture/delete': { name: 'capture/delete', id: 'record-1', blobId: 'blob-1' },
   'capture/cleanup-orphans': { name: 'capture/cleanup-orphans' },
   'capture/preview': { name: 'capture/preview', url: 'https://example.com/image-1.jpg' },
@@ -427,6 +429,23 @@ test('registry keys match the fixture domain with one entry per name and no tail
   assert.equal(groupKeySum, keys.length);
   assert.ok(!keys.includes('toggle-panel'), 'toggle-panel must stay on the fallback tail');
   assert.ok(!keys.includes('close-panel'), 'close-panel must stay on the fallback tail');
+});
+
+test('capture/permission-retry routes the retained request context', async () => {
+  const harness = createHarness();
+  harness.patchState({
+    captureRetryRequest: {
+      url: 'https://cdn.example.test/image.jpg',
+      sourceType: 'bookmark',
+      sourceRecordId: 'bookmark-1',
+    },
+  });
+  const registry = buildPanelActionRegistry(harness.deps);
+
+  dispatchPanelAction(registry, { name: 'capture/permission-retry' }, () => assert.fail('action should be registered'));
+  await flushMicrotasks();
+
+  assert.deepEqual(harness.log, ['retryCaptureWithPermission']);
 });
 
 test('reducer-only selection actions reduce then render, without touching the recall pipeline', () => {
