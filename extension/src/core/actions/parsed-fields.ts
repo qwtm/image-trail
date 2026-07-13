@@ -223,6 +223,7 @@ export function reduceParsedFieldsAction(state: PanelState, action: ParsedFields
         lastUpdatedAt: Date.now(),
       };
     case 'field/commit-rejected':
+    case 'url-template/save-step-preset':
     case 'selected-url/apply':
     case 'selected-url/reject-unsupported-input':
       return state;

@@ -154,6 +154,36 @@ test('saveUrlTemplateFromCurrentFields persists a record and activates the best 
   assert.equal(lastPush.activeId, saved.id, 'the active template is pushed to the page adapter');
 });
 
+test('saveSteppingPreset persists reviewed fields through the existing template store', async () => {
+  const harness = createHarness();
+  const fields = collectUrlFields(parseUrl(SOURCE_URL));
+
+  await harness.controller.saveSteppingPreset('numbered-filename');
+
+  assert.equal(harness.saveLog.length, 1);
+  assert.deepEqual(
+    harness.saveLog[0]!.fields.map((field) => field.id),
+    fields
+      .filter((field) => field.label.startsWith('file ') && (field.tokenKind === 'int' || field.tokenKind === 'hex'))
+      .map((field) => field.id),
+  );
+  assert.equal(harness.getState().activeUrlTemplateId, harness.saveLog[0]!.id);
+  assert.equal(harness.getState().status, 'ready');
+  assert.match(harness.getState().message, /Saved numbered filename preset with 1 field\./u);
+  assert.equal(harness.loadCount(), 1);
+  assert.equal(harness.renderCount(), 1);
+});
+
+test('saveSteppingPreset ignores a preset that is unavailable for the current URL', async () => {
+  const harness = createHarness();
+
+  await harness.controller.saveSteppingPreset('gallery-query');
+
+  assert.deepEqual(harness.saveLog, []);
+  assert.equal(harness.loadCount(), 0);
+  assert.equal(harness.renderCount(), 0);
+});
+
 test('saveUrlTemplateFromCurrentFields with no unlocked fields removes the existing template', async () => {
   const harness = createHarness();
   const existing = harness.seedTemplate();

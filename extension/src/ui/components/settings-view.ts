@@ -29,6 +29,7 @@ import {
 import { createRecentsSettingsView, type RecentHistorySettingsState } from './recents-settings-view.js';
 import { createShortcutSettingsView } from './shortcut-settings-view.js';
 import { createGrabSourcePatternSettingsView, createTemplateSettingsView } from './url-learning-settings-view.js';
+import { createUrlSteppingPresetView } from './url-stepping-preset-view.js';
 
 export {
   createBuildIdentitySettingsView,
@@ -92,6 +93,7 @@ export function createSettingsView(
       createDestructiveSettingsView(destructiveState, dispatch),
     ]),
     createSettingsGroup('URL learning', 'url-learning', [
+      createUrlSteppingPresetView(currentFields, dispatch),
       createTemplateSettingsView(templates, activeTemplateId, currentFields, dispatch),
       createGrabSourcePatternSettingsView(grabSourcePatterns, dispatch),
     ]),

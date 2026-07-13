@@ -6,6 +6,7 @@ import { collectUrlFields } from '../../core/url/tokenize-fields.js';
 import { createGrabSourcePattern, createUrlTemplateRecord } from '../../core/url/templates.js';
 import { settingsGroupStory } from '../stories/settings-story-host.js';
 import { createGrabSourcePatternSettingsView, createTemplateSettingsView } from './url-learning-settings-view.js';
+import { createUrlSteppingPresetView } from './url-stepping-preset-view.js';
 
 const model = parseUrl('https://images.example.test/albums/1024/photo_0042.jpg');
 const fields = collectUrlFields(model);
@@ -17,6 +18,7 @@ const meta = {
   title: 'Extension UI/URL learning settings',
   render: () =>
     settingsGroupStory('URL learning', [
+      createUrlSteppingPresetView(fields, dispatchSpy),
       createTemplateSettingsView([template], template.id, fields, dispatchSpy),
       createGrabSourcePatternSettingsView([pattern], dispatchSpy),
     ]),
@@ -24,6 +26,20 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+export const SteppingPresetDispatch: Story = {
+  play: async ({ canvasElement }) => {
+    dispatchSpy.mockClear();
+    const preset = Array.from(canvasElement.querySelectorAll('li')).find((item) => item.textContent?.includes('Numbered filename'));
+    const save = preset?.querySelector('button');
+    if (!save) throw new Error('expected numbered filename preset');
+    await userEvent.click(save);
+    await expect(dispatchSpy).toHaveBeenCalledWith({
+      name: 'url-template/save-step-preset',
+      presetId: 'numbered-filename',
+    });
+  },
+};
 
 export const TemplateControlsDispatch: Story = {
   play: async ({ canvasElement }) => {

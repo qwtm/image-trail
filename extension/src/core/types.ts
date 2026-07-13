@@ -5,9 +5,9 @@ import type { ImageDisplayRecord } from './display-records.js';
 import type { ImageProbeMethod } from './image/request-policy.js';
 import type { LoadFailureFeedback } from './settings.js';
 import type { SearchableMetadataPolicy } from './metadata-policy.js';
-import type { GrabSourcePattern, UrlTemplateMatchMode, UrlTemplateRecord } from './url/templates.js';
-import type { UrlTemplateGrabStrategy } from './url/grab-strategies.js';
+import type { GrabSourcePattern, UrlTemplateRecord } from './url/templates.js';
 import type { FieldTransformId } from './url/field-transforms.js';
+import type { UrlTemplatePanelAction } from './url/panel-actions.js';
 import type { UrlFieldDigitWidthSpec, UrlFieldSplitSpec } from './url/types.js';
 import type { ObjectFitMode } from './preview-style.js';
 import type { QueueDisplayOrder, RecentDisplayOrder } from './display-order.js';
@@ -600,25 +600,7 @@ export type PanelAction =
       readonly loadFailureFeedback: LoadFailureFeedback;
     }
   | { readonly name: 'neighbor-preload/manual'; readonly radius: number; readonly cacheLimit: number }
-  | { readonly name: 'url-templates/load'; readonly templates: readonly UrlTemplateRecord[]; readonly activeTemplateId?: string | null }
-  | { readonly name: 'url-template/remove'; readonly id: string }
-  | {
-      readonly name: 'url-template/update-settings';
-      readonly id: string;
-      readonly matchMode?: UrlTemplateMatchMode;
-      readonly hideExcludedFields?: boolean;
-      readonly autoApplyEnabled?: boolean;
-      readonly grabStrategy?: UrlTemplateGrabStrategy | null;
-    }
-  | { readonly name: 'url-template/update-fields'; readonly id: string; readonly includedFieldIds: readonly string[] }
-  | { readonly name: 'grab-source-patterns/load'; readonly patterns: readonly GrabSourcePattern[] }
-  | { readonly name: 'grab-source-pattern/remove'; readonly id: string }
-  | {
-      readonly name: 'grab-source-pattern/update-settings';
-      readonly id: string;
-      readonly matchMode?: UrlTemplateMatchMode;
-      readonly grabStrategy?: UrlTemplateGrabStrategy | null;
-    }
+  | UrlTemplatePanelAction
   | { readonly name: 'parsed-field-state/restore'; readonly record: ParsedFieldStateRecord }
   | { readonly name: 'active-field/set'; readonly id: string | null }
   | { readonly name: 'target/fill-screen'; readonly enabled: boolean }

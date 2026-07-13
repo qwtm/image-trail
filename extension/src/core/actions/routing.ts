@@ -76,6 +76,7 @@ export const PANEL_ACTION_DOMAINS = {
   'settings/update-workspace-layout-restore': 'settings',
   'settings/reset-workspace-layout': 'settings',
   'url-templates/load': 'parsed-fields',
+  'url-template/save-step-preset': 'parsed-fields',
   'url-template/remove': 'parsed-fields',
   'url-template/update-settings': 'parsed-fields',
   'url-template/update-fields': 'parsed-fields',
