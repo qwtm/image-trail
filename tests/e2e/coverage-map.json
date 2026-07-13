@@ -596,7 +596,7 @@
         },
         {
           "type": "manual",
-          "reason": "The current broad host_permissions make a missing-origin prompt unreachable; execute the live grant/deny flow with #57 when permissions are narrowed."
+          "reason": "Live extension permission prompts require a headful browser-chrome check; use tests/e2e/pages/third-party-cdn.html to execute approval and denial against the localhost image origin."
         },
         {
           "type": "deferred",

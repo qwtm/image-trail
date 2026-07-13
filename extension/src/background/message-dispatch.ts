@@ -67,12 +67,16 @@ export function dispatchRequest(
     respondWithFallback(entry, message, sendResponse);
     return true;
   }
-  // Start the chain with a resolved promise so a handler that throws *synchronously*
-  // (before returning its Promise) rejects into the same `.catch` as an async rejection,
-  // rather than escaping the boundary.
-  Promise.resolve()
-    .then(() => entry.handle(message))
-    .then((result) => sendResponse(entry.respond(result)))
-    .catch(() => respondWithFallback(entry, message, sendResponse));
+  // Invoke the handler in the listener's synchronous call stack so user-gesture-gated
+  // extension APIs (for example chrome.permissions.request) retain transient activation.
+  // Convert synchronous throws into the same fallback path as async rejections.
+  let handled: Promise<unknown>;
+  try {
+    handled = entry.handle(message);
+  } catch {
+    respondWithFallback(entry, message, sendResponse);
+    return true;
+  }
+  handled.then((result) => sendResponse(entry.respond(result))).catch(() => respondWithFallback(entry, message, sendResponse));
   return true;
 }

@@ -45,6 +45,18 @@ test('dispatchRequest runs the handler, wraps the result with respond, and retur
   assert.equal(sent?.payload.status, 'handled');
 });
 
+test('dispatchRequest invokes the handler synchronously to preserve transient user activation', () => {
+  let handlerCalled = false;
+  const registry = registryWith(async () => {
+    handlerCalled = true;
+    return 'handled';
+  });
+
+  dispatchRequest(registry, createPingMessage(), () => undefined);
+
+  assert.equal(handlerCalled, true);
+});
+
 test('dispatchRequest replies with the entry fallback when the handler rejects', async () => {
   let sent: StatusMessage | undefined;
   const registry = registryWith(async () => {
