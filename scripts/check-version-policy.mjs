@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { readFile } from 'node:fs/promises';
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
+import parseChangeset from '@changesets/parse';
 
 const ACK_TOKEN = 'no-version-impact';
 const CHANGESET_FILE = /^\.changeset\/(?!README\.md$)[^/]+\.md$/u;
@@ -15,6 +16,8 @@ const PRODUCT_SOURCE = /^extension\/(?!dist\/)/u;
 const NON_SHIPPING_SOURCE = /(\.test\.ts|\.stories\.ts)$/u;
 const STORYBOOK_ONLY = /^extension\/src\/ui\/stories\//u;
 const STABLE_SEMVER = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/u;
+const PACKAGE_NAME = 'image-trail';
+const RELEASE_TYPES = new Set(['patch', 'minor', 'major']);
 
 export function validateChromeExtensionVersion(version) {
   if (typeof version !== 'string') return ['version must be a string'];
@@ -39,7 +42,14 @@ export function validateChromeExtensionVersion(version) {
   return errors;
 }
 
-export function evaluateVersionArtifacts({ packageVersion, manifestVersion, buildInfo = null, requiredBuildMode = null }) {
+export function evaluateVersionArtifacts({
+  packageVersion,
+  manifestVersion,
+  lockVersion,
+  lockRootVersion,
+  buildInfo = null,
+  requiredBuildMode = null,
+}) {
   const errors = [];
   if (!STABLE_SEMVER.test(packageVersion)) {
     errors.push('package.json version must be stable three-component semver with no prerelease/build suffix');
@@ -47,6 +57,12 @@ export function evaluateVersionArtifacts({ packageVersion, manifestVersion, buil
   errors.push(...validateChromeExtensionVersion(manifestVersion).map((error) => `extension/manifest.json: ${error}`));
   if (packageVersion !== manifestVersion) {
     errors.push(`package.json (${packageVersion}) and extension/manifest.json (${manifestVersion}) versions differ`);
+  }
+  if (packageVersion !== lockVersion) {
+    errors.push(`package.json (${packageVersion}) and package-lock.json (${String(lockVersion)}) versions differ`);
+  }
+  if (packageVersion !== lockRootVersion) {
+    errors.push(`package.json (${packageVersion}) and package-lock.json root package (${String(lockRootVersion)}) versions differ`);
   }
 
   if (buildInfo) {
@@ -71,19 +87,56 @@ export function evaluateVersionArtifacts({ packageVersion, manifestVersion, buil
   return errors;
 }
 
-export function evaluateChangesetCoverage({ changedFiles, body = '', labels = [] }) {
+export function evaluateChangesetCoverage({ changedFiles, changesets = [], releaseVersionAdvanced = false, body = '', labels = [] }) {
   const productFiles = changedFiles.filter(isProductSource);
+  const changesetFiles = changedFiles.filter((file) => CHANGESET_FILE.test(file));
+  if (changesetFiles.length > 0) {
+    if (changesets.length === 0 && releaseVersionAdvanced) {
+      return { ok: true, productFiles, reason: 'changesets consumed by a synchronized version advance' };
+    }
+
+    const errors = [];
+    for (const changeset of changesets) {
+      let parsed;
+      try {
+        parsed = parseChangeset(changeset.content);
+      } catch (error) {
+        errors.push(`${changeset.path}: ${error instanceof Error ? error.message : String(error)}`);
+        continue;
+      }
+
+      const unknownPackages = parsed.releases.filter((release) => release.name !== PACKAGE_NAME);
+      for (const release of unknownPackages) {
+        errors.push(`${changeset.path}: unknown package "${release.name}"`);
+      }
+      const packageRelease = parsed.releases.find((release) => release.name === PACKAGE_NAME);
+      if (!packageRelease) {
+        errors.push(`${changeset.path}: missing a release for "${PACKAGE_NAME}"`);
+      } else if (!RELEASE_TYPES.has(packageRelease.type)) {
+        errors.push(`${changeset.path}: release type must be patch, minor, or major, got "${packageRelease.type}"`);
+      }
+    }
+    if (changesets.length < changesetFiles.length && !releaseVersionAdvanced) {
+      errors.push('changed changeset files are missing from the checkout without a version advance');
+    }
+    if (errors.length > 0) {
+      return { ok: false, productFiles, reason: 'invalid changeset contents', errors };
+    }
+    return { ok: true, productFiles, reason: 'valid image-trail changeset included' };
+  }
   if (productFiles.length === 0) {
     return { ok: true, productFiles, reason: 'no release-impacting extension source changed' };
-  }
-  if (changedFiles.some((file) => CHANGESET_FILE.test(file))) {
-    return { ok: true, productFiles, reason: 'changeset added or consumed alongside the change' };
   }
   const acknowledged = body.toLowerCase().includes(ACK_TOKEN) || labels.some((label) => label.toLowerCase() === ACK_TOKEN);
   if (acknowledged) {
     return { ok: true, productFiles, reason: `opted out via "${ACK_TOKEN}"` };
   }
-  return { ok: false, productFiles, reason: 'release-impacting extension source changed with no changeset or opt-out' };
+  return {
+    ok: false,
+    productFiles,
+    reason: 'release-impacting extension source changed with no changeset or opt-out',
+    errors: [],
+  };
 }
 
 function isProductSource(file) {
@@ -101,6 +154,41 @@ function command(args, options = {}) {
   return execFileSync(args[0], args.slice(1), { encoding: 'utf8', ...options });
 }
 
+function isVersionAdvance(currentVersion, baseVersion) {
+  if (!STABLE_SEMVER.test(currentVersion) || !STABLE_SEMVER.test(baseVersion)) return false;
+  const current = currentVersion.split('.').map(Number);
+  const base = baseVersion.split('.').map(Number);
+  for (let index = 0; index < current.length; index += 1) {
+    if (current[index] !== base[index]) return current[index] > base[index];
+  }
+  return false;
+}
+
+async function addChangesetState(inputs, baseRef = null) {
+  const changesetPaths = inputs.changedFiles.filter((file) => CHANGESET_FILE.test(file));
+  const changesets = [];
+  for (const path of changesetPaths) {
+    try {
+      changesets.push({ path, content: await readFile(path, 'utf8') });
+    } catch (error) {
+      if (error?.code !== 'ENOENT') throw error;
+    }
+  }
+
+  let releaseVersionAdvanced = process.env.VERSION_POLICY_RELEASE_VERSION_ADVANCED === '1';
+  if (!releaseVersionAdvanced && baseRef) {
+    try {
+      const currentPackage = JSON.parse(await readFile('package.json', 'utf8'));
+      const basePackage = JSON.parse(command(['git', 'show', `${baseRef}:package.json`]));
+      releaseVersionAdvanced = isVersionAdvance(String(currentPackage.version), String(basePackage.version));
+    } catch {
+      releaseVersionAdvanced = false;
+    }
+  }
+
+  return { ...inputs, changesets, releaseVersionAdvanced };
+}
+
 function resolveBaseRef() {
   for (const ref of ['origin/main', 'main']) {
     try {
@@ -115,12 +203,12 @@ function resolveBaseRef() {
 
 async function gatherChangesetInputs() {
   if (process.env.VERSION_POLICY_CHECK_FILES) {
-    return {
+    return addChangesetState({
       changedFiles: splitList(process.env.VERSION_POLICY_CHECK_FILES),
       body: process.env.VERSION_POLICY_CHECK_BODY ?? '',
       labels: splitList(process.env.VERSION_POLICY_CHECK_LABELS),
       context: 'local override',
-    };
+    });
   }
 
   if (process.env.GITHUB_EVENT_NAME === 'pull_request' && process.env.GITHUB_EVENT_PATH) {
@@ -129,12 +217,15 @@ async function gatherChangesetInputs() {
     const number = event.pull_request?.number ?? event.number;
     const changedFiles = splitList(command(['gh', 'api', `repos/${repo}/pulls/${number}/files`, '--paginate', '--jq', '.[].filename']));
     const pullRequest = JSON.parse(command(['gh', 'api', `repos/${repo}/pulls/${number}`]));
-    return {
-      changedFiles,
-      body: pullRequest.body ?? '',
-      labels: (pullRequest.labels ?? []).map((label) => label.name),
-      context: `PR #${number}`,
-    };
+    return addChangesetState(
+      {
+        changedFiles,
+        body: pullRequest.body ?? '',
+        labels: (pullRequest.labels ?? []).map((label) => label.name),
+        context: `PR #${number}`,
+      },
+      event.pull_request?.base?.sha ?? null,
+    );
   }
 
   const baseRef = resolveBaseRef();
@@ -149,21 +240,27 @@ async function gatherChangesetInputs() {
   const unstaged = splitList(command(['git', 'diff', '--name-only', 'HEAD']));
   const staged = splitList(command(['git', 'diff', '--name-only', '--cached']));
   const commitMessages = command(['git', 'log', '--format=%B', `${mergeBase}..HEAD`]);
-  return {
-    changedFiles: [...new Set([...committed, ...unstaged, ...staged])],
-    body: `${commitMessages}\n${process.env.VERSION_POLICY_ACK ?? ''}`,
-    labels: [],
-    context: `local diff vs ${baseRef}`,
-  };
+  return addChangesetState(
+    {
+      changedFiles: [...new Set([...committed, ...unstaged, ...staged])],
+      body: `${commitMessages}\n${process.env.VERSION_POLICY_ACK ?? ''}`,
+      labels: [],
+      context: `local diff vs ${baseRef}`,
+    },
+    mergeBase,
+  );
 }
 
 async function checkArtifacts({ includeBuildInfo, requiredBuildMode }) {
   const pkg = JSON.parse(await readFile('package.json', 'utf8'));
   const manifest = JSON.parse(await readFile('extension/manifest.json', 'utf8'));
+  const packageLock = JSON.parse(await readFile('package-lock.json', 'utf8'));
   const buildInfo = includeBuildInfo ? JSON.parse(await readFile('extension/dist/build-info.json', 'utf8')) : null;
   const errors = evaluateVersionArtifacts({
     packageVersion: String(pkg.version),
     manifestVersion: String(manifest.version),
+    lockVersion: packageLock.version,
+    lockRootVersion: packageLock.packages?.['']?.version,
     buildInfo,
     requiredBuildMode,
   });
@@ -188,6 +285,7 @@ async function checkChangeset() {
     return;
   }
   console.error(`Changeset coverage check failed (${inputs.context}).`);
+  for (const error of result.errors ?? []) console.error(`  - ${error}`);
   console.error('Release-impacting extension files:');
   for (const file of result.productFiles) console.error(`  - ${file}`);
   console.error('Add a changeset with `npm run changeset`.');
