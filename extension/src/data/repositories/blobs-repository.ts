@@ -28,13 +28,9 @@ export class BlobsRepository {
 
     const transaction = this.db.transaction(DataStore.Blobs, 'readonly');
     const store = transaction.objectStore(DataStore.Blobs);
-    const missing: string[] = [];
-    for (const id of uniqueIds) {
-      const key = await requestToPromise<IDBValidKey | undefined>(store.getKey(id));
-      if (key === undefined) missing.push(id);
-    }
+    const keys = await Promise.all(uniqueIds.map((id) => requestToPromise<IDBValidKey | undefined>(store.getKey(id))));
     await transactionDone(transaction);
-    return missing;
+    return uniqueIds.filter((_id, index) => keys[index] === undefined);
   }
 
   async list(): Promise<readonly StoredBlobRecord[]> {

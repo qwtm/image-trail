@@ -163,6 +163,23 @@ test('CaptureController requests missing original ids without exporting encrypte
   }
 });
 
+test('CaptureController fails closed on an invalid original-check response', async () => {
+  const originalChrome = globalThis.chrome;
+  globalThis.chrome = {
+    runtime: {
+      id: 'test-extension',
+      sendMessage: async () => createCaptureResultMessage({ status: 'failed', reason: 'unknown', message: 'Wrong response type.' }),
+    },
+  } as unknown as typeof chrome;
+
+  try {
+    const result = await new CaptureController().requestMissingOriginalBlobIds(['blob-1']);
+    assert.deepEqual(result, { ok: false, reason: 'unknown', message: 'Invalid response from background.' });
+  } finally {
+    globalThis.chrome = originalChrome;
+  }
+});
+
 test('pCloud provider client treats runtime failures as unavailable status', async () => {
   const originalChrome = globalThis.chrome;
   globalThis.chrome = {
