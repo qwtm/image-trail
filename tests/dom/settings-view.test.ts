@@ -45,7 +45,7 @@ test('settings orchestrator preserves group and section order', () => {
       ['Request throttle', 'Preload', 'URL review status'],
       [],
       ['Panel layout', 'Build identity', 'Storage health', 'Delete pins'],
-      ['URL templates', 'Grab patterns'],
+      ['Stepping presets', 'URL templates', 'Grab patterns'],
     ],
   );
   assert.deepEqual(

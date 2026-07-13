@@ -9,6 +9,7 @@ export type FieldActionName =
   | 'field-unlock/toggle'
   | 'selected-url/apply'
   | 'selected-url/reject-unsupported-input'
+  | 'url-template/save-step-preset'
   | 'url-template/remove'
   | 'url-template/update-settings'
   | 'url-template/update-fields'
@@ -59,6 +60,11 @@ export function buildFieldActionEntries(deps: PanelActionDeps): ActionEntries<Fi
     'url-template/remove': {
       handle(action) {
         void deps.urlTemplateSettings().removeUrlTemplate(action.id);
+      },
+    },
+    'url-template/save-step-preset': {
+      handle(action) {
+        void deps.urlTemplateSettings().saveSteppingPreset(action.presetId);
       },
     },
     'url-template/update-settings': {

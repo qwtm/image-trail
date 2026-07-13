@@ -2,6 +2,7 @@ import { reducePanelAction } from '../../core/actions.js';
 import type { PanelAction, PanelState, UrlTemplateStore } from '../../core/types.js';
 import { parseUrl } from '../../core/url/parse-url.js';
 import { rebuildUrl } from '../../core/url/rebuild-url.js';
+import { suggestUrlSteppingPresets, type UrlSteppingPresetId } from '../../core/url/stepping-presets.js';
 import {
   createUrlTemplateRecord,
   findBestMatchingTemplate,
@@ -40,6 +41,32 @@ export interface UrlTemplateSettingsControllerDeps {
 
 export class UrlTemplateSettingsController {
   constructor(private readonly deps: UrlTemplateSettingsControllerDeps) {}
+
+  async saveSteppingPreset(presetId: UrlSteppingPresetId): Promise<void> {
+    const store = this.deps.store();
+    if (!store) return;
+    let model: ParsedUrlModel;
+    try {
+      model = this.deps.currentUrlModel();
+    } catch {
+      return;
+    }
+    const fields = collectUrlFields(model);
+    const preset = suggestUrlSteppingPresets(fields).find((candidate) => candidate.id === presetId);
+    if (!preset) return;
+    const existing = findBestMatchingTemplate(this.deps.getState().urlTemplates, model, { includeDisabled: true }) ?? undefined;
+    const template = createUrlTemplateRecord({ model, fields, includedFieldIds: preset.fieldIds, existing });
+    if (!template) return;
+    await store.save(template);
+    await this.deps.loadGrabSettings({ render: false });
+    this.deps.setState({
+      ...this.deps.getState(),
+      message: `Saved ${preset.label.toLowerCase()} preset with ${preset.fieldIds.length} field${preset.fieldIds.length === 1 ? '' : 's'}.`,
+      status: 'ready',
+      lastUpdatedAt: Date.now(),
+    });
+    this.deps.render();
+  }
 
   async saveUrlTemplateFromCurrentFields(): Promise<void> {
     const store = this.deps.store();

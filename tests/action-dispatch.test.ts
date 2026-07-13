@@ -34,8 +34,7 @@ interface Harness {
   patchState(patch: Partial<PanelState>): void;
 }
 
-// Every deps member appends its name to `log` so tests can assert routing and side-effect order.
-// `reduce` runs the REAL reducer over a state box so guard branches (secondary-controls no-op,
+// Every dependency logs its name; `reduce` runs the real reducer so guard branches (secondary-controls no-op,
 // recall/open toggle, recall/load-more gating) behave as they do in the panel. Collaborator stubs
 // implement only the methods the handlers touch and are cast, matching the controller-test style.
 function createHarness(
@@ -87,6 +86,7 @@ function createHarness(
     enableBookmarkShortcut: () => record('pageAdapter.enableBookmarkShortcut'),
   } as unknown as PageAdapter;
   const urlTemplateSettings = {
+    saveSteppingPreset: () => recordAsync('urlTemplateSettings.saveSteppingPreset'),
     removeUrlTemplate: () => recordAsync('urlTemplateSettings.removeUrlTemplate'),
     updateUrlTemplateSettings: () => recordAsync('urlTemplateSettings.updateUrlTemplateSettings'),
     updateUrlTemplateFields: () => recordAsync('urlTemplateSettings.updateUrlTemplateFields'),
@@ -318,6 +318,7 @@ const fixtures: { readonly [N in RegisteredPanelActionName]: PanelActionFor<N> }
   'selected-url/apply': { name: 'selected-url/apply', url: 'https://example.com/image-2.jpg' },
   'selected-url/reject-unsupported-input': { name: 'selected-url/reject-unsupported-input' },
   'url-template/remove': { name: 'url-template/remove', id: 'template-1' },
+  'url-template/save-step-preset': { name: 'url-template/save-step-preset', presetId: 'numbered-filename' },
   'url-template/update-settings': { name: 'url-template/update-settings', id: 'template-1' },
   'url-template/update-fields': { name: 'url-template/update-fields', id: 'template-1', includedFieldIds: ['field-1'] },
   'grab-source-pattern/update-settings': { name: 'grab-source-pattern/update-settings', id: 'pattern-1' },
