@@ -1,5 +1,11 @@
 # image-trail
 
+## 0.3.1
+
+### Patch Changes
+
+- 23b4b2b: Add branded extension and toolbar icons for Chrome and the Chrome Web Store.
+
 ## 0.3.0
 
 ### Minor Changes
