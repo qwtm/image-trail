@@ -35,8 +35,8 @@ test('primitive styles preserve focus and reduced-motion behavior', () => {
   assert.match(css, /:focus-visible[\s\S]*outline:\s*var\(--it-focus-ring\)/u);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]*animation:\s*none/u);
   assert.match(css, /data-reduced-motion-preview='true'/u);
-  assert.match(css, /data-reduced-motion-preview='true'[^{]*\.is-waiting[^{]*{\s*animation:\s*none;/u);
-  assert.match(css, /prefers-reduced-motion: reduce[\s\S]*\.is-waiting[^{]*{\s*animation:\s*none;/u);
+  assert.match(css, /data-reduced-motion-preview='true'[^{]*\.is-waiting[^{]*\x7b\s*animation:\s*none;/u);
+  assert.match(css, /prefers-reduced-motion: reduce[\s\S]*\.is-waiting[^{]*\x7b\s*animation:\s*none;/u);
 });
 
 test('panel packaging loads both primitive stylesheets after tokens', () => {
