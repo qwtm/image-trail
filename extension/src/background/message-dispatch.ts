@@ -20,10 +20,14 @@ import { createUnknownMessageResponse, type ExtensionRequest, type ExtensionResp
  * narrow entry still assigns to the erased `AnyMessageDef` used by the registry.
  */
 export interface MessageDef<Req extends ExtensionRequest, Res extends ExtensionResponse, Result = unknown> {
-  handle(message: Req): Promise<Result>;
+  handle(message: Req, context?: MessageDispatchContext): Promise<Result>;
   respond(result: Result): Res;
   fallback(message: Req): Res;
   requestSchema: v.GenericSchema<unknown, Req['payload']>;
+}
+
+export interface MessageDispatchContext {
+  readonly sender?: chrome.runtime.MessageSender | undefined;
 }
 
 /** Identity helper that captures each entry's `Req`/`Res`/`Result` for precise inference. */
@@ -59,6 +63,7 @@ export function dispatchRequest(
   registry: Partial<Record<ExtensionRequest['type'], AnyMessageDef>>,
   message: ExtensionRequest,
   sendResponse: (response: ExtensionResponse) => void,
+  context: MessageDispatchContext = {},
 ): boolean {
   const entry = registry[message.type];
   if (!entry) return false;
@@ -72,7 +77,7 @@ export function dispatchRequest(
   // Convert synchronous throws into the same fallback path as async rejections.
   let handled: Promise<unknown>;
   try {
-    handled = entry.handle(message);
+    handled = entry.handle(message, context);
   } catch {
     respondWithFallback(entry, message, sendResponse);
     return true;

@@ -128,11 +128,7 @@ test('Gallery uses the shared design system without mutating durable queue order
   await expect(page.getByRole('spinbutton', { name: 'Page limit' })).toBeFocused();
 
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  const transitionDuration = await page
-    .locator('.image-trail-gallery__card')
-    .first()
-    .evaluate((element) => getComputedStyle(element).transitionDuration);
-  expect(transitionDuration).toBe('0s');
+  await expect(page.locator('.image-trail-gallery__card').first()).toHaveCSS('transition-duration', '0s');
 });
 
 async function openGallery(page: Page, extensionId: string): Promise<void> {

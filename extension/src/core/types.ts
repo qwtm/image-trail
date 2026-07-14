@@ -45,7 +45,7 @@ export interface AutomationState {
   readonly navigationBusy: boolean;
 }
 
-export type PanelDestinationId = 'dashboard' | 'gallery' | 'recall' | 'settings';
+export type PanelDestinationId = import('./destinations.js').ExtensionDestinationId;
 
 export type {
   DetachableSectionId,
@@ -535,7 +535,7 @@ export type PanelAction =
   | { readonly name: 'bookmarks/update-display-order'; readonly order: QueueDisplayOrder }
   | { readonly name: 'history/load' | 'history/download' }
   | { readonly name: 'panel/secondary-controls-open'; readonly open: boolean }
-  | { readonly name: 'destination/select'; readonly destination: PanelDestinationId }
+  | { readonly name: 'destination/select' | 'destination/open-tab'; readonly destination: PanelDestinationId }
   | { readonly name: 'panel/history-section-open'; readonly open: boolean }
   | { readonly name: 'panel/bookmarks-section-open'; readonly open: boolean }
   | { readonly name: 'section/detach' | 'section/restore'; readonly sectionId: DetachableSectionId }

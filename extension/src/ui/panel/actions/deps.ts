@@ -6,7 +6,7 @@ import type { Slideshow } from '../../../core/automation/slideshow.js';
 import type { ImageProbeMethod } from '../../../core/image/request-policy.js';
 import type { CaptureRetryRequest, CaptureSourceType } from '../../../core/image/capture-result.js';
 import type { LoadFailureFeedback } from '../../../core/settings.js';
-import type { FieldTransformPanelAction, PanelAction, PanelState } from '../../../core/types.js';
+import type { FieldTransformPanelAction, PanelAction, PanelDestinationId, PanelState } from '../../../core/types.js';
 import type { PageContext } from '../../../core/page-context.js';
 import type { BufferedNavigationController } from '../buffered-navigation-controller.js';
 import type { PanelMount } from '../panel-mount.js';
@@ -65,7 +65,7 @@ export interface PanelActionDeps {
   pinRecentHistory(id: string): Promise<void>;
   loadBookmark(id: string): Promise<void>;
   removeBookmark(id: string): Promise<void>;
-  openGallery(): Promise<void>;
+  openDestination(destination: PanelDestinationId): Promise<void>;
   loadBookmarkPage(offset: number, options?: { readonly render?: boolean }): Promise<void>;
   refreshBookmarkThumbnails(): Promise<void>;
   deleteVisibleBookmarks(): Promise<void>;

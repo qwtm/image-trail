@@ -1,0 +1,287 @@
+:root {
+  color-scheme: dark;
+  background: #05070a;
+  color: var(--it-text);
+  font: var(--it-type-body);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 280px;
+  min-height: 100vh;
+  margin: 0;
+  background: radial-gradient(1100px 620px at 78% -12%, #10181e, #05070a 62%);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button,
+.image-trail-destination-page__nav a {
+  min-height: 32px;
+  border: 1px solid var(--it-border-row);
+  border-radius: var(--it-radius-card);
+  background: rgb(20 20 20 / 52%);
+  color: var(--it-text-4);
+  cursor: pointer;
+  font: var(--it-fw-bold) var(--it-fs-sm) / 1 var(--it-font-ui);
+  transition:
+    border-color var(--it-dur-fast) var(--it-ease),
+    background var(--it-dur-fast) var(--it-ease),
+    color var(--it-dur-fast) var(--it-ease);
+}
+
+button {
+  padding: 7px 11px;
+}
+
+button:hover:not(:disabled),
+.image-trail-destination-page__nav a:hover {
+  border-color: var(--it-border-row-hover);
+  background: var(--it-control-bg-hover);
+  color: var(--it-text);
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+.image-trail-destination-page__nav a:focus-visible,
+summary:focus-visible {
+  outline: var(--it-focus-ring);
+  outline-offset: var(--it-focus-offset);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+}
+
+button.is-primary {
+  border-color: rgb(89 255 178 / 46%);
+  background: rgb(39 120 78 / 18%);
+  color: #daffe9;
+  box-shadow: 0 0 12px rgb(89 255 178 / 10%);
+}
+
+.image-trail-destination-page {
+  min-height: 100vh;
+}
+
+.image-trail-destination-page__header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(230px, auto) 1fr auto;
+  align-items: center;
+  gap: var(--it-space-12);
+  padding: 13px 22px;
+  border-bottom: 1px solid var(--it-divider);
+  background: rgb(5 7 10 / 94%);
+  box-shadow: var(--it-highlight-top);
+  backdrop-filter: blur(8px);
+}
+
+.image-trail-destination-page__identity {
+  display: flex;
+  align-items: center;
+  gap: var(--it-space-8);
+  min-width: 0;
+}
+
+.image-trail-destination-page__glyph {
+  display: grid;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid rgb(124 255 168 / 45%);
+  border-radius: 9px;
+  background: rgb(124 255 168 / 10%);
+  color: #daffe9;
+  box-shadow: var(--it-glow-row);
+  font: 17px/1 var(--it-font-ui);
+}
+
+.image-trail-destination-page__title-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--it-space-6);
+  min-width: 0;
+}
+
+.image-trail-destination-page__title-row h1 {
+  margin: 0;
+  color: var(--it-text);
+  font: var(--it-fw-heavy) 16px / 1 var(--it-font-ui);
+}
+
+.image-trail-destination-page__title-row span {
+  color: var(--it-text-dim);
+  font: var(--it-fw-medium) var(--it-fs-xs) / 1 var(--it-font-ui);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.image-trail-destination-page__identity p {
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: var(--it-text-dim);
+  font: var(--it-type-mono-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-trail-destination-page__identity p[data-source-state='connected'] {
+  color: var(--it-ok);
+}
+
+.image-trail-destination-page__identity p[data-source-state='missing'] {
+  color: var(--it-error);
+}
+
+.image-trail-destination-page__nav {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--it-space-2);
+  min-width: 0;
+}
+
+.image-trail-destination-page__nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--it-space-4);
+  padding: 7px 11px;
+  text-decoration: none;
+}
+
+.image-trail-destination-page__nav a[aria-current='page'] {
+  border-color: rgb(124 255 168 / 55%);
+  background: rgb(124 255 168 / 14%);
+  color: #daffe9;
+  box-shadow: var(--it-glow-row);
+}
+
+.image-trail-destination-page__return {
+  min-width: 84px;
+}
+
+.image-trail-destination-page__main {
+  display: grid;
+  justify-items: center;
+  padding: 26px 22px 48px;
+}
+
+.image-trail-destination-page__content {
+  display: grid;
+  width: min(100%, 560px);
+  gap: var(--it-space-12);
+}
+
+.image-trail-destination-page[data-destination='gallery'] .image-trail-destination-page__content {
+  width: min(100%, 760px);
+}
+
+.image-trail-destination-page__blurb {
+  margin: 0;
+  color: var(--it-text-dim);
+  font: var(--it-type-meta);
+}
+
+.image-trail-destination-page__surface {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--it-border-panel);
+  border-radius: var(--it-radius-panel);
+  background: var(--it-panel-bg);
+  box-shadow: var(--it-shadow-panel);
+}
+
+.image-trail-destination-page[data-destination='gallery'] .image-trail-destination-page__surface {
+  padding: 0;
+  border-color: var(--it-divider);
+}
+
+.image-trail-destination-page__dom-body {
+  min-width: 0;
+}
+
+.image-trail-destination-page[data-narrow-preview='true'] .image-trail-destination-page__header {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-inline: var(--it-space-8);
+}
+
+.image-trail-destination-page[data-narrow-preview='true'] .image-trail-destination-page__nav {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-content: flex-start;
+  overflow-x: auto;
+}
+
+.image-trail-destination-page[data-narrow-preview='true'] .image-trail-destination-page__main {
+  padding-inline: var(--it-space-8);
+}
+
+.image-trail-destination-page[data-narrow-preview='true'] .image-trail-destination-page__title-row span,
+.image-trail-destination-page[data-narrow-preview='true'] .image-trail-destination-page__nav a span {
+  display: none;
+}
+
+.image-trail-destination-page[data-narrow-preview='true'] .image-trail-destination-page__surface {
+  padding: var(--it-space-8);
+}
+
+.image-trail-destination-page[data-narrow-preview='true'] .image-trail-destination-page__return {
+  min-width: 0;
+  width: 84px;
+}
+
+@media (max-width: 900px) {
+  .image-trail-destination-page__header {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .image-trail-destination-page__nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .image-trail-destination-page__header,
+  .image-trail-destination-page__main {
+    padding-inline: var(--it-space-8);
+  }
+
+  .image-trail-destination-page__title-row span,
+  .image-trail-destination-page__nav a span {
+    display: none;
+  }
+
+  .image-trail-destination-page__surface {
+    padding: var(--it-space-8);
+  }
+
+  .image-trail-destination-page__return {
+    min-width: 0;
+    width: 84px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0s !important;
+    animation: none !important;
+  }
+}

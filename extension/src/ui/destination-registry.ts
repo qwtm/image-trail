@@ -1,4 +1,5 @@
 import type { PanelAction, PanelDestinationId, PanelState } from '../core/types.js';
+import { EXTENSION_DESTINATIONS } from '../core/destinations.js';
 
 export interface PanelDestinationDefinition {
   readonly id: PanelDestinationId;
@@ -12,41 +13,12 @@ export interface PanelDestinationDefinition {
 
 const alwaysAvailable = (): boolean => true;
 
-export const PANEL_DESTINATIONS: readonly PanelDestinationDefinition[] = [
-  {
-    id: 'dashboard',
-    label: 'Dashboard',
-    glyph: '◱',
-    description: 'Current target, trail status, durable queue totals, and safe navigation actions.',
-    available: alwaysAvailable,
-    activationAction: () => ({ name: 'destination/select', destination: 'dashboard' }),
-  },
-  {
-    id: 'gallery',
-    label: 'Gallery',
-    glyph: '▦',
-    description: 'Compact view of durable pins and captured originals.',
-    available: alwaysAvailable,
-    activationAction: () => ({ name: 'destination/select', destination: 'gallery' }),
-    openInTabAction: () => ({ name: 'gallery/open' }),
-  },
-  {
-    id: 'recall',
-    label: 'Recall',
-    glyph: '⟲',
-    description: 'Browse offscreen durable queue records and move selected records to the front.',
-    available: alwaysAvailable,
-    activationAction: () => ({ name: 'destination/select', destination: 'recall' }),
-  },
-  {
-    id: 'settings',
-    label: 'Settings',
-    glyph: '⚙',
-    description: 'Display, privacy, automation, utility, and system settings.',
-    available: alwaysAvailable,
-    activationAction: () => ({ name: 'destination/select', destination: 'settings' }),
-  },
-];
+export const PANEL_DESTINATIONS: readonly PanelDestinationDefinition[] = EXTENSION_DESTINATIONS.map((destination) => ({
+  ...destination,
+  available: alwaysAvailable,
+  activationAction: () => ({ name: 'destination/select', destination: destination.id }),
+  openInTabAction: () => ({ name: 'destination/open-tab', destination: destination.id }),
+}));
 
 export function isPanelDestinationId(value: string | undefined): value is PanelDestinationId {
   return PANEL_DESTINATIONS.some((destination) => destination.id === value);

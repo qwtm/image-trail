@@ -86,7 +86,7 @@ export function buildLibraryActionEntries(deps: PanelActionDeps): ActionEntries<
     },
     'gallery/open': {
       handle() {
-        void deps.openGallery();
+        void deps.openDestination('gallery');
       },
     },
     'bookmark/clear': reduceAndRefreshRecall,

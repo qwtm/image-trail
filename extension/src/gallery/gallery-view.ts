@@ -45,11 +45,16 @@ export interface GalleryViewHandlers {
   readonly reload: () => void;
 }
 
-export function createGalleryView(state: GalleryViewState, handlers: GalleryViewHandlers): HTMLElement {
+export function createGalleryView(
+  state: GalleryViewState,
+  handlers: GalleryViewHandlers,
+  options: { readonly embedded?: boolean } = {},
+): HTMLElement {
   const shell = document.createElement('main');
   shell.className = 'image-trail-panel-root image-trail-gallery';
+  if (options.embedded) shell.classList.add('is-embedded');
   shell.append(
-    createGalleryHeader(state, handlers),
+    createGalleryHeader(state, handlers, { showIdentity: !options.embedded }),
     createGalleryAlbumControls(state, handlers),
     createGalleryStatus(state),
     createGrid(state, handlers),

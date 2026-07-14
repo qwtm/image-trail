@@ -57,6 +57,26 @@ test('dispatchRequest invokes the handler synchronously to preserve transient us
   assert.equal(handlerCalled, true);
 });
 
+test('dispatchRequest passes sender context to handlers', async () => {
+  let senderTabId: number | undefined;
+  const registry = {
+    [MessageType.Ping]: defineMessage<PingMessage, StatusMessage, string>({
+      requestSchema: v.object({ sentAt: v.number() }),
+      handle: async (_message, context = {}) => {
+        senderTabId = context.sender?.tab?.id;
+        return 'handled';
+      },
+      respond: (result) => createStatusMessage(true, result),
+      fallback: () => createStatusMessage(false, 'fallback'),
+    }),
+  };
+
+  dispatchRequest(registry, createPingMessage(), () => undefined, { sender: { tab: { id: 42 } as chrome.tabs.Tab } });
+  await flushMicrotasks();
+
+  assert.equal(senderTabId, 42);
+});
+
 test('dispatchRequest replies with the entry fallback when the handler rejects', async () => {
   let sent: StatusMessage | undefined;
   const registry = registryWith(async () => {

@@ -26,12 +26,12 @@ test('destination registry defines every route once in handoff order', () => {
   }
 });
 
-test('only the existing independent Gallery page is open-in-tab eligible before issue #518', () => {
+test('every destination has one generic open-in-tab action for issue #518', () => {
   assert.deepEqual(
     PANEL_DESTINATIONS.filter((destination) => destination.openInTabAction).map((destination) => destination.id),
-    ['gallery'],
+    DESTINATIONS,
   );
-  assert.deepEqual(panelDestination('gallery').openInTabAction?.(), { name: 'gallery/open' });
+  assert.deepEqual(panelDestination('gallery').openInTabAction?.(), { name: 'destination/open-tab', destination: 'gallery' });
 });
 
 test('destination selection has one serializable source of truth and reselect closes it', () => {

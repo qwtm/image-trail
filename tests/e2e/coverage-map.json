@@ -1113,7 +1113,7 @@
             "tests/dom/recall-destination-controller.test.ts",
             "tests/dom/recall-destination-view.test.ts"
           ],
-          "notes": "Covers the typed four-route registry, Gallery-only open-in-tab eligibility before #518, single activeDestination state, reselect/close/help/settings/minimize/panel-close transitions, preserved primary state, Recall selection continuity across routes plus cleanup on close, producer paging, plain/modifier dock actions, detached Settings single-mount behavior, focus/scroll restoration, and targeted Recall body refresh without replacing destination chrome."
+          "notes": "Covers the typed four-route registry, real-tab eligibility for every destination, single activeDestination state, reselect/close/help/settings/minimize/panel-close transitions, preserved primary state, Recall selection continuity across routes plus cleanup on close, producer paging, plain/modifier dock actions, detached Settings single-mount behavior, focus/scroll restoration, and targeted Recall body refresh without replacing destination chrome."
         },
         {
           "type": "storybook",
@@ -1124,10 +1124,11 @@
           "type": "playwright-e2e",
           "paths": [
             "tests/e2e/destination-routing.spec.ts",
+            "tests/e2e/extension-destination-pages.spec.ts",
             "tests/e2e/react-renderer-boundary.spec.ts",
             "tests/e2e/recents-queue-recall.spec.ts"
           ],
-          "notes": "Covers packaged plain-click routing, keyboard activation and return focus, per-route scroll, minimize/expand, panel close/reopen, detached controller compatibility, durable Gallery loading without queue reorder, Recall paging and selection, explicit and modifier-key real Gallery tabs, narrow layout, and deterministic artifacts for handoff screenshots 04 through 07."
+          "notes": "Covers packaged plain-click routing, keyboard activation and return focus, per-route scroll, minimize/expand, panel close/reopen, detached controller compatibility, durable Gallery loading without queue reorder, Recall paging and selection, explicit and modifier-key real destination tabs, source-tab return and teardown, narrow layout, and deterministic artifacts for handoff screenshots 02 and 04 through 07."
         },
         {
           "type": "manual",
@@ -1136,6 +1137,39 @@
         }
       ],
       "wiki": "https://github.com/qwts/image-trail/wiki/Design-System"
+    },
+    {
+      "id": "context-extension-page-destinations",
+      "acceptance": "Self-contained Dashboard, Gallery, Recall, and Settings extension-page destinations (issue #518)",
+      "wiki": "https://github.com/qwts/image-trail/wiki/Design-System",
+      "coverage": [
+        {
+          "type": "unit-dom",
+          "paths": [
+            "tests/destinations.test.ts",
+            "tests/destination-messages.test.ts",
+            "tests/destination-page-handler.test.ts",
+            "tests/dom/extension-destination-shell.test.tsx",
+            "tests/dom/extension-destination-surfaces.test.tsx"
+          ],
+          "notes": "Covers shared route definitions, message validation, supported source binding, focus and missing-source fallback, accessible page shell, durable-only dashboard semantics, stale-request suppression, privacy-masked Recall selection, and extension-owned Settings persistence."
+        },
+        {
+          "type": "storybook",
+          "path": "extension/src/ui/stories/extension-destinations.stories.tsx",
+          "notes": "Covers Dashboard, interactive Recall, privacy-masked Recall, Settings persistence, empty, loading, error, narrow, and reduced-motion review states using production React destinations."
+        },
+        {
+          "type": "playwright-e2e",
+          "path": "tests/e2e/extension-destination-pages.spec.ts",
+          "notes": "Covers real packaged Dashboard, Gallery, Recall, and Settings pages over durable repositories; shared navigation; Recents exclusion; queue-producer Recall; Settings persistence across reload and duplicate tabs; source return, source close, and deterministic handoff artifacts."
+        },
+        {
+          "type": "manual",
+          "reason": "Browser chrome and final visual fidelity against the supplied real-tab references require a packaged-extension inspection.",
+          "notes": "Open each destination from the panel at 924x540 and 360x740. Compare the real browser tab against handoff screenshots 02 and 04 through 07; verify no faux browser chrome, source return and source-closed states, keyboard focus, privacy masking, reload and duplicate-tab behavior, reduced motion, no horizontal overflow, and no failed stylesheet requests."
+        }
+      ]
     },
     {
       "id": "image-preview-backdrop-no-flash",

@@ -11,6 +11,7 @@ import { workspaceLayoutSchema } from '../core/workspace-layout.schema.js';
 import { pcloudBackupDownloadInputSchema, pcloudBackupUploadInputSchema } from '../core/cloud/pcloud-provider.schema.js';
 import { saveLocalSettingsPayloadSchema } from '../data/local-settings.schema.js';
 import { portableStoredBlobRecordSchema } from '../data/import-export/full-backup.schema.js';
+import { EXTENSION_DESTINATION_IDS } from '../core/destinations.js';
 
 /**
  * Runtime schema for every dispatched request payload, reused by the message
@@ -20,6 +21,9 @@ import { portableStoredBlobRecordSchema } from '../data/import-export/full-backu
  * payloads accept `{}` and tolerate extra keys the same way.
  */
 export const emptyPayloadSchema = v.object({}) as v.GenericSchema<unknown, Record<string, never>>;
+export const openDestinationRequestSchema = v.object({ destination: v.picklist(EXTENSION_DESTINATION_IDS) });
+export const destinationSourceStatusRequestSchema = v.object({ sourceTabId: v.optional(v.number()) });
+export const focusDestinationSourceRequestSchema = v.object({ sourceTabId: v.number() });
 
 const captureSourceTypeSchema = v.picklist(['target', 'history', 'bookmark']);
 const imageRequestIntentSchema = v.picklist([

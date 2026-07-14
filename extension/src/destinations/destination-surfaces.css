@@ -1,0 +1,306 @@
+.image-trail-destination-dashboard,
+.image-trail-destination-recall,
+.image-trail-destination-settings {
+  display: grid;
+  gap: var(--it-space-10);
+}
+
+.image-trail-destination-page__target-card {
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  align-items: center;
+  gap: var(--it-space-10);
+  min-height: 76px;
+  padding: var(--it-space-10);
+  border: 1px solid var(--it-border-row);
+  border-radius: var(--it-radius-card);
+  background: var(--it-fill-3);
+}
+
+.image-trail-destination-page__placeholder {
+  display: grid;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  border: 1px solid var(--it-border-row);
+  border-radius: var(--it-radius-badge);
+  background: var(--it-thumb-bg);
+  color: var(--it-accent);
+  box-shadow: var(--it-glow-target);
+  font: var(--it-fw-bold) var(--it-fs-xs) var(--it-font-mono);
+}
+
+.image-trail-destination-page__target-card strong {
+  color: var(--it-text-2);
+  font: var(--it-type-heading);
+}
+
+.image-trail-destination-page__target-card p,
+.image-trail-destination-page__unavailable p {
+  margin: var(--it-space-2) 0 0;
+  color: var(--it-text-dim);
+  font: var(--it-type-meta);
+}
+
+.image-trail-destination-page__stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--it-space-2);
+}
+
+.image-trail-destination-page__stat {
+  display: grid;
+  gap: var(--it-space-1);
+  min-height: 64px;
+  padding: var(--it-space-8);
+  border: 1px solid var(--it-border-row);
+  border-radius: var(--it-radius-card);
+  background: var(--it-fill-8);
+  box-shadow: var(--it-highlight-top);
+}
+
+.image-trail-destination-page__stat[data-accent='true'] strong {
+  color: var(--it-accent-row);
+}
+
+.image-trail-destination-page__stat strong {
+  font: var(--it-fw-heavy) 19px / 1 var(--it-font-ui);
+}
+
+.image-trail-destination-page__stat span {
+  color: var(--it-text-dim);
+  font: var(--it-type-micro);
+  letter-spacing: var(--it-uppercase-tracking);
+  text-transform: uppercase;
+}
+
+.image-trail-destination-page__note,
+.image-trail-destination-page__status,
+.image-trail-destination-page__toolbar p {
+  margin: 0;
+  color: var(--it-text-dim);
+  font: var(--it-type-meta);
+}
+
+.image-trail-destination-page__status {
+  min-height: 28px;
+  padding: var(--it-space-4) var(--it-space-6);
+  border: 1px solid var(--it-divider);
+  border-radius: var(--it-radius-pill);
+  background: var(--it-fill-4);
+}
+
+.image-trail-destination-page__status.is-error {
+  border-color: var(--it-danger-border);
+  color: var(--it-error);
+  box-shadow: var(--it-glow-error);
+}
+
+.image-trail-destination-page__actions,
+.image-trail-destination-page__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--it-space-4);
+}
+
+.image-trail-destination-page__toolbar {
+  justify-content: space-between;
+}
+
+.image-trail-destination-page__empty,
+.image-trail-destination-page__unavailable {
+  margin: 0;
+  padding: var(--it-space-10);
+  border: 1px solid var(--it-divider);
+  border-radius: var(--it-radius-row);
+  background: var(--it-fill-3);
+  color: var(--it-text-muted);
+}
+
+.image-trail-destination-recall__list {
+  display: grid;
+  gap: var(--it-space-4);
+  max-height: min(56vh, 560px);
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.image-trail-destination-recall__row {
+  min-width: 0;
+  border: 1px solid var(--it-border-row);
+  border-radius: var(--it-radius-row);
+  background: var(--it-fill-3);
+  transition: border-color var(--it-dur-fast) var(--it-ease);
+}
+
+.image-trail-destination-recall__row[data-selected='true'] {
+  border-color: var(--it-accent-row);
+  background: var(--it-surface-selected);
+  box-shadow: var(--it-glow-row);
+}
+
+.image-trail-destination-recall__row[data-privacy='true'] {
+  background: var(--it-surface-locked);
+  opacity: var(--it-opacity-locked);
+}
+
+.image-trail-destination-recall__row label {
+  display: grid;
+  grid-template-columns: auto 72px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--it-space-8);
+  min-height: 86px;
+  padding: var(--it-space-6);
+  cursor: pointer;
+}
+
+.image-trail-destination-recall__row img,
+.image-trail-destination-recall__row label > span:nth-child(2) {
+  display: grid;
+  width: 72px;
+  height: 72px;
+  place-items: center;
+  border-radius: var(--it-radius-badge);
+  background: var(--it-thumb-bg);
+  object-fit: cover;
+  color: var(--it-text-dim);
+  font: var(--it-type-micro);
+}
+
+.image-trail-destination-recall__row label > span:nth-child(3) {
+  display: grid;
+  gap: var(--it-space-2);
+  min-width: 0;
+}
+
+.image-trail-destination-recall__row strong,
+.image-trail-destination-recall__row small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.image-trail-destination-recall__row strong {
+  color: var(--it-text-3);
+  font: var(--it-type-heading);
+}
+
+.image-trail-destination-recall__row small {
+  color: var(--it-text-dim);
+  font: var(--it-type-mono-sm);
+}
+
+.image-trail-destination-recall__row i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--it-text);
+  box-shadow: 0 0 8px rgb(255 255 255 / 55%);
+}
+
+.image-trail-destination-settings__group {
+  border-top: 1px solid var(--it-divider);
+}
+
+.image-trail-destination-settings__group summary {
+  padding: var(--it-space-8) var(--it-space-2);
+  cursor: pointer;
+  color: var(--it-text-3);
+  font: var(--it-type-heading);
+}
+
+.image-trail-destination-settings__group > div {
+  display: grid;
+  gap: var(--it-space-10);
+  padding: 0 var(--it-space-2) var(--it-space-12) 22px;
+}
+
+.image-trail-destination-settings__form {
+  display: grid;
+  justify-items: start;
+  gap: var(--it-space-8);
+}
+
+.image-trail-destination-settings__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--it-space-6);
+  width: 100%;
+}
+
+.image-trail-destination-settings__grid.is-three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.image-trail-destination-settings__field {
+  display: grid;
+  gap: var(--it-space-2);
+  min-width: 0;
+  color: var(--it-text-dim);
+  font: var(--it-type-label);
+}
+
+.image-trail-destination-settings__field input,
+.image-trail-destination-settings__field select {
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 1px solid var(--it-border-control);
+  border-radius: var(--it-radius-control);
+  background: var(--it-input-bg);
+  color: var(--it-text-2);
+}
+
+.image-trail-destination-settings__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--it-space-6);
+  min-height: 32px;
+  color: var(--it-text-3);
+  font: var(--it-type-label);
+}
+
+.image-trail-destination-settings__readout {
+  display: grid;
+  gap: var(--it-space-4);
+  padding: var(--it-space-8);
+  border: 1px solid var(--it-border-row);
+  border-radius: var(--it-radius-row);
+  background: var(--it-fill-3);
+}
+
+.image-trail-destination-settings__readout span {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--it-space-8);
+  color: var(--it-text-dim);
+}
+
+.image-trail-destination-settings__readout strong {
+  overflow: hidden;
+  color: var(--it-text-3);
+  font-family: var(--it-font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px) {
+  .image-trail-destination-page__stats,
+  .image-trail-destination-settings__grid,
+  .image-trail-destination-settings__grid.is-three {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .image-trail-destination-recall__row label {
+    grid-template-columns: auto 54px minmax(0, 1fr) auto;
+  }
+
+  .image-trail-destination-recall__row img,
+  .image-trail-destination-recall__row label > span:nth-child(2) {
+    width: 54px;
+    height: 54px;
+  }
+}

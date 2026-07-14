@@ -9,7 +9,11 @@ import {
 import type { GalleryAlbumSummary } from './gallery-albums.js';
 import type { GalleryViewHandlers, GalleryViewState } from './gallery-view.js';
 
-export function createGalleryHeader(state: GalleryViewState, handlers: GalleryViewHandlers): HTMLElement {
+export function createGalleryHeader(
+  state: GalleryViewState,
+  handlers: GalleryViewHandlers,
+  options: { readonly showIdentity?: boolean } = {},
+): HTMLElement {
   const header = document.createElement('header');
   header.className = 'image-trail-gallery__header';
 
@@ -18,7 +22,7 @@ export function createGalleryHeader(state: GalleryViewState, handlers: GalleryVi
   const eyebrow = document.createElement('span');
   eyebrow.className = 'image-trail-gallery__wordmark';
   eyebrow.textContent = 'Image Trail';
-  const title = document.createElement('h1');
+  const title = document.createElement('h2');
   title.textContent = 'Gallery';
   const meta = document.createElement('p');
   meta.textContent = pageText(state);
@@ -27,7 +31,11 @@ export function createGalleryHeader(state: GalleryViewState, handlers: GalleryVi
   const headerTools = document.createElement('div');
   headerTools.className = 'image-trail-gallery__header-tools';
   headerTools.append(createSearchControls(state, handlers), createPagingControls(state, handlers));
-  header.append(titleGroup, headerTools);
+  if (options.showIdentity ?? true) header.append(titleGroup, headerTools);
+  else {
+    header.classList.add('is-embedded');
+    header.append(headerTools);
+  }
   return header;
 }
 

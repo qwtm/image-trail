@@ -16,7 +16,14 @@
       "scenario": "dashboard",
       "test": "tests/e2e/design-baseline.spec.ts"
     },
-    { "id": "02-mocked-tab", "file": "02-mocked-tab.png", "status": "deferred", "issues": [508] },
+    {
+      "id": "02-mocked-tab",
+      "file": "02-mocked-tab.png",
+      "status": "automated",
+      "issues": [508, 518],
+      "scenario": "real-extension-page-shell",
+      "test": "tests/e2e/extension-destination-pages.spec.ts"
+    },
     {
       "id": "03-capture-flash",
       "file": "03-capture-flash.png",
@@ -29,33 +36,33 @@
       "id": "04-dashboard",
       "file": "04-dashboard.png",
       "status": "automated",
-      "issues": [508, 516],
-      "scenario": "dashboard-destination",
-      "test": "tests/e2e/destination-routing.spec.ts"
+      "issues": [508, 516, 518],
+      "scenario": "dashboard-extension-page",
+      "test": "tests/e2e/extension-destination-pages.spec.ts"
     },
     {
       "id": "05-gallery",
       "file": "05-gallery.png",
       "status": "automated",
-      "issues": [508, 516],
-      "scenario": "gallery-destination",
-      "test": "tests/e2e/destination-routing.spec.ts"
+      "issues": [508, 516, 518],
+      "scenario": "gallery-extension-page",
+      "test": "tests/e2e/extension-destination-pages.spec.ts"
     },
     {
       "id": "06-recall",
       "file": "06-recall.png",
       "status": "automated",
-      "issues": [506, 508, 516],
-      "scenario": "recall-destination",
-      "test": "tests/e2e/destination-routing.spec.ts"
+      "issues": [506, 508, 516, 518],
+      "scenario": "recall-extension-page",
+      "test": "tests/e2e/extension-destination-pages.spec.ts"
     },
     {
       "id": "07-settings",
       "file": "07-settings.png",
       "status": "automated",
-      "issues": [516, 540],
-      "scenario": "settings-destination",
-      "test": "tests/e2e/destination-routing.spec.ts"
+      "issues": [516, 518, 540],
+      "scenario": "settings-extension-page",
+      "test": "tests/e2e/extension-destination-pages.spec.ts"
     },
     {
       "id": "08-context-gallery",

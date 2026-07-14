@@ -3,8 +3,8 @@
 import { build } from 'esbuild';
 
 await build({
-  entryPoints: ['extension/src/gallery/gallery.ts'],
-  outfile: 'extension/dist/src/gallery/gallery.js',
+  entryPoints: ['extension/src/destinations/destination-page.tsx'],
+  outfile: 'extension/dist/src/destinations/destination-page.js',
   bundle: true,
   format: 'esm',
   platform: 'browser',

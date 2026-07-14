@@ -5,7 +5,7 @@ import type { ImageProbeMethod, ImageRequestIntent, ImageSourceProfile } from '.
 import { MESSAGE_DIRECTION, MESSAGE_PROTOCOL_VERSION, MessageType, hasVersionedObjectShape } from './message-protocol.js';
 import type { MessageType as ProtocolMessageType } from './message-protocol.js';
 import type { AlbumRequest, AlbumResponse } from './album-messages.js';
-import type { OpenGalleryMessage, OpenGalleryResultMessage } from './gallery-messages.js';
+import type { DestinationRequest, DestinationResponse } from './destination-messages.js';
 import type {
   DeletePanelPositionMessage,
   DeletePanelPositionResultMessage,
@@ -877,7 +877,7 @@ export type ExtensionRequest =
   | ToggleBuildIdentityOverlayMessage
   | PingMessage
   | LoadBuildIdentityMessage
-  | OpenGalleryMessage
+  | DestinationRequest
   | AlbumRequest
   | CaptureImageMessage
   | DownloadImageMessage
@@ -945,7 +945,7 @@ export type ExtensionResponse =
   | StatusMessage
   | UnknownMessageResponse
   | LoadBuildIdentityResultMessage
-  | OpenGalleryResultMessage
+  | DestinationResponse
   | AlbumResponse
   | CaptureResultMessage
   | DownloadImageResultMessage
