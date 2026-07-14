@@ -62,7 +62,7 @@ test('all four routes render one active surface over the unchanged primary workf
   }
 });
 
-test('dock plain clicks select in-panel routes while Gallery modifier-click opens its real page', () => {
+test('dock plain clicks select in-panel routes while modifier-click opens every real destination page', () => {
   const actions: PanelAction[] = [];
   const target = createTarget((action) => actions.push(action));
   try {
@@ -78,8 +78,8 @@ test('dock plain clicks select in-panel routes while Gallery modifier-click open
 
     assert.deepEqual(actions, [
       { name: 'destination/select', destination: 'dashboard' },
-      { name: 'gallery/open' },
-      { name: 'destination/select', destination: 'recall' },
+      { name: 'destination/open-tab', destination: 'gallery' },
+      { name: 'destination/open-tab', destination: 'recall' },
     ]);
   } finally {
     cleanupTarget(target);

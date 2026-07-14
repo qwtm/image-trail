@@ -75,6 +75,8 @@ export default tseslint.config(
       '.test-dist/**',
       'coverage/**',
       'storybook-static/**',
+      'playwright-report/**',
+      'test-results/**',
       'node_modules/**',
       'deprecated/**',
       // Agent worktrees carry in-progress copies of the repo; linting them from the

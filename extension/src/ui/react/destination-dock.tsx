@@ -15,9 +15,7 @@ function accessibleLabel(destination: PanelDestinationDefinition, active: boolea
 }
 
 function destinationTitle(destination: PanelDestinationDefinition): string {
-  return destination.openInTabAction
-    ? `${destination.label} · click for the panel view · modifier-click opens the full Gallery tab`
-    : `${destination.label} · click for the panel view`;
+  return `${destination.label} · click for the panel view · modifier-click opens the full destination tab`;
 }
 
 function activateDestination(

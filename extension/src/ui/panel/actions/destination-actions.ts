@@ -1,10 +1,15 @@
 import type { ActionEntries } from '../action-dispatch.js';
 import type { PanelActionDeps } from './deps.js';
 
-export type DestinationActionName = 'destination/select' | 'destination/close';
+export type DestinationActionName = 'destination/select' | 'destination/close' | 'destination/open-tab';
 
 export function buildDestinationActionEntries(deps: PanelActionDeps): ActionEntries<DestinationActionName> {
   return {
+    'destination/open-tab': {
+      handle(action) {
+        void deps.openDestination(action.destination);
+      },
+    },
     'destination/select': {
       handle(action) {
         const current = deps.getState().activeDestination;

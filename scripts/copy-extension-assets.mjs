@@ -13,3 +13,8 @@ await mkdir('extension/dist/src/gallery', { recursive: true });
 await cp('extension/src/gallery/gallery.html', 'extension/dist/src/gallery/gallery.html');
 await cp('extension/src/gallery/gallery-tokens.css', 'extension/dist/src/gallery/gallery-tokens.css');
 await cp('extension/src/gallery/gallery.css', 'extension/dist/src/gallery/gallery.css');
+await mkdir('extension/dist/src/destinations', { recursive: true });
+await cp('extension/src/destinations/view.html', 'extension/dist/src/destinations/view.html');
+await cp('extension/src/destinations/destination-tokens.css', 'extension/dist/src/destinations/destination-tokens.css');
+await cp('extension/src/destinations/destination-page.css', 'extension/dist/src/destinations/destination-page.css');
+await cp('extension/src/destinations/destination-surfaces.css', 'extension/dist/src/destinations/destination-surfaces.css');

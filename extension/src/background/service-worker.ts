@@ -98,7 +98,7 @@ import { createRecentHistoryMessageRegistry } from './handlers/recent-history-ha
 import { createRecallMessageRegistry } from './handlers/recall-handlers.js';
 import { createBlobKeyMessageRegistry } from './handlers/blob-key-handlers.js';
 import { createOriginalBlobMessageRegistry } from './handlers/original-blob-handlers.js';
-import { createGalleryMessageRegistry } from './handlers/gallery-page-handler.js';
+import { createDestinationMessageRegistry } from './handlers/destination-page-handler.js';
 import { createPCloudMessageRegistry } from './handlers/pcloud-handlers.js';
 import { createUrlTemplateMessageRegistry } from './handlers/url-template-handlers.js';
 import { normalizeHostname } from './handlers/hostname.js';
@@ -838,7 +838,7 @@ const messageRegistry = {
     respond: (result) => createLoadBuildIdentityResultMessage(result),
     fallback: () => createLoadBuildIdentityResultMessage({ ok: false, identity: null, message: 'Build identity could not be loaded.' }),
   }),
-  ...createGalleryMessageRegistry(),
+  ...createDestinationMessageRegistry(),
   ...createAlbumMessageRegistry({ albumStore, notifyLibraryChange }),
   [MessageType.CaptureImage]: defineMessage({
     requestSchema: requestSchemas.captureImageRequestSchema,
@@ -1000,9 +1000,9 @@ const messageRegistry = {
   }),
 } satisfies Record<DispatchedRequestType, MessageDef<ExtensionRequest, ExtensionResponse>>;
 
-chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
   if (!isExtensionRequest(message)) return false;
-  return dispatchRequest(messageRegistry, message, sendResponse);
+  return dispatchRequest(messageRegistry, message, sendResponse, { sender });
 });
 
 chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {

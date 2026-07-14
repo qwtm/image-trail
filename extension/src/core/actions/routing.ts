@@ -11,6 +11,7 @@ export const PANEL_ACTION_DOMAINS = {
   'panel/expand': 'panel-session',
   'panel/secondary-controls-open': 'panel-session',
   'destination/select': 'panel-session',
+  'destination/open-tab': 'panel-session',
   'destination/close': 'panel-session',
   'panel/history-section-open': 'panel-session',
   'panel/bookmarks-section-open': 'panel-session',

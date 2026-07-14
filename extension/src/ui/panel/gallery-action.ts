@@ -1,11 +1,11 @@
-import { openGalleryTab } from '../../content/gallery-client.js';
-import type { PanelState } from '../../core/types.js';
+import { openDestinationTab } from '../../content/destination-client.js';
+import type { PanelDestinationId, PanelState } from '../../core/types.js';
 
-export async function openGalleryErrorMessage(): Promise<string | null> {
-  const result = await openGalleryTab();
+export async function openDestinationErrorMessage(destination: PanelDestinationId): Promise<string | null> {
+  const result = await openDestinationTab(destination);
   return result.ok ? null : result.message;
 }
 
-export function galleryOpenErrorState(state: PanelState, message: string): PanelState {
+export function destinationOpenErrorState(state: PanelState, message: string): PanelState {
   return { ...state, message, lastUpdatedAt: Date.now() };
 }

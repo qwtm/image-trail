@@ -96,6 +96,7 @@ export function reducePanelSessionAction(state: PanelState, action: PanelSession
     case 'target/fill-screen':
     case 'target/set-object-fit':
     case 'target/release':
+    case 'destination/open-tab':
     case 'undo-last':
     case 'navigate-next':
     case 'navigate-previous':

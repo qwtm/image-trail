@@ -17,6 +17,9 @@ import { installGalleryLibraryRefreshHook } from './gallery-refresh.js';
 import { type GallerySearchPage, loadGallerySearchPage } from './gallery-search-loader.js';
 import { captureFocusedGalleryInput, restoreFocusedGalleryInput } from './gallery-focus.js';
 import { createGalleryView, type GalleryViewState } from './gallery-view.js';
+import { DestinationDomBody, DestinationFrame } from '../destinations/destination-frame.js';
+import { renderReactSubtree } from '../ui/react/react-subtree.js';
+import { createElement } from 'react';
 
 const bookmarkStore = new ExtensionBookmarkStore();
 const albumStore = new ExtensionAlbumStore();
@@ -57,40 +60,44 @@ function render(options: { readonly focusSearch?: boolean } = {}): void {
   const container = root();
   const focusedInput = options.focusSearch ? null : captureFocusedGalleryInput(container);
   container.replaceChildren(
-    createGalleryView(state, {
-      openRecord,
-      createAlbum: (name) => {
-        void createAlbum(name);
+    createGalleryView(
+      state,
+      {
+        openRecord,
+        createAlbum: (name) => {
+          void createAlbum(name);
+        },
+        selectAlbum: (albumId) => {
+          void selectAlbum(albumId);
+        },
+        renameAlbum: (albumId, name) => {
+          void renameAlbum(albumId, name);
+        },
+        deleteAlbum: (albumId) => {
+          void deleteAlbum(albumId);
+        },
+        toggleAlbumMenu,
+        chooseAlbumForRecord,
+        addRecordToAlbum: (albumId, recordId) => {
+          void addRecordToAlbum(albumId, recordId);
+        },
+        removeRecordFromAlbum: (albumId, recordId) => {
+          void removeRecordFromAlbum(albumId, recordId);
+        },
+        updateSearch,
+        clearSearch,
+        updatePageLimit: (limit) => {
+          void updatePageLimit(limit);
+        },
+        loadPage: (offset) => {
+          void loadPage(offset);
+        },
+        reload: () => {
+          void loadPage(state.offset);
+        },
       },
-      selectAlbum: (albumId) => {
-        void selectAlbum(albumId);
-      },
-      renameAlbum: (albumId, name) => {
-        void renameAlbum(albumId, name);
-      },
-      deleteAlbum: (albumId) => {
-        void deleteAlbum(albumId);
-      },
-      toggleAlbumMenu,
-      chooseAlbumForRecord,
-      addRecordToAlbum: (albumId, recordId) => {
-        void addRecordToAlbum(albumId, recordId);
-      },
-      removeRecordFromAlbum: (albumId, recordId) => {
-        void removeRecordFromAlbum(albumId, recordId);
-      },
-      updateSearch,
-      clearSearch,
-      updatePageLimit: (limit) => {
-        void updatePageLimit(limit);
-      },
-      loadPage: (offset) => {
-        void loadPage(offset);
-      },
-      reload: () => {
-        void loadPage(state.offset);
-      },
-    }),
+      { embedded: true },
+    ),
   );
   if (options.focusSearch) focusSearchInput();
   else if (focusedInput) restoreFocusedGalleryInput(container, focusedInput);
@@ -105,7 +112,7 @@ async function loadPage(
   const selectedAlbumId = state.selectedAlbumId;
   const previousMessage = state.message;
   if (!options.silent) {
-    state = { ...state, loading: true, message: null };
+    state = { ...state, loading: true, message: options.message ?? null };
     render(options);
   }
 
@@ -358,6 +365,12 @@ async function showPreviewResult(preview: Promise<Awaited<ReturnType<CaptureCont
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  const shellRoot = document.getElementById('image-trail-destination-shell-root');
+  if (!shellRoot) throw new Error('Gallery destination shell root is missing.');
+  renderReactSubtree(
+    shellRoot,
+    createElement(DestinationFrame, { destination: 'gallery' }, createElement(DestinationDomBody, { content: root() })),
+  );
   installSettingsRefreshHooks();
   installGalleryLibraryRefreshHook({
     runtime: typeof chrome === 'undefined' ? undefined : chrome.runtime,

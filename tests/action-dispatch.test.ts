@@ -169,7 +169,7 @@ function createHarness(
     pinRecentHistory: () => recordAsync('pinRecentHistory'),
     loadBookmark: () => recordAsync('loadBookmark'),
     removeBookmark: () => recordAsync('removeBookmark'),
-    openGallery: () => recordAsync('openGallery'),
+    openDestination: (destination) => recordAsync(`openDestination:${destination}`),
     loadBookmarkPage: (offset) => recordAsync(`loadBookmarkPage:${offset}`),
     refreshBookmarkThumbnails: () => recordAsync('refreshBookmarkThumbnails'),
     deleteVisibleBookmarks: () => recordAsync('deleteVisibleBookmarks'),
@@ -228,6 +228,7 @@ const fixtures: { readonly [N in RegisteredPanelActionName]: PanelActionFor<N> }
   'page-context/set': { name: 'page-context/set', context: 'gallery' },
   'panel/secondary-controls-open': { name: 'panel/secondary-controls-open', open: true },
   'destination/select': { name: 'destination/select', destination: 'dashboard' },
+  'destination/open-tab': { name: 'destination/open-tab', destination: 'dashboard' },
   'destination/close': { name: 'destination/close' },
   'panel/history-section-open': { name: 'panel/history-section-open', open: true },
   'panel/bookmarks-section-open': { name: 'panel/bookmarks-section-open', open: true },
@@ -467,7 +468,14 @@ test('gallery/open delegates to the gallery tab command without reducing queue s
   const harness = createHarness();
   const registry = buildPanelActionRegistry(harness.deps);
   dispatchPanelAction(registry, { name: 'gallery/open' }, () => assert.fail('unexpected fallback'));
-  assert.deepEqual(harness.log, ['openGallery']);
+  assert.deepEqual(harness.log, ['openDestination:gallery']);
+});
+
+test('destination/open-tab delegates every destination without reducing panel state', () => {
+  const harness = createHarness();
+  const registry = buildPanelActionRegistry(harness.deps);
+  dispatchPanelAction(registry, { name: 'destination/open-tab', destination: 'settings' }, () => assert.fail('unexpected fallback'));
+  assert.deepEqual(harness.log, ['openDestination:settings']);
 });
 
 test('panel/secondary-controls-open is a silent no-op when the state already matches', () => {

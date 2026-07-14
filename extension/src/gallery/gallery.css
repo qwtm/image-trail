@@ -25,6 +25,12 @@ body {
   font: var(--it-type-body);
 }
 
+.image-trail-gallery.is-embedded {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 .image-trail-gallery__header {
   position: sticky;
   top: 0;
@@ -41,6 +47,10 @@ body {
   box-shadow: var(--it-shadow-panel), var(--it-highlight-top);
 }
 
+.image-trail-gallery__header.is-embedded {
+  grid-template-columns: 1fr;
+}
+
 .image-trail-gallery__title-group {
   display: grid;
   gap: var(--it-space-2);
@@ -54,7 +64,7 @@ body {
   text-transform: uppercase;
 }
 
-.image-trail-gallery__header h1 {
+.image-trail-gallery__header h2 {
   margin: 0;
   color: var(--it-text);
   font: var(--it-fw-heavy) 20px / var(--it-lh-tight) var(--it-font-ui);
