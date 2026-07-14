@@ -180,6 +180,7 @@ test('record schemas accept canonical fixtures and reject corrupted mutants with
     true,
   );
   assert.equal(v.is(saveLocalSettingsRequestSchema, { settings: omitKey(DEFAULT_LOCAL_SETTINGS, 'recentSparseRowDisplayMode') }), true);
+  assert.equal(v.is(saveLocalSettingsRequestSchema, { settings: omitKey(DEFAULT_LOCAL_SETTINGS, 'pageContextOverrides') }), true);
   assert.equal(
     v.is(saveLocalSettingsRequestSchema, { settings: { ...DEFAULT_LOCAL_SETTINGS, recentSparseRowDisplayMode: 'stretchy' } }),
     false,

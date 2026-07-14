@@ -33,6 +33,7 @@ function TargetThumbnail({ target, privacyMode }: Pick<TargetPickerProps, 'targe
 }
 
 function contextCountLabel(pageContext: PageContextState): string {
+  if (pageContext.imageCount === 0) return '0 on page';
   if (pageContext.effective === 'single') return pageContextLabel(pageContext.effective);
   const suffix = pageContext.imageCount === 1 ? 'image' : 'images';
   return `${pageContextLabel(pageContext.effective)} · ${pageContext.imageCount} ${suffix}`;

@@ -704,15 +704,13 @@ export interface LoadLocalSettingsResultMessage {
     | { readonly ok: false; readonly message: string };
 }
 
-export type SaveLocalSettingsPayloadSettings = Omit<
-  import('../data/local-settings.js').PlaintextLocalSettings,
-  'recentSparseRowDisplayMode' | 'recentDisplayOrder' | 'queueDisplayOrder'
-> & {
-  readonly recentSparseRowDisplayMode?:
-    import('../data/local-settings.js').PlaintextLocalSettings['recentSparseRowDisplayMode'] | undefined;
-  readonly recentDisplayOrder?: import('../data/local-settings.js').PlaintextLocalSettings['recentDisplayOrder'] | undefined;
-  readonly queueDisplayOrder?: import('../data/local-settings.js').PlaintextLocalSettings['queueDisplayOrder'] | undefined;
+type LocalSettings = import('../data/local-settings.js').PlaintextLocalSettings;
+type BackwardCompatibleLocalSettingsKey =
+  'recentSparseRowDisplayMode' | 'recentDisplayOrder' | 'queueDisplayOrder' | 'pageContextOverrides';
+type BackwardCompatibleLocalSettings = {
+  readonly [Key in BackwardCompatibleLocalSettingsKey]?: LocalSettings[Key] | undefined;
 };
+export type SaveLocalSettingsPayloadSettings = Omit<LocalSettings, BackwardCompatibleLocalSettingsKey> & BackwardCompatibleLocalSettings;
 
 export interface SaveLocalSettingsMessage {
   readonly type: typeof MessageType.SaveLocalSettings;
