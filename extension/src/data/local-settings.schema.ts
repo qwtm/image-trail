@@ -8,6 +8,10 @@ import type { PlaintextLocalSettings } from './local-settings.js';
  * repairs out-of-range values into safe defaults.
  */
 const recentSparseRowDisplayModeSchema = v.picklist(['adaptive', 'full', 'half', 'compact']);
+const pageContextOverridesSchema = v.record(
+  v.string(),
+  v.object({ context: v.picklist(['single', 'gallery', 'feed']), updatedAt: v.number() }),
+);
 
 const plaintextLocalSettingsEntries = {
   schemaVersion: v.literal(1),
@@ -42,6 +46,7 @@ const plaintextLocalSettingsEntries = {
   loadFailureFeedback: v.picklist(['alert', 'display', 'mute']),
   secondaryControlsOpen: v.boolean(),
   restoreWorkspaceLayout: v.boolean(),
+  pageContextOverrides: pageContextOverridesSchema,
 };
 
 export const plaintextLocalSettingsSchema = v.object(plaintextLocalSettingsEntries);
@@ -51,6 +56,7 @@ export const saveLocalSettingsPayloadSchema = v.object({
   recentSparseRowDisplayMode: v.optional(recentSparseRowDisplayModeSchema),
   recentDisplayOrder: v.optional(v.picklist(['newest-first', 'oldest-first'])),
   queueDisplayOrder: v.optional(v.picklist(['front-first', 'back-first'])),
+  pageContextOverrides: v.optional(pageContextOverridesSchema),
 });
 
 type _AssertPlaintextLocalSettings = Assert<MutuallyAssignable<v.InferOutput<typeof plaintextLocalSettingsSchema>, PlaintextLocalSettings>>;
