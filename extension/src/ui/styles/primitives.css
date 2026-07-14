@@ -187,7 +187,7 @@
 
 .image-trail-panel-root .image-trail-ds__section-header {
   display: grid;
-  grid-template-columns: minmax(min-content, 1fr) minmax(0, max-content) repeat(2, max-content);
+  grid-template-columns: minmax(0, 1fr) minmax(0, max-content) repeat(2, max-content);
   align-items: center;
   gap: var(--it-space-4) var(--it-space-6);
   min-width: 0;

@@ -73,7 +73,14 @@ export const FeedbackAndLayout: Story = {
 };
 
 export const Narrow: Story = {
-  render: () => panelStory(showcase(), { width: 280 }),
+  render: () => panelStory(narrowShowcase(), { width: 280 }),
+  play: async ({ canvasElement }) => {
+    const root = canvasElement.querySelector<HTMLElement>('.image-trail-panel-root');
+    await expect(root).not.toBeNull();
+    await expect(root?.scrollWidth).toBeLessThanOrEqual(root?.clientWidth ?? 0);
+    const title = canvasElement.querySelector<HTMLElement>('.image-trail-ds__section-title');
+    await expect(title).toHaveStyle({ overflow: 'hidden', textOverflow: 'ellipsis' });
+  },
 };
 
 export const ReducedMotion: Story = {
@@ -120,6 +127,23 @@ function showcase(): HTMLElement {
     ]),
     createToast({ message: 'Captured original successfully.', tone: 'success' }),
     createCard({ children: 'Grouped metadata uses the shared Card surface.', ariaLabel: 'Metadata card' }),
+  );
+  return root;
+}
+
+function narrowShowcase(): HTMLElement {
+  const root = showcase();
+  root.prepend(
+    createSectionHeader({
+      title: 'LocalizedUnbrokenSectionTitleThatMustTruncateWithoutPushingActionsOutsideThePanel',
+      actions: [createButton({ label: 'Refresh', variant: 'ghost' })],
+      collapsible: true,
+      open: true,
+      onToggle: () => undefined,
+      detachable: true,
+      onDetach: () => undefined,
+      divider: false,
+    }),
   );
   return root;
 }

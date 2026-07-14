@@ -39,6 +39,11 @@ test('primitive styles preserve focus and reduced-motion behavior', () => {
   assert.match(css, /prefers-reduced-motion: reduce[\s\S]*\.is-waiting[^{]*\x7b\s*animation:\s*none;/u);
 });
 
+test('SectionHeader title track can shrink without pushing actions outside narrow panels', () => {
+  assert.match(css, /grid-template-columns:\s*minmax\(0, 1fr\)\s+minmax\(0, max-content\)/u);
+  assert.match(css, /\.image-trail-ds__section-title[\s\S]*min-width:\s*0;[\s\S]*text-overflow:\s*ellipsis;/u);
+});
+
 test('panel packaging loads both primitive stylesheets after tokens', () => {
   assert.match(panel, /^@import '\.\/design-system\.css';/u);
   assert.equal(designSystemCss, "@import './tokens.css';\n@import './primitives.css';\n@import './feedback-primitives.css';\n");
