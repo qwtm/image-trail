@@ -206,6 +206,19 @@ test('invalid keyboard rail geometry previews an accessible floating fallback wi
   Object.assign(window, { innerWidth: 1_024, innerHeight: 768 });
 });
 
+test('editable detached controls retain Alt+Arrow without previewing or snapping the window', async () => {
+  const harness = createHarness();
+  harness.layoutState.workspaceSections.set('settings', floatingSection('settings', { left: 200, top: 80, width: 420, height: 500 }));
+  harness.render(panelState({ detachedSections: ['settings'], activeDestination: 'settings' }));
+  const input = harness.detachedRoot.querySelector<HTMLInputElement>('[data-image-trail-detached-window="settings"] input');
+  assert.ok(input);
+  input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', altKey: true, bubbles: true, cancelable: true }));
+  input.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowLeft', altKey: true, bubbles: true, cancelable: true }));
+  await flushReact();
+  assert.equal(harness.detachedRoot.querySelector('.image-trail-workspace__snap-preview'), null);
+  assert.deepEqual(harness.actions, []);
+});
+
 test('React workspace status describes private-safe placement, order, and shade state', () => {
   const harness = createHarness();
   harness.layoutState.workspaceSections.set('history', railedSection('history', 'left', 1, { shaded: true }));

@@ -38,7 +38,7 @@ export function WorkspaceWindow({ entry, activeEdges, nextRailPositions, dispatc
   const style = { left: rect.left, top: rect.top, width: rect.width, height: placement.shaded ? undefined : rect.height };
 
   const commitKeyboardSnap = (event: ReactKeyboardEvent<HTMLElement>): void => {
-    const edge = keyboardEdge(event);
+    const edge = isEditable(event.target) ? null : keyboardEdge(event);
     if (!edge) return;
     event.preventDefault();
     const candidate = edgeCandidate(edge, activeEdges, nextRailPositions);
@@ -57,7 +57,7 @@ export function WorkspaceWindow({ entry, activeEdges, nextRailPositions, dispatc
         aria-label={`${title} (floating)`}
         style={style}
         onKeyDown={(event) => {
-          const edge = keyboardEdge(event);
+          const edge = isEditable(event.target) ? null : keyboardEdge(event);
           if (edge) {
             event.preventDefault();
             setPreview(edgeCandidate(edge, activeEdges, nextRailPositions));
@@ -234,5 +234,5 @@ function keyboardEdge(event: ReactKeyboardEvent<HTMLElement>): WorkspaceRailEdge
 }
 
 function isEditable(target: EventTarget): boolean {
-  return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement;
+  return target instanceof Element && target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"])') !== null;
 }
