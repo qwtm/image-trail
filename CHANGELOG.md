@@ -1,5 +1,11 @@
 # image-trail
 
+## 0.10.1
+
+### Patch Changes
+
+- ca53801: Harden workspace overlays across complex host layouts, interrupted gestures, private restart restoration, touch targets, zoom, reduced motion, and exact teardown.
+
 ## 0.10.0
 
 ### Minor Changes
