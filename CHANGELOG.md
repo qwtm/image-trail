@@ -1,5 +1,11 @@
 # image-trail
 
+## 0.10.2
+
+### Patch Changes
+
+- fb9c473: Minify and audit production release artifacts before packaging.
+
 ## 0.10.1
 
 ### Patch Changes
