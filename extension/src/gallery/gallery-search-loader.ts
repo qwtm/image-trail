@@ -8,7 +8,7 @@ import {
 } from './gallery-filters.js';
 import { galleryRecordMatchesSearch, normalizeGallerySearchQuery } from './gallery-search.js';
 
-const ALL_GALLERY_RECORDS_LIMIT = Number.MAX_SAFE_INTEGER;
+const GALLERY_SCAN_PAGE_LIMIT = 100;
 
 export interface GallerySourcePage {
   readonly items: readonly ImageDisplayRecord[];
@@ -43,9 +43,9 @@ export async function loadGallerySearchPage(input: {
   const limit = normalizeGalleryLimit(input.limit);
   const requestedOffset = limit === 0 ? 0 : Math.max(0, input.offset);
   const query = normalizeGallerySearchQuery(input.query);
-  const source = await input.store.loadPage({ offset: 0, limit: ALL_GALLERY_RECORDS_LIMIT, scope: 'global' });
+  const sourceItems = await loadGallerySourceItems(input.store);
   const filters = privacySafeGalleryFilters(input.filters, input.privacyMode);
-  const matches = source.items.filter(
+  const matches = sourceItems.filter(
     (record) =>
       galleryRecordMatchesSearch(record, query, { privacyMode: input.privacyMode }) &&
       galleryRecordMatchesFilters(record, filters, { privacyMode: input.privacyMode }),
@@ -56,13 +56,30 @@ export async function loadGallerySearchPage(input: {
   return {
     items,
     filters,
-    facets: galleryFilterFacets(source.items, { privacyMode: input.privacyMode }),
+    facets: galleryFilterFacets(sourceItems, { privacyMode: input.privacyMode }),
     offset,
     limit,
     total: matches.length,
     hasOlder: limit > 0 && offset + limit < matches.length,
     hasNewer: limit > 0 && offset > 0,
   };
+}
+
+async function loadGallerySourceItems(store: GallerySearchStore): Promise<readonly ImageDisplayRecord[]> {
+  const items: ImageDisplayRecord[] = [];
+  const seenIds = new Set<string>();
+  let offset = 0;
+  for (;;) {
+    const page = await store.loadPage({ offset, limit: GALLERY_SCAN_PAGE_LIMIT, scope: 'global' });
+    for (const item of page.items) {
+      if (seenIds.has(item.id)) continue;
+      seenIds.add(item.id);
+      items.push(item);
+    }
+    const nextOffset = page.offset + page.items.length;
+    if (!page.hasOlder || page.items.length === 0 || nextOffset <= offset) return items;
+    offset = nextOffset;
+  }
 }
 
 export function clampGalleryOffset(offset: number, limit: number, total: number): number {

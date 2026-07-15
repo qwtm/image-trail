@@ -192,8 +192,9 @@ function clearSearch(): void {
   loadGeneration += 1;
   if (searchTimer !== null) window.clearTimeout(searchTimer);
   searchTimer = null;
-  state = { ...state, searchQuery: '', draftSearchQuery: '', offset: 0, message: 'Search cleared.' };
-  void loadPage(0, { focusSearch: true });
+  const message = 'Search cleared.';
+  state = { ...state, searchQuery: '', draftSearchQuery: '', offset: 0, message };
+  void loadPage(0, { focusSearch: true, message });
 }
 
 function updateFilters(filters: GalleryFilters): void {
@@ -204,8 +205,9 @@ function updateFilters(filters: GalleryFilters): void {
 
 function clearFilters(): void {
   loadGeneration += 1;
-  state = { ...state, filters: EMPTY_GALLERY_FILTERS, offset: 0, message: 'Filters cleared.' };
-  void loadPage(0);
+  const message = 'Filters cleared.';
+  state = { ...state, filters: EMPTY_GALLERY_FILTERS, offset: 0, message };
+  void loadPage(0, { message });
 }
 
 async function createAlbum(name: string): Promise<void> {

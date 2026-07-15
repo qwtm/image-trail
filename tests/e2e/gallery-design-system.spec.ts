@@ -134,8 +134,10 @@ test('Gallery uses the shared design system without mutating durable queue order
   await expect(page.locator('.image-trail-gallery__status')).toHaveText('No gallery matches.');
   await page.getByRole('button', { name: 'Clear filters' }).click();
   await expect(page.locator('.image-trail-gallery__card')).toHaveCount(3);
+  await expect(page.locator('.image-trail-gallery__status')).toHaveText('Filters cleared.');
 
   await page.getByRole('combobox', { name: 'Filter by record kind' }).selectOption('stored-original');
+  await expect(page.locator('.image-trail-gallery__card')).toHaveCount(1);
   await expect(page.locator('.image-trail-gallery__card-title')).toHaveText('Alpine lake');
   await page.getByRole('button', { name: 'Clear filters' }).click();
   await expect(page.locator('.image-trail-gallery__card')).toHaveCount(3);

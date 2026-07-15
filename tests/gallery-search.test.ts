@@ -111,7 +111,7 @@ test('gallery search clamps stale offsets to the final available page', async ()
   assert.equal(page.hasOlder, false);
 });
 
-test('gallery search scans the durable list once per query', async () => {
+test('gallery search requests a bounded durable page for small libraries', async () => {
   const calls: { readonly offset: number; readonly limit: number }[] = [];
   const page = await loadGallerySearchPage({
     store: pagedStore(records, calls),
@@ -128,7 +128,7 @@ test('gallery search scans the durable list once per query', async () => {
   );
   assert.equal(calls.length, 1);
   assert.equal(calls[0]?.offset, 0);
-  assert.equal(calls[0]?.limit, Number.MAX_SAFE_INTEGER);
+  assert.equal(calls[0]?.limit, 100);
 });
 
 test('gallery search and filters share one durable scan and preserve queue order', async () => {
@@ -151,9 +151,40 @@ test('gallery search and filters share one durable scan and preserve queue order
   assert.deepEqual(page.facets.sourceHosts, ['archive.example.test', 'cdn.example.test', 'images.example.test']);
 });
 
-function pagedStore(items: readonly ImageDisplayRecord[], calls: { readonly offset: number; readonly limit: number }[] = []) {
+test('gallery search collects large libraries through bounded durable pages', async () => {
+  const largeLibrary = Array.from({ length: 205 }, (_, index): ImageDisplayRecord => ({
+    id: `record-${index}`,
+    url: `https://images.example.test/photo-${index}.jpg`,
+    timestamp: new Date(Date.UTC(2026, 6, 1, 0, 0, index)).toISOString(),
+    queueUpdatedAt: new Date(Date.UTC(2026, 6, 1, 0, 0, index)).toISOString(),
+  }));
+  const calls: { readonly offset: number; readonly limit: number }[] = [];
+
+  const page = await loadGallerySearchPage({
+    store: pagedStore(largeLibrary, calls),
+    query: 'example',
+    filters: EMPTY_GALLERY_FILTERS,
+    offset: 200,
+    limit: 10,
+    privacyMode: false,
+  });
+
+  assert.deepEqual(calls, [
+    { offset: 0, limit: 100, scope: 'global' },
+    { offset: 100, limit: 100, scope: 'global' },
+    { offset: 200, limit: 100, scope: 'global' },
+  ]);
+  assert.equal(page.total, 205);
+  assert.equal(page.offset, 200);
+  assert.equal(page.items.length, 5);
+});
+
+function pagedStore(
+  items: readonly ImageDisplayRecord[],
+  calls: { readonly offset: number; readonly limit: number; readonly scope?: 'global' | 'site' }[] = [],
+) {
   return {
-    async loadPage(input: { readonly offset: number; readonly limit: number }) {
+    async loadPage(input: { readonly offset: number; readonly limit: number; readonly scope?: 'global' | 'site' }) {
       calls.push(input);
       const pageItems = items.slice(input.offset, input.offset + input.limit);
       return {
