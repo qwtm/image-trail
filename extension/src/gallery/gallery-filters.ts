@@ -67,7 +67,8 @@ export function galleryFilterFacets(
     if (record.privacyStatus === 'locked') continue;
     const sourceHost = sourceHostForGalleryRecord(record);
     if (sourceHost) sourceHosts.add(sourceHost);
-    imageTypes.add(imageTypeForGalleryRecord(record));
+    const imageType = imageTypeForGalleryRecord(record);
+    if (imageType) imageTypes.add(imageType);
   }
   return {
     sourceHosts: [...sourceHosts].sort((left, right) => left.localeCompare(right)),
@@ -84,8 +85,9 @@ export function sourceHostForGalleryRecord(record: ImageDisplayRecord): string |
   }
 }
 
-export function imageTypeForGalleryRecord(record: ImageDisplayRecord): GalleryImageTypeFilter {
-  const extension = record.privacyStatus === 'locked' ? null : imageExtensionFromUrl(record.url);
+export function imageTypeForGalleryRecord(record: ImageDisplayRecord): GalleryImageTypeFilter | null {
+  if (record.privacyStatus === 'locked') return null;
+  const extension = imageExtensionFromUrl(record.url);
   return isGalleryImageType(extension) ? extension : 'UNKNOWN';
 }
 

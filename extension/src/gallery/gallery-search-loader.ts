@@ -41,7 +41,7 @@ export async function loadGallerySearchPage(input: {
   readonly privacyMode: boolean;
 }): Promise<GallerySearchPage> {
   const limit = normalizeGalleryLimit(input.limit);
-  const offset = limit === 0 ? 0 : Math.max(0, input.offset);
+  const requestedOffset = limit === 0 ? 0 : Math.max(0, input.offset);
   const query = normalizeGallerySearchQuery(input.query);
   const source = await input.store.loadPage({ offset: 0, limit: ALL_GALLERY_RECORDS_LIMIT, scope: 'global' });
   const filters = privacySafeGalleryFilters(input.filters, input.privacyMode);
@@ -50,6 +50,7 @@ export async function loadGallerySearchPage(input: {
       galleryRecordMatchesSearch(record, query, { privacyMode: input.privacyMode }) &&
       galleryRecordMatchesFilters(record, filters, { privacyMode: input.privacyMode }),
   );
+  const offset = clampGalleryOffset(requestedOffset, limit, matches.length);
 
   const items = limit === 0 ? matches : matches.slice(offset, offset + limit);
   return {
@@ -62,6 +63,12 @@ export async function loadGallerySearchPage(input: {
     hasOlder: limit > 0 && offset + limit < matches.length,
     hasNewer: limit > 0 && offset > 0,
   };
+}
+
+export function clampGalleryOffset(offset: number, limit: number, total: number): number {
+  if (limit <= 0 || total <= 0) return 0;
+  const lastPageOffset = Math.floor((total - 1) / limit) * limit;
+  return Math.min(offset, lastPageOffset);
 }
 
 function normalizeGalleryLimit(limit: number): number {

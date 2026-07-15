@@ -65,6 +65,7 @@ test('locked-private and unknown-type filters remain explicit', () => {
     true,
   );
   assert.equal(galleryRecordMatchesFilters(records[2]!, { ...EMPTY_GALLERY_FILTERS, imageType: 'UNKNOWN' }, { privacyMode: false }), true);
+  assert.equal(galleryRecordMatchesFilters(records[3]!, { ...EMPTY_GALLERY_FILTERS, imageType: 'UNKNOWN' }, { privacyMode: false }), false);
 });
 
 test('privacy mode removes URL-derived filter state and facets without exposing locked metadata', () => {

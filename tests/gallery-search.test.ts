@@ -91,6 +91,26 @@ test('gallery search treats zero limit as unlimited results', async () => {
   assert.equal(page.hasOlder, false);
 });
 
+test('gallery search clamps stale offsets to the final available page', async () => {
+  const page = await loadGallerySearchPage({
+    store: pagedStore(records),
+    query: 'example',
+    filters: EMPTY_GALLERY_FILTERS,
+    offset: 72,
+    limit: 2,
+    privacyMode: false,
+  });
+
+  assert.deepEqual(
+    page.items.map((record) => record.id),
+    ['c'],
+  );
+  assert.equal(page.offset, 2);
+  assert.equal(page.total, 3);
+  assert.equal(page.hasNewer, true);
+  assert.equal(page.hasOlder, false);
+});
+
 test('gallery search scans the durable list once per query', async () => {
   const calls: { readonly offset: number; readonly limit: number }[] = [];
   const page = await loadGallerySearchPage({
