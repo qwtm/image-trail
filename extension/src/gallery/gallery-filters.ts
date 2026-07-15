@@ -79,7 +79,7 @@ export function galleryFilterFacets(
 export function sourceHostForGalleryRecord(record: ImageDisplayRecord): string | null {
   if (record.privacyStatus === 'locked') return null;
   try {
-    return sourceImageUrlFrom(record.url).hostname.toLocaleLowerCase() || null;
+    return sourceImageUrlFrom(record.url).hostname.toLowerCase() || null;
   } catch {
     return null;
   }
