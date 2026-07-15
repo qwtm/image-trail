@@ -1,5 +1,11 @@
 # image-trail
 
+## 0.12.0
+
+### Minor Changes
+
+- 0bd10f6: Add transient Recents scopes for the current page, current site, and all sites.
+
 ## 0.11.0
 
 ### Minor Changes
