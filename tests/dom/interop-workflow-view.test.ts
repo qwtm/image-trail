@@ -45,6 +45,32 @@ test('conflict choice carries explicit apply-to-all intent', () => {
   assert.deepEqual(calls, [['interop-1', 'keep-both', true]]);
 });
 
+test('progress phases cannot start again and resumable errors use the resume handler', () => {
+  const calls: string[] = [];
+  const state = {
+    ...blockedInteropWorkflow('selection', 1),
+    provider: { id: 'pcloud' as const, label: 'pCloud', state: 'connected' as const, detail: 'Encrypted namespace' },
+    pairing: 'paired' as const,
+    phase: 'failed' as const,
+    error: { code: 'partial-failure' as const, message: 'One record remains resumable.', retryable: true },
+  };
+  const view = createInteropWorkflowView(state, {
+    onClose: () => undefined,
+    onStart: () => calls.push('start'),
+    onResume: () => calls.push('resume'),
+    onReconnect: () => calls.push('reconnect'),
+  });
+  const start = Array.from(view.querySelectorAll('button')).find((control) => control.textContent === 'Start move');
+  const resume = Array.from(view.querySelectorAll('.image-trail-interop__error button')).find(
+    (control) => control.textContent === 'Resume',
+  );
+  assert.ok(start instanceof HTMLButtonElement);
+  assert.ok(resume instanceof HTMLButtonElement);
+  assert.equal(start.disabled, true);
+  resume.click();
+  assert.deepEqual(calls, ['resume']);
+});
+
 test('open workflow makes the panel inert and restores focus when closed', () => {
   const panel = document.createElement('section');
   panel.id = 'image-trail-panel-root';
@@ -67,4 +93,32 @@ test('open workflow makes the panel inert and restores focus when closed', () =>
   assert.equal(panel.style.pointerEvents, '');
   assert.equal(document.activeElement, opener);
   panel.remove();
+});
+
+test('open workflow traps keyboard focus inside the active shadow root', () => {
+  const host = document.createElement('div');
+  const shadow = host.attachShadow({ mode: 'open' });
+  const panel = document.createElement('section');
+  panel.className = 'image-trail-panel-root';
+  const opener = document.createElement('button');
+  panel.append(opener);
+  shadow.append(panel);
+  document.body.append(host);
+  opener.focus();
+
+  openBlockedInteropWorkflow('bookmark', 1);
+  const dialog = shadow.querySelector('[role="dialog"][aria-label="Transfer and Sync"]');
+  assert.ok(dialog instanceof HTMLElement);
+  const close = Array.from(dialog.querySelectorAll('button')).find((control) => control.textContent === 'Close');
+  assert.ok(close instanceof HTMLButtonElement);
+  assert.equal(shadow.activeElement, close);
+
+  const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+  close.dispatchEvent(tab);
+  assert.equal(tab.defaultPrevented, true);
+  assert.equal(shadow.activeElement, close);
+
+  close.click();
+  assert.equal(shadow.activeElement, opener);
+  host.remove();
 });

@@ -21,6 +21,7 @@ export interface InteropWorkflowHandlers {
 }
 
 const REVIEW_KEYS = ['eligible', 'duplicate', 'conflict', 'metadataOnly', 'unsupported', 'skipped'] as const;
+const FOCUSABLE_CONTROL_SELECTOR = 'button:not(:disabled), input:not(:disabled), [tabindex]';
 
 function button(label: string, onClick: (() => void) | undefined, disabled = false): HTMLButtonElement {
   const control = document.createElement('button');
@@ -129,7 +130,8 @@ function createErrorAndControls(state: InteropVisibleWorkflow, handlers: Interop
   if (state.error) {
     error.setAttribute('role', 'alert');
     error.textContent = `${state.error.code.replaceAll('-', ' ')} · ${state.error.message}`;
-    error.append(button(interopRecoveryLabel(state.error.code), handlers.onReconnect ?? handlers.onResume, !state.error.retryable));
+    const recoveryHandler = interopRecoveryLabel(state.error.code) === 'Resume' ? handlers.onResume : handlers.onReconnect;
+    error.append(button(interopRecoveryLabel(state.error.code), recoveryHandler, !state.error.retryable));
   }
   const controls = document.createElement('footer');
   controls.append(
@@ -141,7 +143,7 @@ function createErrorAndControls(state: InteropVisibleWorkflow, handlers: Interop
     button(
       state.operation === 'move' ? 'Start move' : 'Start sync',
       handlers.onStart,
-      state.provider.state !== 'connected' || state.pairing !== 'paired',
+      state.provider.state !== 'connected' || state.pairing !== 'paired' || !['queued', 'reviewing'].includes(state.phase),
     ),
   );
   return [error, controls];
@@ -200,18 +202,18 @@ export function openBlockedInteropWorkflow(entry: InteropEntryContext, total: nu
   scrim.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') close();
     if (event.key !== 'Tab') return;
-    const controls = Array.from(scrim.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), [tabindex]'));
+    const controls = Array.from(scrim.querySelectorAll<HTMLElement>(FOCUSABLE_CONTROL_SELECTOR));
     const first = controls[0];
     const last = controls.at(-1);
     if (!first || !last) return;
-    if (event.shiftKey && document.activeElement === first) {
+    if (event.shiftKey && event.target === first) {
       event.preventDefault();
       last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
+    } else if (!event.shiftKey && event.target === last) {
       event.preventDefault();
       first.focus();
     }
   });
   modalParent.append(scrim);
-  scrim.querySelector<HTMLElement>('button')?.focus();
+  scrim.querySelector<HTMLElement>(FOCUSABLE_CONTROL_SELECTOR)?.focus();
 }
