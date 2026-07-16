@@ -97,6 +97,25 @@ test('UUID edge values match the canonical Zod contract', () => {
   assert.throws(() => v.parse(interopUuidSchema, 'not-a-uuid'));
 });
 
+test('timestamps and integers match the canonical contract boundaries', () => {
+  const valid = fixture('valid-record-message.json') as { header: Record<string, unknown>; payload: Record<string, unknown> };
+  assert.equal(
+    parseInteropEnvelope({ ...valid, header: { ...valid.header, createdAt: '2026-07-16T10:00Z' } }).header.createdAt,
+    '2026-07-16T10:00Z',
+  );
+  assert.throws(() => parseInteropEnvelope({ ...valid, header: { ...valid.header, createdAt: '2026-07-16T10:00:00+01:00' } }));
+  assert.equal(
+    parseInteropEnvelope({ ...valid, header: { ...valid.header, sequence: Number.MAX_SAFE_INTEGER } }).header.sequence,
+    Number.MAX_SAFE_INTEGER,
+  );
+  assert.throws(() => parseInteropEnvelope({ ...valid, header: { ...valid.header, sequence: Number.MAX_SAFE_INTEGER + 1 } }));
+
+  const pairing = fixture('valid-pairing-bundle.json') as Record<string, unknown>;
+  assert.equal(v.parse(interopPairingBundleSchema, { ...pairing, createdAt: '2026-07-16T10:00Z' }).createdAt, '2026-07-16T10:00Z');
+  assert.throws(() => v.parse(interopPairingBundleSchema, { ...pairing, createdAt: '2026-07-16T10:00:00+01:00' }));
+  assert.throws(() => incrementInteropRevision({ imageTrail: Number.MAX_SAFE_INTEGER, overlook: 0 }, 'image-trail'), RangeError);
+});
+
 test('invalid, future-version, unknown-field, same-product, and mismatched-kind messages fail closed', () => {
   assert.throws(() => parseInteropEnvelope(fixture('invalid-record-message.json')));
   assert.throws(() => parseInteropEnvelope(fixture('rejected-future-version.json')));

@@ -2,6 +2,8 @@ import * as v from 'valibot';
 import {
   interopFieldRevisionsSchema,
   interopIdentitySchema,
+  interopNonNegativeIntegerSchema,
+  interopPositiveIntegerSchema,
   interopProductSchema,
   interopRevisionVectorSchema,
   interopTimestampSchema,
@@ -10,13 +12,11 @@ import {
 } from './contract.js';
 import { interopJsonObjectSchema } from './json.js';
 
-const positiveIntegerSchema = v.pipe(v.number(), v.finite(), v.integer(), v.minValue(1));
-const nonNegativeIntegerSchema = v.pipe(v.number(), v.finite(), v.integer(), v.minValue(0));
 const nonEmptyStringSchema = v.pipe(v.string(), v.minLength(1));
 
 export const interopDimensionsSchema = v.strictObject({
-  width: positiveIntegerSchema,
-  height: positiveIntegerSchema,
+  width: interopPositiveIntegerSchema,
+  height: interopPositiveIntegerSchema,
 });
 
 export const interopTimestampsSchema = v.strictObject({
@@ -31,7 +31,7 @@ const availableBlobSchema = v.strictObject({
   state: v.literal('available'),
   blobId: nonEmptyStringSchema,
   mimeType: nonEmptyStringSchema,
-  byteLength: nonNegativeIntegerSchema,
+  byteLength: interopNonNegativeIntegerSchema,
   contentHash: sha256Schema,
 });
 
@@ -39,7 +39,7 @@ const unavailableBlobSchema = v.strictObject({
   state: v.picklist(['metadata-only', 'unavailable']),
   blobId: v.null(),
   mimeType: v.nullable(nonEmptyStringSchema),
-  byteLength: v.nullable(nonNegativeIntegerSchema),
+  byteLength: v.nullable(interopNonNegativeIntegerSchema),
   contentHash: v.nullable(sha256Schema),
   reason: v.picklist(['not-captured', 'missing', 'provider-unavailable', 'unsupported-format']),
 });
@@ -72,7 +72,7 @@ export const interopRecordSchema = v.strictObject({
 
 export const interopAlbumMemberSchema = v.strictObject({
   recordInteropId: interopUuidSchema,
-  position: nonNegativeIntegerSchema,
+  position: interopNonNegativeIntegerSchema,
   revision: interopRevisionVectorSchema,
 });
 

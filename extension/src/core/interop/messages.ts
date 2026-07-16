@@ -3,27 +3,27 @@ import {
   interopConflictActionSchema,
   interopErrorCodeSchema,
   interopHeaderSchema,
+  interopNonNegativeIntegerSchema,
+  interopPositiveIntegerSchema,
   interopReviewCategorySchema,
   interopTransferPhaseSchema,
   interopUuidSchema,
 } from './contract.js';
 import { interopAlbumSchema, interopBlobReferenceSchema, interopRecordSchema } from './records.js';
 
-const nonNegativeIntegerSchema = v.pipe(v.number(), v.finite(), v.integer(), v.minValue(0));
-const positiveIntegerSchema = v.pipe(v.number(), v.finite(), v.integer(), v.minValue(1));
 const nonEmptyStringSchema = v.pipe(v.string(), v.minLength(1));
 
 export const interopCountsSchema = v.strictObject({
-  total: nonNegativeIntegerSchema,
-  eligible: nonNegativeIntegerSchema,
-  duplicate: nonNegativeIntegerSchema,
-  conflict: nonNegativeIntegerSchema,
-  metadataOnly: nonNegativeIntegerSchema,
-  unsupported: nonNegativeIntegerSchema,
-  skipped: nonNegativeIntegerSchema,
-  failed: nonNegativeIntegerSchema,
-  acknowledged: nonNegativeIntegerSchema,
-  finalized: nonNegativeIntegerSchema,
+  total: interopNonNegativeIntegerSchema,
+  eligible: interopNonNegativeIntegerSchema,
+  duplicate: interopNonNegativeIntegerSchema,
+  conflict: interopNonNegativeIntegerSchema,
+  metadataOnly: interopNonNegativeIntegerSchema,
+  unsupported: interopNonNegativeIntegerSchema,
+  skipped: interopNonNegativeIntegerSchema,
+  failed: interopNonNegativeIntegerSchema,
+  acknowledged: interopNonNegativeIntegerSchema,
+  finalized: interopNonNegativeIntegerSchema,
 });
 
 export const interopErrorSchema = v.strictObject({
@@ -38,7 +38,7 @@ const manifestPayloadSchema = v.strictObject({
   schemaVersion: v.literal(1),
   recordInteropIds: v.array(interopUuidSchema),
   albumInteropIds: v.array(interopUuidSchema),
-  blobCount: nonNegativeIntegerSchema,
+  blobCount: interopNonNegativeIntegerSchema,
   counts: interopCountsSchema,
 });
 
@@ -70,8 +70,8 @@ const blobPayloadSchema = v.pipe(
     role: v.picklist(['original', 'thumbnail']),
     blob: interopBlobReferenceSchema,
     encryptedPath: safeRelativePathSchema,
-    chunkIndex: nonNegativeIntegerSchema,
-    chunkCount: positiveIntegerSchema,
+    chunkIndex: interopNonNegativeIntegerSchema,
+    chunkCount: interopPositiveIntegerSchema,
   }),
   v.check((payload) => payload.chunkIndex < payload.chunkCount, 'Chunk index must be less than chunk count.'),
 );
@@ -93,7 +93,7 @@ const journalPayloadSchema = v.strictObject({
   schemaVersion: v.literal(1),
   phase: interopTransferPhaseSchema,
   counts: interopCountsSchema,
-  lastSequence: nonNegativeIntegerSchema,
+  lastSequence: interopNonNegativeIntegerSchema,
   conflictDecisions: v.record(interopUuidSchema, interopConflictActionSchema),
   reviewedDeleteInteropIds: v.array(interopUuidSchema),
   errors: v.array(interopErrorSchema),
