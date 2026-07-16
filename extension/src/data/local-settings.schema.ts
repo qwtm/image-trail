@@ -55,6 +55,7 @@ export const plaintextLocalSettingsSchema = v.object(plaintextLocalSettingsEntri
 
 export const saveLocalSettingsPayloadSchema = v.object({
   ...plaintextLocalSettingsEntries,
+  blobKeyInactivityTimeoutMinutes: v.optional(v.picklist([5, 10, 15, 'never'])),
   recentSparseRowDisplayMode: v.optional(recentSparseRowDisplayModeSchema),
   recentDisplayOrder: v.optional(v.picklist(['newest-first', 'oldest-first'])),
   queueDisplayOrder: v.optional(v.picklist(['front-first', 'back-first'])),
