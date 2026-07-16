@@ -160,6 +160,17 @@ export function migrateImageTrailDb(db: IDBDatabase, oldVersion: number, transac
     };
   }
 
+  if (oldVersion < 10) {
+    db.createObjectStore(DataStore.MoveJournals, { keyPath: 'transferId' });
+    const moveItems = db.createObjectStore(DataStore.MoveItems, { keyPath: 'id' });
+    moveItems.createIndex(SchemaIndex.MoveItemsByTransferId, 'transferId', { unique: false });
+    const moveOutbox = db.createObjectStore(DataStore.MoveOutbox, { keyPath: 'messageId' });
+    moveOutbox.createIndex(SchemaIndex.MoveOutboxByTransferId, 'transferId', { unique: false });
+    db.createObjectStore(DataStore.MoveReceipts, { keyPath: 'id' });
+    const moveAudit = db.createObjectStore(DataStore.MoveAudit, { keyPath: 'eventKey' });
+    moveAudit.createIndex(SchemaIndex.MoveAuditByTransferId, 'transferId', { unique: false });
+  }
+
   const metadata = transaction?.objectStore(DataStore.Metadata);
   metadata?.put({
     key: 'schema',

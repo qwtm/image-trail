@@ -23,6 +23,11 @@ test('IndexedDB migrations create data stores, indexes, and schema metadata', as
       DataStore.History,
       DataStore.Keys,
       DataStore.Metadata,
+      DataStore.MoveAudit,
+      DataStore.MoveItems,
+      DataStore.MoveJournals,
+      DataStore.MoveOutbox,
+      DataStore.MoveReceipts,
     ].sort(),
   );
 
@@ -39,6 +44,11 @@ test('IndexedDB migrations create data stores, indexes, and schema metadata', as
       DataStore.EncryptedPinThumbnails,
       DataStore.Albums,
       DataStore.AlbumMemberships,
+      DataStore.MoveAudit,
+      DataStore.MoveItems,
+      DataStore.MoveJournals,
+      DataStore.MoveOutbox,
+      DataStore.MoveReceipts,
     ],
     'readonly',
   );
@@ -52,6 +62,9 @@ test('IndexedDB migrations create data stores, indexes, and schema metadata', as
   const encryptedPinThumbnails = transaction.objectStore(DataStore.EncryptedPinThumbnails);
   const albums = transaction.objectStore(DataStore.Albums);
   const albumMemberships = transaction.objectStore(DataStore.AlbumMemberships);
+  const moveAudit = transaction.objectStore(DataStore.MoveAudit);
+  const moveItems = transaction.objectStore(DataStore.MoveItems);
+  const moveOutbox = transaction.objectStore(DataStore.MoveOutbox);
 
   assert.deepEqual(asArray(keys.indexNames), [SchemaIndex.KeysByKind, SchemaIndex.KeysByReference, SchemaIndex.KeysByUuid].sort());
   assert.deepEqual(asArray(history.indexNames), [SchemaIndex.HistoryByKeyReference, SchemaIndex.HistoryByUpdatedAt].sort());
@@ -95,6 +108,9 @@ test('IndexedDB migrations create data stores, indexes, and schema metadata', as
       SchemaIndex.AlbumMembershipsByRecordId,
     ].sort(),
   );
+  assert.deepEqual(asArray(moveItems.indexNames), [SchemaIndex.MoveItemsByTransferId]);
+  assert.deepEqual(asArray(moveOutbox.indexNames), [SchemaIndex.MoveOutboxByTransferId]);
+  assert.deepEqual(asArray(moveAudit.indexNames), [SchemaIndex.MoveAuditByTransferId]);
 
   const metadata = await new Promise((resolve, reject) => {
     const request = transaction.objectStore(DataStore.Metadata).get('schema');

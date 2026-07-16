@@ -13,7 +13,12 @@ export type DataStoreName =
   | 'encryptedPins'
   | 'encryptedPinThumbnails'
   | 'albums'
-  | 'albumMemberships';
+  | 'albumMemberships'
+  | 'moveJournals'
+  | 'moveItems'
+  | 'moveOutbox'
+  | 'moveReceipts'
+  | 'moveAudit';
 export type DataStatusCode =
   'ok' | 'db-open-failed' | 'migration-failed' | 'encryption-failed' | 'decryption-failed' | 'not-found' | 'locked';
 
