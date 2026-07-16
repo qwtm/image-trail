@@ -205,6 +205,7 @@ export function createBlobKeyMessageRegistry({
       };
     }
     await keys.put(result.record);
+    notifySecureSessionChange({ unlocked: false, keyReference: null, hasKey: true });
     return {
       ok: true,
       keyReference: result.record.reference,

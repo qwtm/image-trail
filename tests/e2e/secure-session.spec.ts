@@ -44,6 +44,7 @@ test('one secure lock conceals and restores panel, detached, destination, Galler
   const destination = await context.newPage();
   const gallery = await context.newPage();
   let preview: Page | null = null;
+  let coldGallery: Page | null = null;
   try {
     await openFixturePage(page, fixturePaths.singleImage);
     await togglePanelFromExtensionAction(page, serviceWorker);
@@ -103,6 +104,12 @@ test('one secure lock conceals and restores panel, detached, destination, Galler
     await expect(gallery.getByRole('heading', { name: 'Image Trail is locked' })).toBeVisible();
     await expect(gallery.locator('.image-trail-gallery__card')).toHaveCount(0);
 
+    coldGallery = await context.newPage();
+    await coldGallery.goto(`chrome-extension://${extensionId}/src/gallery/gallery.html?view=gallery`);
+    await expect(coldGallery.getByRole('heading', { name: 'Image Trail is locked' })).toBeVisible();
+    await expect(coldGallery.locator('#image-trail-gallery-root')).toHaveCount(0);
+    await expect(coldGallery.locator('.image-trail-gallery__card')).toHaveCount(0);
+
     await gallery.getByLabel('Password').fill('wrong-password');
     await gallery.getByRole('button', { name: 'Unlock workspace' }).click();
     await expect(gallery.getByRole('alert')).toBeVisible({ timeout: 20_000 });
@@ -119,6 +126,7 @@ test('one secure lock conceals and restores panel, detached, destination, Galler
     await expect(preview.locator('img')).toBeVisible();
   } finally {
     if (preview && !preview.isClosed()) await preview.close();
+    if (coldGallery && !coldGallery.isClosed()) await coldGallery.close();
     await destination.close();
     await gallery.close();
     await context.close();

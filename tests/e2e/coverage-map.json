@@ -833,7 +833,7 @@
         {
           "type": "playwright-e2e",
           "paths": ["tests/e2e/secure-session.spec.ts", "tests/e2e/import-export-settings.spec.ts"],
-          "notes": "Covers one real extension key session across the panel, a detached Recents window, Dashboard, Gallery, and a decrypted preview tab; verifies no protected DOM remains while locked, failed unlock cannot flash content, key-import unlock cannot recurse through Recall rendering, cross-context unlock restores every surface, and the injected panel host is never duplicated."
+          "notes": "Covers one real extension key session across the panel, a detached Recents window, Dashboard, Gallery, and a decrypted preview tab; verifies no protected DOM remains while locked, cold-start Gallery content stays detached, failed unlock cannot flash content, key-import unlock cannot recurse through Recall rendering, cross-context unlock restores every surface, and the injected panel host is never duplicated."
         }
       ]
     },
