@@ -20,12 +20,8 @@
         },
         {
           "type": "playwright-e2e",
-          "paths": [
-            "tests/e2e/recents-queue-recall.spec.ts",
-            "tests/e2e/gallery-design-system.spec.ts",
-            "tests/e2e/detachable-sections.spec.ts"
-          ],
-          "notes": "Existing packaged workflows guard queue order, selection, Gallery context, and detached-panel behavior while the Transfer and Sync dialog remains a targeted overlay."
+          "paths": ["tests/e2e/interop-ui.spec.ts", "tests/e2e/gallery-design-system.spec.ts", "tests/e2e/detachable-sections.spec.ts"],
+          "notes": "The focused packaged workflow checks the Queue entry, honest provider and progress state, disabled start gate, and preserved queue order; existing workflows guard Gallery and detached-panel behavior."
         },
         {
           "type": "manual",

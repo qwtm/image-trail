@@ -164,19 +164,54 @@ export function createInteropWorkflowView(state: InteropVisibleWorkflow, handler
 }
 
 export function openBlockedInteropWorkflow(entry: InteropEntryContext, total: number, locked = false): void {
+  let focused = document.activeElement;
+  while (focused instanceof HTMLElement && focused.shadowRoot?.activeElement instanceof HTMLElement) {
+    focused = focused.shadowRoot.activeElement;
+  }
+  const previousFocus = focused instanceof HTMLElement ? focused : null;
+  const activeRoot = previousFocus?.getRootNode();
+  const modalParent = activeRoot instanceof ShadowRoot ? activeRoot : document.body;
+  const panelRoots = Array.from(modalParent.querySelectorAll<HTMLElement>('.image-trail-panel-root')).map((root) => ({
+    root,
+    inert: root.inert,
+    pointerEvents: root.style.pointerEvents,
+  }));
+  for (const { root } of panelRoots) {
+    root.inert = true;
+    root.style.pointerEvents = 'none';
+  }
   const scrim = document.createElement('div');
   scrim.className = 'image-trail-interop-scrim';
   scrim.setAttribute('role', 'dialog');
   scrim.setAttribute('aria-modal', 'true');
   scrim.setAttribute('aria-label', 'Transfer and Sync');
-  const close = (): void => scrim.remove();
+  const close = (): void => {
+    scrim.remove();
+    for (const { root, inert, pointerEvents } of panelRoots) {
+      root.inert = inert;
+      root.style.pointerEvents = pointerEvents;
+    }
+    if (previousFocus?.isConnected) previousFocus.focus();
+  };
   scrim.append(createInteropWorkflowView(blockedInteropWorkflow(entry, total, locked), { onClose: close }));
   scrim.addEventListener('click', (event) => {
     if (event.target === scrim) close();
   });
   scrim.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') close();
+    if (event.key !== 'Tab') return;
+    const controls = Array.from(scrim.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), [tabindex]'));
+    const first = controls[0];
+    const last = controls.at(-1);
+    if (!first || !last) return;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   });
-  document.body.append(scrim);
+  modalParent.append(scrim);
   scrim.querySelector<HTMLElement>('button')?.focus();
 }

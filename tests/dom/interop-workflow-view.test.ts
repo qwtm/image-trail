@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { createInteropWorkflowView } from '../../extension/src/ui/components/interop-workflow-view.js';
+import { createInteropWorkflowView, openBlockedInteropWorkflow } from '../../extension/src/ui/components/interop-workflow-view.js';
 import { blockedInteropWorkflow } from '../../extension/src/ui/interop/visible-workflow.js';
 
 test('renders exact review and progress counts without claiming unavailable work completed', () => {
@@ -43,4 +43,28 @@ test('conflict choice carries explicit apply-to-all intent', () => {
   assert.ok(keepBoth instanceof HTMLButtonElement);
   keepBoth.click();
   assert.deepEqual(calls, [['interop-1', 'keep-both', true]]);
+});
+
+test('open workflow makes the panel inert and restores focus when closed', () => {
+  const panel = document.createElement('section');
+  panel.id = 'image-trail-panel-root';
+  panel.className = 'image-trail-panel-root';
+  const opener = document.createElement('button');
+  panel.append(opener);
+  document.body.append(panel);
+  opener.focus();
+
+  openBlockedInteropWorkflow('bookmark', 1);
+  assert.equal(panel.inert, true);
+  assert.equal(panel.style.pointerEvents, 'none');
+  const dialog = document.querySelector('[role="dialog"][aria-label="Transfer and Sync"]');
+  assert.ok(dialog instanceof HTMLElement);
+  const close = Array.from(dialog.querySelectorAll('button')).find((control) => control.textContent === 'Close');
+  assert.ok(close instanceof HTMLButtonElement);
+  close.click();
+
+  assert.equal(panel.inert, false);
+  assert.equal(panel.style.pointerEvents, '');
+  assert.equal(document.activeElement, opener);
+  panel.remove();
 });
