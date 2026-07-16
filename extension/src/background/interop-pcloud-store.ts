@@ -72,11 +72,18 @@ export class PCloudInteropObjectStore implements InteropObjectStore {
     const hosts = Array.isArray(data['hosts']) ? data['hosts'] : [];
     const host = typeof hosts[0] === 'string' ? hosts[0].toLowerCase() : '';
     const path = typeof data['path'] === 'string' ? data['path'] : '';
-    if ((host !== 'pcloud.com' && !host.endsWith('.pcloud.com')) || path === '')
+    const origin = `https://${host}`;
+    let downloadUrl: URL;
+    try {
+      downloadUrl = new URL(path, origin);
+    } catch {
+      throw new InteropTransportError('pCloud returned an unsafe download location.', 'corrupt', false);
+    }
+    if ((host !== 'pcloud.com' && !host.endsWith('.pcloud.com')) || !path.startsWith('/') || downloadUrl.origin !== origin)
       throw new InteropTransportError('pCloud returned an unsafe download location.', 'corrupt', false);
     let response: Response;
     try {
-      response = await this.fetchImpl(`https://${host}${path}`);
+      response = await this.fetchImpl(downloadUrl);
     } catch {
       throw new InteropTransportError('pCloud interoperability download is offline.', 'offline', true);
     }

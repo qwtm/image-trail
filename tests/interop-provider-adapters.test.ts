@@ -51,6 +51,23 @@ describe('pCloud interoperability namespace (#588)', () => {
       (error: unknown) => error instanceof InteropTransportError && error.code === 'auth-expired',
     );
   });
+
+  test('rejects a provider-controlled download path that changes the vetted host', async () => {
+    let requests = 0;
+    const store = new PCloudInteropObjectStore({
+      credential: () => ({ accessToken: 'interop-only-token', apiHost: 'api.pcloud.com' }),
+      fetchImpl: async () => {
+        requests += 1;
+        return Response.json({ result: 0, hosts: ['pcloud.com'], path: '@attacker.example/object.bin' });
+      },
+    });
+
+    await assert.rejects(
+      store.get('pairings/a/object.bin'),
+      (error: unknown) => error instanceof InteropTransportError && error.code === 'corrupt',
+    );
+    assert.equal(requests, 1);
+  });
 });
 
 describe('Google Drive drive.file interoperability adapter (#588)', () => {
@@ -146,5 +163,22 @@ describe('Google Drive drive.file interoperability adapter (#588)', () => {
 
     assert.deepEqual(await store.put('pairings/a/object.bin', new Uint8Array([4, 5, 6])), { bytes: 3 });
     assert.deepEqual(uploaded, [4, 5, 6]);
+  });
+
+  test('rejects a resumable upload location outside the exact HTTPS Drive origin', async () => {
+    const fetchImpl: typeof fetch = async (input) => {
+      const url = new URL(String(input));
+      if (url.pathname === '/drive/v3/files')
+        return Response.json({ files: url.searchParams.get('q')?.includes("name = 'Image Trail Interop'") ? [{ id: 'root-1' }] : [] });
+      if (url.pathname.startsWith('/upload/drive/v3/files'))
+        return new Response(null, { status: 200, headers: { location: 'http://www.googleapis.com/upload-session' } });
+      throw new Error(`Unexpected request: ${String(input)}`);
+    };
+    const store = new GoogleDriveInteropObjectStore({ accessToken: () => Promise.resolve('drive-file-token'), fetchImpl });
+
+    await assert.rejects(
+      store.put('pairings/a/object.bin', new Uint8Array([1])),
+      (error: unknown) => error instanceof InteropTransportError && error.code === 'corrupt',
+    );
   });
 });
