@@ -34,7 +34,14 @@ export const interopErrorCodeSchema = v.picklist([
   'unsupported-record',
 ]);
 
-const nonNegativeIntegerSchema = v.pipe(v.number(), v.finite(), v.integer(), v.minValue(0));
+export const interopNonNegativeIntegerSchema = v.pipe(
+  v.number(),
+  v.finite(),
+  v.integer(),
+  v.minValue(0),
+  v.maxValue(Number.MAX_SAFE_INTEGER),
+);
+export const interopPositiveIntegerSchema = v.pipe(v.number(), v.finite(), v.integer(), v.minValue(1), v.maxValue(Number.MAX_SAFE_INTEGER));
 export const sha256Schema = v.pipe(v.string(), v.regex(/^[a-f0-9]{64}$/u));
 export const interopUuidSchema = v.pipe(
   v.string(),
@@ -42,11 +49,16 @@ export const interopUuidSchema = v.pipe(
     /^(?:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/iu,
   ),
 );
-export const interopTimestampSchema = v.pipe(v.string(), v.isoTimestamp());
+export const interopTimestampSchema = v.pipe(
+  v.string(),
+  v.regex(
+    /^(?:(?:\d\d[2468][048]|\d\d[13579][26]|\d\d0[48]|[02468][048]00|[13579][26]00)-02-29|\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\d|30)|(?:02)-(?:0[1-9]|1\d|2[0-8])))T(?:(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d+)?)?Z)$/u,
+  ),
+);
 
 export const interopRevisionVectorSchema = v.strictObject({
-  imageTrail: nonNegativeIntegerSchema,
-  overlook: nonNegativeIntegerSchema,
+  imageTrail: interopNonNegativeIntegerSchema,
+  overlook: interopNonNegativeIntegerSchema,
 });
 
 export const interopFieldRevisionsSchema = v.strictObject({
@@ -84,7 +96,7 @@ export const interopHeaderSchema = v.pipe(
     operation: interopOperationSchema,
     kind: interopMessageKindSchema,
     createdAt: interopTimestampSchema,
-    sequence: nonNegativeIntegerSchema,
+    sequence: interopNonNegativeIntegerSchema,
   }),
   v.check((header) => header.sourceProduct !== header.targetProduct, 'Source and target products must differ.'),
 );
@@ -112,6 +124,9 @@ export function compareInteropRevisions(left: InteropRevisionVector, right: Inte
 }
 
 export function incrementInteropRevision(revision: InteropRevisionVector, product: InteropProduct): InteropRevisionVector {
+  if (revision[product === 'image-trail' ? 'imageTrail' : 'overlook'] === Number.MAX_SAFE_INTEGER) {
+    throw new RangeError('Interop revision exceeds the contract maximum.');
+  }
   return product === 'image-trail'
     ? { imageTrail: revision.imageTrail + 1, overlook: revision.overlook }
     : { imageTrail: revision.imageTrail, overlook: revision.overlook + 1 };
