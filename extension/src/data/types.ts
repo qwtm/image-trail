@@ -18,7 +18,11 @@ export type DataStoreName =
   | 'moveItems'
   | 'moveOutbox'
   | 'moveReceipts'
-  | 'moveAudit';
+  | 'moveAudit'
+  | 'syncSessions'
+  | 'syncItems'
+  | 'syncReceipts'
+  | 'syncAudit';
 export type DataStatusCode =
   'ok' | 'db-open-failed' | 'migration-failed' | 'encryption-failed' | 'decryption-failed' | 'not-found' | 'locked';
 

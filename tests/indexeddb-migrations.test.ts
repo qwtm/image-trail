@@ -28,6 +28,10 @@ test('IndexedDB migrations create data stores, indexes, and schema metadata', as
       DataStore.MoveJournals,
       DataStore.MoveOutbox,
       DataStore.MoveReceipts,
+      DataStore.SyncAudit,
+      DataStore.SyncItems,
+      DataStore.SyncReceipts,
+      DataStore.SyncSessions,
     ].sort(),
   );
 
@@ -49,6 +53,10 @@ test('IndexedDB migrations create data stores, indexes, and schema metadata', as
       DataStore.MoveJournals,
       DataStore.MoveOutbox,
       DataStore.MoveReceipts,
+      DataStore.SyncAudit,
+      DataStore.SyncItems,
+      DataStore.SyncReceipts,
+      DataStore.SyncSessions,
     ],
     'readonly',
   );
@@ -65,6 +73,8 @@ test('IndexedDB migrations create data stores, indexes, and schema metadata', as
   const moveAudit = transaction.objectStore(DataStore.MoveAudit);
   const moveItems = transaction.objectStore(DataStore.MoveItems);
   const moveOutbox = transaction.objectStore(DataStore.MoveOutbox);
+  const syncAudit = transaction.objectStore(DataStore.SyncAudit);
+  const syncItems = transaction.objectStore(DataStore.SyncItems);
 
   assert.deepEqual(asArray(keys.indexNames), [SchemaIndex.KeysByKind, SchemaIndex.KeysByReference, SchemaIndex.KeysByUuid].sort());
   assert.deepEqual(asArray(history.indexNames), [SchemaIndex.HistoryByKeyReference, SchemaIndex.HistoryByUpdatedAt].sort());
@@ -111,6 +121,8 @@ test('IndexedDB migrations create data stores, indexes, and schema metadata', as
   assert.deepEqual(asArray(moveItems.indexNames), [SchemaIndex.MoveItemsByTransferId]);
   assert.deepEqual(asArray(moveOutbox.indexNames), [SchemaIndex.MoveOutboxByTransferId]);
   assert.deepEqual(asArray(moveAudit.indexNames), [SchemaIndex.MoveAuditByTransferId]);
+  assert.deepEqual(asArray(syncItems.indexNames), [SchemaIndex.SyncItemsBySessionId]);
+  assert.deepEqual(asArray(syncAudit.indexNames), [SchemaIndex.SyncAuditBySessionId]);
 
   const metadata = await new Promise((resolve, reject) => {
     const request = transaction.objectStore(DataStore.Metadata).get('schema');
@@ -159,6 +171,29 @@ test('IndexedDB v9 migration indexes only schema-valid original blobs', async (t
   const indexed = await requestToPromise<unknown[]>(read.objectStore(DataStore.OriginalBlobIndex).getAll());
   await transactionDone(read);
   assert.deepEqual(indexed, [{ id: 'valid-original' }]);
+});
+
+test('IndexedDB v11 migration adds durable Sync journals to an existing database', async (t) => {
+  await deleteImageTrailDb();
+  const legacyDb = await new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(IMAGE_TRAIL_DB_NAME, 10);
+    request.onupgradeneeded = () => request.result.createObjectStore(DataStore.Metadata, { keyPath: 'key' });
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  legacyDb.close();
+
+  const opened = await openImageTrailDb();
+  assert.equal(opened.status.ok, true, opened.status.message);
+  assert.ok(opened.db);
+  t.after(() => opened.db?.close());
+  assert.equal(opened.db.version, 11);
+  assert.deepEqual(
+    [DataStore.SyncSessions, DataStore.SyncItems, DataStore.SyncReceipts, DataStore.SyncAudit].filter((store) =>
+      opened.db?.objectStoreNames.contains(store),
+    ),
+    [DataStore.SyncSessions, DataStore.SyncItems, DataStore.SyncReceipts, DataStore.SyncAudit],
+  );
 });
 
 test('IndexedDB v4 migration preserves existing blob records', async (t) => {
