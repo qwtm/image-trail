@@ -1,5 +1,11 @@
 # image-trail
 
+## 0.12.2
+
+### Patch Changes
+
+- 6f0eca3: Let detached Recents and Queue windows grow with new rows until users choose a persistent custom size.
+
 ## 0.12.1
 
 ### Patch Changes
