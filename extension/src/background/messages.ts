@@ -607,7 +607,12 @@ export interface LoadLocalSettingsResultMessage {
 }
 
 type BackwardCompatibleLocalSettingsKey =
-  'recentSparseRowDisplayMode' | 'recentDisplayOrder' | 'queueDisplayOrder' | 'downArrowAction' | 'pageContextOverrides';
+  | 'recentSparseRowDisplayMode'
+  | 'recentDisplayOrder'
+  | 'queueDisplayOrder'
+  | 'downArrowAction'
+  | 'pageContextOverrides'
+  | 'blobKeyInactivityTimeoutMinutes';
 type BackwardCompatibleLocalSettings = {
   readonly [Key in BackwardCompatibleLocalSettingsKey]?: SaveLocalSettingsInput[Key] | undefined;
 };
@@ -1251,7 +1256,7 @@ export function createLoadLocalSettingsResultMessage(payload: LoadLocalSettingsR
   return { type: MessageType.LoadLocalSettingsResult, version: MESSAGE_PROTOCOL_VERSION, payload };
 }
 
-export function createSaveLocalSettingsMessage(settings: SaveLocalSettingsInput): SaveLocalSettingsMessage {
+export function createSaveLocalSettingsMessage(settings: SaveLocalSettingsPayloadSettings): SaveLocalSettingsMessage {
   return { type: MessageType.SaveLocalSettings, version: MESSAGE_PROTOCOL_VERSION, payload: { settings } };
 }
 

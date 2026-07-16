@@ -6,6 +6,7 @@ export interface SecureSessionActivityResult {
 export interface SecureSessionActivityDeps {
   readonly now?: (() => number) | undefined;
   readonly throttleMs?: number | undefined;
+  readonly isTrustedActivity?: ((event: Event) => boolean) | undefined;
   readonly sendActivity: () => Promise<SecureSessionActivityResult>;
   readonly onLocked: (message: string) => void;
 }
@@ -14,12 +15,14 @@ export interface SecureSessionActivityDeps {
 export class SecureSessionActivityController {
   private readonly now: () => number;
   private readonly throttleMs: number;
+  private readonly isTrustedActivity: (event: Event) => boolean;
   private lastSentAt = Number.NEGATIVE_INFINITY;
   private target: EventTarget | null = null;
 
   constructor(private readonly deps: SecureSessionActivityDeps) {
     this.now = deps.now ?? (() => Date.now());
     this.throttleMs = deps.throttleMs ?? 15_000;
+    this.isTrustedActivity = deps.isTrustedActivity ?? ((event) => event.isTrusted);
   }
 
   connect(target: EventTarget): void {
@@ -39,7 +42,8 @@ export class SecureSessionActivityController {
     this.target = null;
   }
 
-  private readonly handleActivity = (): void => {
+  private readonly handleActivity = (event: Event): void => {
+    if (!this.isTrustedActivity(event)) return;
     const now = this.now();
     if (now - this.lastSentAt < this.throttleMs) return;
     this.lastSentAt = now;

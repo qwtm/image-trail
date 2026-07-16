@@ -1,5 +1,6 @@
 import type { StorageUsageSummary } from '../core/image/capture-result.js';
 import { isBuildIdentity } from '../core/build-info.js';
+import { DEFAULT_SESSION_INACTIVITY_TIMEOUT_MINUTES } from '../core/secure-session-policy.js';
 import { IndexedDbBookmarkStore } from '../data/bookmarks-controller.js';
 import { IndexedDbAlbumStore } from '../data/albums-controller.js';
 import { IndexedDbPanelPositionStore } from '../data/panel-position-controller.js';
@@ -880,10 +881,12 @@ const messageRegistry = {
   [MessageType.SaveLocalSettings]: defineMessage({
     requestSchema: requestSchemas.saveLocalSettingsRequestSchema,
     handle: async (message: SaveLocalSettingsMessage) => {
-      const result = await handleSaveLocalSettings(message, chrome.storage.local, chrome.tabs, (settings) =>
-        recentHistoryCache.pruneForSettings(settings),
-      );
-      if (result.ok) await updateBlobKeyInactivityTimeout(message.payload.settings.blobKeyInactivityTimeoutMinutes);
+      let savedTimeout = DEFAULT_SESSION_INACTIVITY_TIMEOUT_MINUTES;
+      const result = await handleSaveLocalSettings(message, chrome.storage.local, chrome.tabs, (settings) => {
+        recentHistoryCache.pruneForSettings(settings);
+        savedTimeout = settings.blobKeyInactivityTimeoutMinutes;
+      });
+      if (result.ok) await updateBlobKeyInactivityTimeout(savedTimeout);
       return result;
     },
     respond: (result) => createSaveLocalSettingsResultMessage(result),

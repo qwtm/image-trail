@@ -14,6 +14,7 @@ test('throttles pointer and keyboard activity through the extension-owned channe
   let sent = 0;
   const controller = new SecureSessionActivityController({
     now: () => now,
+    isTrustedActivity: () => true,
     sendActivity: async () => {
       sent += 1;
       return { unlocked: true };
@@ -44,6 +45,7 @@ test('refreshes locked UI status and disconnects all activity listeners', async 
   const lockedMessages: string[] = [];
   let sent = 0;
   const controller = new SecureSessionActivityController({
+    isTrustedActivity: () => true,
     sendActivity: async () => {
       sent += 1;
       return { unlocked: false, message: 'Unlock to continue.' };
@@ -59,4 +61,23 @@ test('refreshes locked UI status and disconnects all activity listeners', async 
   target.dispatchEvent(new Event('keydown'));
   await flush();
   assert.equal(sent, 1);
+});
+
+test('ignores synthetic host-page activity by default', async () => {
+  const target = new EventTarget();
+  let sent = 0;
+  const controller = new SecureSessionActivityController({
+    sendActivity: async () => {
+      sent += 1;
+      return { unlocked: true };
+    },
+    onLocked: () => assert.fail('synthetic activity must not reach the session'),
+  });
+  controller.connect(target);
+
+  target.dispatchEvent(new Event('pointermove'));
+  target.dispatchEvent(new Event('keydown'));
+  await flush();
+
+  assert.equal(sent, 0);
 });
