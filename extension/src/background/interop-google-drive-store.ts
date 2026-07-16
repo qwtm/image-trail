@@ -87,9 +87,15 @@ export class GoogleDriveInteropObjectStore implements InteropObjectStore {
     });
     if (!started.ok) throw await this.responseError(started);
     const location = started.headers.get('location');
-    if (location === null || new URL(location).hostname !== 'www.googleapis.com')
+    let locationUrl: URL;
+    try {
+      locationUrl = new URL(location ?? '');
+    } catch {
       throw new InteropTransportError('Google Drive returned an unsafe resumable location.', 'corrupt', false);
-    const uploaded = await this.uploadResumable(location, bytes);
+    }
+    if (locationUrl.origin !== 'https://www.googleapis.com')
+      throw new InteropTransportError('Google Drive returned an unsafe resumable location.', 'corrupt', false);
+    const uploaded = await this.uploadResumable(locationUrl.toString(), bytes);
     const file = (await uploaded.json()) as DriveFile;
     const stored = bytesValue(file.size);
     if (stored === null) throw new InteropTransportError('Google Drive returned incomplete upload metadata.', 'partial-failure', true);
