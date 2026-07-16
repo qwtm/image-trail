@@ -116,6 +116,13 @@ test('a locked key reports hasKey without a reference, and unlock reactivates it
     message: 'Encrypted storage locked.',
   });
 
+  const rejected = await handleAndRespond<BlobKeyResultMessage>(registry[MessageType.UnlockBlobKey], createUnlockBlobKeyMessage('wrong'));
+  assert.deepEqual(rejected.payload, {
+    ok: false,
+    reason: 'wrong-password',
+    message: 'Password did not unlock encrypted storage.',
+  });
+
   const unlocked = await handleAndRespond<BlobKeyResultMessage>(registry[MessageType.UnlockBlobKey], createUnlockBlobKeyMessage(password));
   assert.equal(unlocked.payload.ok, true);
   assert.equal(unlocked.payload.keyReference, keyReference);
