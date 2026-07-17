@@ -1,9 +1,5 @@
 #!/usr/bin/env node
 
-import { buildExtensionEntry } from './extension-build-policy.mjs';
+import { buildExtensionEntry, EXTENSION_ENTRY_POINTS } from './extension-build-policy.mjs';
 
-await buildExtensionEntry({
-  entryPoint: 'extension/src/background/service-worker.ts',
-  outfile: 'extension/dist/src/background/service-worker.js',
-  format: 'esm',
-});
+await buildExtensionEntry(EXTENSION_ENTRY_POINTS.serviceWorker);

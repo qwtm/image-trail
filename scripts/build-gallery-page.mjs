@@ -1,10 +1,5 @@
 #!/usr/bin/env node
 
-import { buildExtensionEntry } from './extension-build-policy.mjs';
+import { buildExtensionEntry, EXTENSION_ENTRY_POINTS } from './extension-build-policy.mjs';
 
-await buildExtensionEntry({
-  entryPoint: 'extension/src/gallery/gallery.ts',
-  outfile: 'extension/dist/src/gallery/gallery.js',
-  format: 'esm',
-  jsx: 'automatic',
-});
+await buildExtensionEntry(EXTENSION_ENTRY_POINTS.gallery);

@@ -61,6 +61,21 @@ function dependencyNameFromKey(key) {
   return index === -1 ? key : key.slice(index + marker.length);
 }
 
+// Given an esbuild metafile input path (e.g. "node_modules/valibot/dist/index.js"
+// or a nested "node_modules/a/node_modules/valibot/..."), return the installed
+// package directory ("node_modules/.../valibot"). Returns null for first-party
+// source that is not inside node_modules. Scoped packages keep both segments.
+export function packageDirFromModulePath(modulePath) {
+  const marker = 'node_modules/';
+  const index = modulePath.lastIndexOf(marker);
+  if (index === -1) return null;
+  const rest = modulePath.slice(index + marker.length);
+  const segments = rest.split('/');
+  const packageName = segments[0]?.startsWith('@') ? segments.slice(0, 2).join('/') : segments[0];
+  if (!packageName) return null;
+  return `${modulePath.slice(0, index)}${marker}${packageName}`;
+}
+
 // Read the installed dependency tree out of a parsed package-lock.json (lockfile
 // v2/v3 `packages` map). Skips the root package and workspace links; `dev`
 // reflects whether npm resolved the package solely for devDependencies.
@@ -122,23 +137,39 @@ export function describeViolation(violation) {
   return `${violation.name}@${violation.version ?? '?'} — ${reason}`;
 }
 
-// Deterministic attribution text for the production dependencies bundled into
-// shipped artifacts. No timestamps or host state so the output is byte-stable
-// and can be committed and freshness-checked in CI.
-export function renderAttribution(productionDependencies) {
-  const lines = [
+const ATTRIBUTION_SEPARATOR = '='.repeat(78);
+
+// Deterministic full-text attribution for the packages bundled into shipped
+// artifacts. Each entry carries its declared license plus the verbatim text of
+// the package's own license/notice file, satisfying permissive-license notice
+// requirements (MIT/BSD/etc. require the copyright and permission notice to
+// travel with distributed copies). No timestamps or host state, so the output
+// is byte-stable and can be committed and freshness-checked in CI.
+export function renderAttribution(bundledPackages) {
+  const header = [
     'Image Trail — Third-Party Software Notices',
     '',
-    'Image Trail itself is proprietary; see LICENSE. It bundles the following',
-    'third-party packages, each distributed under its own license as noted below.',
+    'Image Trail itself is proprietary; see LICENSE. It bundles the third-party',
+    'packages listed below. Each is distributed under its own license, and the',
+    "full text of each package's license/copyright notice follows its entry.",
     '',
   ];
-  const sorted = [...productionDependencies].sort((a, b) =>
+  const sorted = [...bundledPackages].sort((a, b) =>
     a.name === b.name ? String(a.version).localeCompare(String(b.version)) : a.name.localeCompare(b.name),
   );
-  for (const dependency of sorted) {
-    lines.push(`- ${dependency.name}@${dependency.version ?? '?'} (${dependency.license ?? 'UNKNOWN'})`);
-  }
-  lines.push('');
-  return lines.join('\n');
+  const sections = sorted.map((entry) => {
+    const notice =
+      typeof entry.notice === 'string' && entry.notice.trim() !== ''
+        ? entry.notice.trimEnd()
+        : 'No license file was found in the package; see the declared license identifier above.';
+    return [
+      ATTRIBUTION_SEPARATOR,
+      `${entry.name}@${entry.version ?? '?'} — ${entry.license ?? 'UNKNOWN'}`,
+      ATTRIBUTION_SEPARATOR,
+      '',
+      notice,
+      '',
+    ].join('\n');
+  });
+  return `${header.join('\n')}\n${sections.join('\n')}`;
 }

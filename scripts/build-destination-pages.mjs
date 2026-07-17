@@ -1,10 +1,5 @@
 #!/usr/bin/env node
 
-import { buildExtensionEntry } from './extension-build-policy.mjs';
+import { buildExtensionEntry, EXTENSION_ENTRY_POINTS } from './extension-build-policy.mjs';
 
-await buildExtensionEntry({
-  entryPoint: 'extension/src/destinations/destination-page.tsx',
-  outfile: 'extension/dist/src/destinations/destination-page.js',
-  format: 'esm',
-  jsx: 'automatic',
-});
+await buildExtensionEntry(EXTENSION_ENTRY_POINTS.destination);
