@@ -124,6 +124,69 @@ Design review should start from Storybook and the canonical acceptance pages:
   mobile ingestion, or photo-library replacement unless a future issue promotes
   those capabilities.
 
+## Accessibility Ground Rules (WCAG 2.2 AA)
+
+These rules are constraints on the design itself, applied while designing —
+not an audit run afterward. They are app-generic: the same rules apply to
+every product in this family. If a proposal deliberately breaks one, say so
+in the proposal with the reason; silence is treated as an oversight.
+
+Interaction design:
+
+- Every action a pointer can do, a keyboard can do. When a design includes a
+  pointer gesture (drag, wheel, hover, long-press), specify the keyboard and
+  single-click equivalent in the same proposal, not as a follow-up. Watch
+  paired interactions: if zoom gets keys, pan gets keys.
+- Nothing important lives only in a hover state. Hover-revealed controls also
+  reveal on keyboard focus.
+- No unmodified single-character shortcuts unless remappable and disableable.
+- Timed UI must be pausable, extendable, or persistent: no toast whose action
+  disappears with it, no chrome that auto-hides with no keyboard wake, no
+  countdown a slow user cannot finish.
+- Interactive targets are 24×24 px minimum; 44×44 preferred for primary
+  actions.
+- Never nest interactive elements (a clickable row containing buttons —
+  restructure so each control is its own element).
+
+Structure and semantics:
+
+- Design in native elements first: button, a, label+input, dl,
+  fieldset/legend, h1–h6, nav/main/aside. A div with a role is a last resort
+  with a written reason.
+- Every screen has a heading outline and landmarks; every control's visible
+  label is its accessible name (no placeholder-as-label, no icon-only control
+  without a name).
+- Modals and drawers: focus moves in on open, is trapped while open, and is
+  restored on close; the background is inert to assistive technology. Where
+  focus goes on close is part of the spec.
+- Async operations (saving, capturing, importing, backup) get a designed
+  announcement: what the live region says, and when.
+- Composite widgets (menus, tab bars, radio groups, grids) follow the ARIA
+  APG pattern: one Tab stop, arrow keys inside, stated in the spec.
+
+Visual design:
+
+- All text and meaningful icons meet 4.5:1 contrast (3:1 for large text)
+  against every background they sit on — including muted, faint, and danger
+  tones, which are the usual failures. Text over images gets a scrim.
+- State is never color-alone: pair it with an icon, weight, or text.
+- Design the reduced-motion variant of every animation at the same time as
+  the animation. Layouts survive 200% text scaling without loss.
+- Nothing critical sits where floating UI (toasts, pills, banners) can fully
+  cover a focused element.
+
+Content and media:
+
+- If a design includes audio or video, captions and transcripts are part of
+  the design, not an enhancement.
+- Never ask the user to re-enter information the app already has (password
+  confirmation for security is the one exception).
+- If a help affordance exists, it appears in the same place on every screen.
+
+Deliverable expectations: for each component or screen proposal, include
+keyboard behavior, focus behavior, accessible names, announcement text for
+state changes, and the reduced-motion variant.
+
 ## Design Tool Instructions
 
 When prompting an external design editor, include this file and current
@@ -169,3 +232,8 @@ Review each design proposal against this checklist:
   explicit and privacy-preserving.
 - Pre-release, source-only status is not overstated.
 - No screenshots or assets are added unless they are current and verified.
+- Accessibility Ground Rules are met, and any deliberate exception is stated
+  in the proposal with its reason.
+- Every pointer/hover/drag interaction in the proposal names its keyboard
+  equivalent, and every timed or auto-hiding element names its persistent or
+  keyboard-wakeable path.
