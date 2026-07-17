@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import 'fake-indexeddb/auto';
 import { openImageTrailDb } from '../extension/src/data/db.js';
-import { DataStore, IMAGE_TRAIL_DB_NAME, SchemaIndex } from '../extension/src/data/schema.js';
+import { DataStore, IMAGE_TRAIL_DB_NAME, IMAGE_TRAIL_DB_VERSION, SchemaIndex } from '../extension/src/data/schema.js';
 import { deleteImageTrailDb, openFreshImageTrailDb, asArray, requestToPromise, transactionDone } from './indexeddb-test-helpers.js';
 
 test('IndexedDB migrations create data stores, indexes, and schema metadata', async (t) => {
@@ -28,6 +28,9 @@ test('IndexedDB migrations create data stores, indexes, and schema metadata', as
       DataStore.MoveJournals,
       DataStore.MoveOutbox,
       DataStore.MoveReceipts,
+      DataStore.SecureSyncItems,
+      DataStore.SecureSyncOutbox,
+      DataStore.SecureSyncSessions,
       DataStore.SyncAudit,
       DataStore.SyncItems,
       DataStore.SyncReceipts,
@@ -57,6 +60,9 @@ test('IndexedDB migrations create data stores, indexes, and schema metadata', as
       DataStore.SyncItems,
       DataStore.SyncReceipts,
       DataStore.SyncSessions,
+      DataStore.SecureSyncItems,
+      DataStore.SecureSyncOutbox,
+      DataStore.SecureSyncSessions,
     ],
     'readonly',
   );
@@ -75,6 +81,8 @@ test('IndexedDB migrations create data stores, indexes, and schema metadata', as
   const moveOutbox = transaction.objectStore(DataStore.MoveOutbox);
   const syncAudit = transaction.objectStore(DataStore.SyncAudit);
   const syncItems = transaction.objectStore(DataStore.SyncItems);
+  const secureSyncItems = transaction.objectStore(DataStore.SecureSyncItems);
+  const secureSyncOutbox = transaction.objectStore(DataStore.SecureSyncOutbox);
 
   assert.deepEqual(asArray(keys.indexNames), [SchemaIndex.KeysByKind, SchemaIndex.KeysByReference, SchemaIndex.KeysByUuid].sort());
   assert.deepEqual(asArray(history.indexNames), [SchemaIndex.HistoryByKeyReference, SchemaIndex.HistoryByUpdatedAt].sort());
@@ -123,6 +131,8 @@ test('IndexedDB migrations create data stores, indexes, and schema metadata', as
   assert.deepEqual(asArray(moveAudit.indexNames), [SchemaIndex.MoveAuditByTransferId]);
   assert.deepEqual(asArray(syncItems.indexNames), [SchemaIndex.SyncItemsBySessionId]);
   assert.deepEqual(asArray(syncAudit.indexNames), [SchemaIndex.SyncAuditBySessionId]);
+  assert.deepEqual(asArray(secureSyncItems.indexNames), [SchemaIndex.SecureSyncItemsBySessionId]);
+  assert.deepEqual(asArray(secureSyncOutbox.indexNames), [SchemaIndex.SecureSyncOutboxBySessionId]);
 
   const metadata = await new Promise((resolve, reject) => {
     const request = transaction.objectStore(DataStore.Metadata).get('schema');
@@ -187,13 +197,38 @@ test('IndexedDB v11 migration adds durable Sync journals to an existing database
   assert.equal(opened.status.ok, true, opened.status.message);
   assert.ok(opened.db);
   t.after(() => opened.db?.close());
-  assert.equal(opened.db.version, 11);
+  assert.equal(opened.db.version, IMAGE_TRAIL_DB_VERSION);
   assert.deepEqual(
     [DataStore.SyncSessions, DataStore.SyncItems, DataStore.SyncReceipts, DataStore.SyncAudit].filter((store) =>
       opened.db?.objectStoreNames.contains(store),
     ),
     [DataStore.SyncSessions, DataStore.SyncItems, DataStore.SyncReceipts, DataStore.SyncAudit],
   );
+});
+
+test('IndexedDB v12 migration adds pairing-key-sealed Sync runtime stores to an existing database', async (t) => {
+  await deleteImageTrailDb();
+  const legacyDb = await new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(IMAGE_TRAIL_DB_NAME, 11);
+    request.onupgradeneeded = () => request.result.createObjectStore(DataStore.Metadata, { keyPath: 'key' });
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  legacyDb.close();
+
+  const opened = await openImageTrailDb();
+  assert.equal(opened.status.ok, true, opened.status.message);
+  assert.ok(opened.db);
+  t.after(() => opened.db?.close());
+  assert.equal(opened.db.version, IMAGE_TRAIL_DB_VERSION);
+  const transaction = opened.db.transaction(
+    [DataStore.SecureSyncSessions, DataStore.SecureSyncItems, DataStore.SecureSyncOutbox],
+    'readonly',
+  );
+  assert.deepEqual(asArray(transaction.objectStore(DataStore.SecureSyncSessions).indexNames), []);
+  assert.deepEqual(asArray(transaction.objectStore(DataStore.SecureSyncItems).indexNames), [SchemaIndex.SecureSyncItemsBySessionId]);
+  assert.deepEqual(asArray(transaction.objectStore(DataStore.SecureSyncOutbox).indexNames), [SchemaIndex.SecureSyncOutboxBySessionId]);
+  await transactionDone(transaction);
 });
 
 test('IndexedDB v4 migration preserves existing blob records', async (t) => {

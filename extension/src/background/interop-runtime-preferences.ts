@@ -6,6 +6,8 @@ export interface InteropRuntimePreferences {
   readonly operation: InteropOperation;
   readonly activeTransferId?: string | undefined;
   readonly activeRecordIds?: readonly string[] | undefined;
+  readonly activeSyncSessionId?: string | undefined;
+  readonly activeSyncRecordIds?: readonly string[] | undefined;
 }
 
 export function parseInteropRuntimePreferences(value: unknown): InteropRuntimePreferences {
@@ -18,11 +20,25 @@ export function parseInteropRuntimePreferences(value: unknown): InteropRuntimePr
   const activeRecordIds = Array.isArray(record['activeRecordIds'])
     ? record['activeRecordIds'].filter((id): id is string => typeof id === 'string' && id !== '')
     : undefined;
+  const activeSyncSessionId = typeof record['activeSyncSessionId'] === 'string' ? record['activeSyncSessionId'] : undefined;
+  const activeSyncRecordIds = Array.isArray(record['activeSyncRecordIds'])
+    ? record['activeSyncRecordIds'].filter((id): id is string => typeof id === 'string' && id !== '')
+    : undefined;
   return {
     provider,
     operation: record['operation'] === 'sync' ? 'sync' : 'move',
     ...(activeTransferId && activeRecordIds ? { activeTransferId, activeRecordIds } : {}),
+    ...(activeSyncSessionId && activeSyncRecordIds ? { activeSyncSessionId, activeSyncRecordIds } : {}),
   };
+}
+
+export function activeInteropRuntimeSelection(value: InteropRuntimePreferences): {
+  readonly id: string | undefined;
+  readonly recordIds: readonly string[] | undefined;
+} {
+  return value.operation === 'sync'
+    ? { id: value.activeSyncSessionId, recordIds: value.activeSyncRecordIds }
+    : { id: value.activeTransferId, recordIds: value.activeRecordIds };
 }
 
 export function sameInteropRecordIds(left: readonly string[] | undefined, right: readonly string[]): boolean {

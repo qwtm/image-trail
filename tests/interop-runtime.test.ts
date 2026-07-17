@@ -41,11 +41,16 @@ const context = { entry: 'selection' as const, total: 3, recordIds: ['bookmark-1
 class MemoryStore implements InteropObjectStore {
   readonly provider = 'google-drive' as const;
   readonly objects = new Map<string, Uint8Array>();
+  failPuts = 0;
 
   authState(): Promise<'connected'> {
     return Promise.resolve('connected');
   }
   put(path: string, bytes: Uint8Array): Promise<{ readonly bytes: number }> {
+    if (this.failPuts > 0) {
+      this.failPuts -= 1;
+      return Promise.reject(new InteropTransportError('Temporary provider failure.', 'provider-unavailable', true));
+    }
     this.objects.set(path, bytes.slice());
     return Promise.resolve({ bytes: bytes.byteLength });
   }
@@ -341,6 +346,72 @@ test('runtime start publishes the exact reviewed selection and reloads durable M
   assert.equal(completed.snapshot.counts.acknowledged, 1);
   assert.equal(completed.snapshot.counts.finalized, 1);
   assert.deepEqual(finalized, ['bookmark-1']);
+});
+
+test('runtime Sync publishes a pairing-key-sealed selected snapshot without plaintext journal metadata', async (t) => {
+  const store = new MemoryStore();
+  const { runtime, db, getStored } = await harness({ openProvider: async () => store });
+  t.after(() => db.close());
+  const key = await ensureDurableBookmarkKey(new KeysRepository(db));
+  await new BookmarksRepository(db).sealAndPut(
+    'bookmark-1',
+    { url: 'https://private.example.test/sync.jpg', title: 'Private Sync title', bookmarkedAt: '2026-07-17T12:00:00.000Z' },
+    key.key,
+    key.reference,
+    '2026-07-17T12:00:00.000Z',
+  );
+  const selected = { entry: 'bookmark' as const, total: 1, recordIds: ['bookmark-1'], locked: false };
+  await runtime.dispatch(selected, { name: 'select-provider', provider: 'google-drive' });
+  await runtime.dispatch(selected, {
+    name: 'import-pairing',
+    fileContent: readFileSync('contracts/interop/v1/fixtures/valid-pairing-bundle.json', 'utf8'),
+    password: 'fixture-password',
+  });
+  const moved = await runtime.dispatch(selected, { name: 'start' });
+  assert.equal(moved.snapshot.phase, 'awaiting-acknowledgement');
+  const moveTransferId = (getStored() as { activeTransferId?: string }).activeTransferId;
+  assert.ok(moveTransferId);
+  await runtime.dispatch(selected, { name: 'set-operation', operation: 'sync' });
+  store.failPuts = 1;
+  const started = await runtime.dispatch(selected, { name: 'start' });
+  assert.equal(started.ok, false);
+  assert.equal(started.snapshot.operation, 'sync');
+  assert.equal(started.snapshot.phase, 'failed');
+  assert.equal(started.snapshot.error?.code, 'partial-failure');
+  assert.equal(started.snapshot.processed, 0);
+  assert.equal(started.snapshot.counts.eligible, 1);
+  const preferences = getStored() as { activeTransferId?: string; activeSyncSessionId?: string };
+  assert.equal(preferences.activeTransferId, moveTransferId);
+  const sessionId = preferences.activeSyncSessionId;
+  assert.ok(sessionId);
+  const transaction = db.transaction(['secureSyncItems', 'secureSyncOutbox'], 'readonly');
+  const itemRequest = transaction.objectStore('secureSyncItems').getAll();
+  const outboxRequest = transaction.objectStore('secureSyncOutbox').getAll();
+  const result = (request: IDBRequest<unknown[]>): Promise<unknown[]> =>
+    new Promise((resolve, reject) => {
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+  const [items, outbox] = await Promise.all([result(itemRequest), result(outboxRequest)]);
+  assert.doesNotMatch(JSON.stringify({ items, outbox }), /Private Sync title|private\.example\.test|sync\.jpg/u);
+  const row = outbox[0] as { ciphertext?: ArrayBuffer } | undefined;
+  assert.ok(row?.ciphertext);
+  const pairing = (await new InteropKeysRepository(db).list())[0];
+  assert.ok(pairing);
+  const envelope = await openInteropMessage(new Uint8Array(row.ciphertext), pairing);
+  assert.equal(envelope.header.operation, 'sync');
+  assert.equal(envelope.payload.kind === 'record' ? envelope.payload.record.title : null, 'Private Sync title');
+  const restored = await runtime.dispatch(selected, { name: 'status' });
+  assert.equal(restored.snapshot.phase, 'failed');
+  assert.equal(restored.snapshot.error?.code, 'interrupted');
+  const resumedAfterFailure = await runtime.dispatch(selected, { name: 'resume' });
+  assert.equal(resumedAfterFailure.snapshot.phase, 'reviewing');
+  assert.equal(resumedAfterFailure.snapshot.processed, 1);
+  const paused = await runtime.dispatch(selected, { name: 'pause' });
+  assert.equal(paused.snapshot.phase, 'paused');
+  const resumed = await runtime.dispatch(selected, { name: 'resume' });
+  assert.equal(resumed.snapshot.phase, 'reviewing');
+  assert.equal(resumed.snapshot.processed, 1);
 });
 
 test('locked workspaces never start or expose provider setup through a successful result', async (t) => {
