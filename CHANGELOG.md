@@ -1,5 +1,12 @@
 # image-trail
 
+## 0.24.0
+
+### Minor Changes
+
+- fd73fe4: Discover pairing-key-encrypted Overlook Sync replies and surface review-only conflicts without exposing record metadata at rest.
+- 0d959d0: Publish selected Sync snapshots through a durable pairing-key-encrypted provider outbox.
+
 ## 0.23.0
 
 ### Minor Changes
