@@ -13,7 +13,8 @@ type LicensePolicyModule = {
   lockfileDependencies(lock: Record<string, unknown>): Dependency[];
   evaluateLicenses(dependencies: Dependency[]): { violations: Violation[]; errors: Violation[]; warnings: Violation[] };
   describeViolation(violation: Violation): string;
-  renderAttribution(dependencies: Dependency[]): string;
+  packageDirFromModulePath(modulePath: string): string | null;
+  renderAttribution(packages: { name: string; version: string | null; license: string | null; notice?: string | null }[]): string;
 };
 
 const policy = (await import(pathToFileURL(join(process.cwd(), 'scripts/license-policy.mjs')).href)) as LicensePolicyModule;
@@ -80,16 +81,26 @@ test('production violations are errors, dev violations are warnings, tagged by k
   assert.match(policy.describeViolation(errors[1] as Violation), /no license metadata/u);
 });
 
-test('attribution renders deterministically, sorted, with license annotations', () => {
+test('package directories resolve from esbuild metafile input paths, including scoped and nested', () => {
+  assert.equal(policy.packageDirFromModulePath('node_modules/valibot/dist/index.js'), 'node_modules/valibot');
+  assert.equal(policy.packageDirFromModulePath('node_modules/@scope/pkg/lib/a.js'), 'node_modules/@scope/pkg');
+  assert.equal(policy.packageDirFromModulePath('node_modules/a/node_modules/valibot/x.js'), 'node_modules/a/node_modules/valibot');
+  assert.equal(policy.packageDirFromModulePath('extension/src/core/types.schema.ts'), null);
+});
+
+test('attribution renders deterministically, sorted, and embeds full notice text', () => {
   const first = policy.renderAttribution([
-    { name: 'scheduler', version: '0.27.0', license: 'MIT', dev: false },
-    { name: 'react', version: '19.2.7', license: 'MIT', dev: false },
+    { name: 'scheduler', version: '0.27.0', license: 'MIT', notice: 'SCHEDULER MIT TEXT' },
+    { name: 'react', version: '19.2.7', license: 'MIT', notice: 'REACT MIT TEXT' },
   ]);
   const second = policy.renderAttribution([
-    { name: 'react', version: '19.2.7', license: 'MIT', dev: false },
-    { name: 'scheduler', version: '0.27.0', license: 'MIT', dev: false },
+    { name: 'react', version: '19.2.7', license: 'MIT', notice: 'REACT MIT TEXT' },
+    { name: 'scheduler', version: '0.27.0', license: 'MIT', notice: 'SCHEDULER MIT TEXT' },
   ]);
   assert.equal(first, second);
-  assert.ok(first.indexOf('react@19.2.7 (MIT)') < first.indexOf('scheduler@0.27.0 (MIT)'));
+  assert.ok(first.indexOf('react@19.2.7 — MIT') < first.indexOf('scheduler@0.27.0 — MIT'));
+  assert.match(first, /REACT MIT TEXT/u);
   assert.match(first, /proprietary; see LICENSE/u);
+  // A package with no discoverable notice file still renders with a placeholder.
+  assert.match(policy.renderAttribution([{ name: 'x', version: '1.0.0', license: 'MIT', notice: null }]), /No license file was found/u);
 });
