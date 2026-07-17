@@ -1,5 +1,15 @@
 # image-trail
 
+## 0.18.0
+
+### Minor Changes
+
+- 6f72ee5: Add truthful Overlook Transfer and Sync entry points plus review, conflict, progress, recovery, provider, pairing, and locked-workspace states.
+
+### Patch Changes
+
+- 067b064: Gate cross-product interoperability evidence and manual release closeout against the exact pinned Photos contract.
+
 ## 0.17.0
 
 ### Minor Changes
