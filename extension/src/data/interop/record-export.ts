@@ -34,6 +34,10 @@ interface RecordExportOptions {
   readonly createId?: (() => string) | undefined;
 }
 
+export interface RecordExportReviewOptions {
+  readonly includeOriginalBytes?: boolean | undefined;
+}
+
 const INITIAL_REVISION: InteropRevisionVector = { imageTrail: 1, overlook: 0 };
 type ExportPayload = DurableBookmarkPayloadV1 | DurableEncryptedPinPayloadV1;
 
@@ -179,7 +183,11 @@ export class InteropRecordExportStore {
     this.#createId = options.createId ?? (() => crypto.randomUUID());
   }
 
-  async review(recordIds: readonly string[], activeBlobKey: ActiveBlobKey | null = null): Promise<CanonicalRecordExportReview> {
+  async review(
+    recordIds: readonly string[],
+    activeBlobKey: ActiveBlobKey | null = null,
+    options: RecordExportReviewOptions = {},
+  ): Promise<CanonicalRecordExportReview> {
     const uniqueIds = [...new Set(recordIds.map((id) => id.trim()).filter(Boolean))];
     const bookmarks = new BookmarksRepository(this.db);
     const encryptedPins = new EncryptedPinsRepository(this.db);
@@ -195,7 +203,8 @@ export class InteropRecordExportStore {
         : payload?.protectedPin
           ? null
           : payload;
-      const original = exportPayload ? await this.openOriginal(exportPayload, activeBlobKey) : null;
+      const original =
+        exportPayload && options.includeOriginalBytes !== false ? await this.openOriginal(exportPayload, activeBlobKey) : null;
       let retainedOriginal = false;
       try {
         const interop = exportPayload ? custody(localId, exportPayload, original?.reference ?? null, this.#createId) : null;

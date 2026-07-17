@@ -3,7 +3,9 @@ import type { InteropErrorCode, InteropTransferPhase } from '../core/interop/con
 import type { InteropProviderState, InteropRuntimeError } from '../core/interop/runtime-state.js';
 import { InteropTransportError } from '../core/interop/transport.js';
 import type { MoveOutboxProgress } from '../data/interop/move-outbox-publisher.js';
+import type { SecureSyncProgress } from '../data/interop/secure-sync-outbox-repository.js';
 import { InteropMoveSetupError } from './interop-move-runtime.js';
+import { InteropSyncSetupError } from './interop-sync-runtime.js';
 
 export interface InteropRuntimeProgressView {
   readonly phase: InteropTransferPhase;
@@ -14,6 +16,7 @@ export interface InteropRuntimeProgressView {
 
 export function interopRuntimeError(error: unknown): InteropRuntimeError {
   if (error instanceof InteropMoveSetupError) return { code: error.code, message: error.message, retryable: error.retryable };
+  if (error instanceof InteropSyncSetupError) return { code: error.code, message: error.message, retryable: error.retryable };
   if (error instanceof InteropTransportError) {
     const code: InteropErrorCode =
       error.code === 'unsupported' ? 'provider-unavailable' : error.code === 'not-found' ? 'provider-unavailable' : error.code;
@@ -23,6 +26,31 @@ export function interopRuntimeError(error: unknown): InteropRuntimeError {
     code: 'provider-unavailable',
     message: error instanceof Error ? error.message : 'Interoperability provider is unavailable.',
     retryable: false,
+  };
+}
+
+export function syncProgressView(progress: SecureSyncProgress, error: InteropRuntimeError | null = null): InteropRuntimeProgressView {
+  const interrupted = progress.session.phase === 'transferring' && progress.pending > 0;
+  return {
+    phase: interrupted ? 'failed' : progress.session.phase,
+    error: interrupted
+      ? { code: 'interrupted', message: 'Encrypted Sync publication is incomplete. Resume to continue.', retryable: true }
+      : error,
+    counts: progress.counts,
+    processed: progress.delivered,
+  };
+}
+
+export function syncProgressFailureView(
+  progress: SecureSyncProgress,
+  cause: InteropRuntimeError,
+  message: string,
+): InteropRuntimeProgressView {
+  return {
+    phase: 'failed',
+    error: { code: cause.code === 'provider-unavailable' ? 'partial-failure' : cause.code, message, retryable: true },
+    counts: progress.counts,
+    processed: progress.delivered,
   };
 }
 
@@ -71,7 +99,7 @@ export function moveProgressFailureView(
 }
 
 export function moveSetupFailureView(
-  error: InteropMoveSetupError,
+  error: InteropMoveSetupError | InteropSyncSetupError,
   providerState: InteropProviderState,
 ): { readonly providerState: InteropProviderState; readonly error: InteropRuntimeError } {
   return {

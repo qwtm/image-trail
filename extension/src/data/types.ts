@@ -22,7 +22,10 @@ export type DataStoreName =
   | 'syncSessions'
   | 'syncItems'
   | 'syncReceipts'
-  | 'syncAudit';
+  | 'syncAudit'
+  | 'secureSyncSessions'
+  | 'secureSyncItems'
+  | 'secureSyncOutbox';
 export type DataStatusCode =
   'ok' | 'db-open-failed' | 'migration-failed' | 'encryption-failed' | 'decryption-failed' | 'not-found' | 'locked';
 
