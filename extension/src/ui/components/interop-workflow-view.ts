@@ -233,7 +233,7 @@ function trapInteropFocus(scrim: HTMLElement, close: () => void): void {
   });
 }
 
-export function openInteropWorkflow(entry: InteropEntryContext, total: number, locked = false): void {
+export function openInteropWorkflow(entry: InteropEntryContext, recordIds: readonly string[], locked = false): void {
   let focused = document.activeElement;
   while (focused instanceof HTMLElement && focused.shadowRoot?.activeElement instanceof HTMLElement) {
     focused = focused.shadowRoot.activeElement;
@@ -263,7 +263,7 @@ export function openInteropWorkflow(entry: InteropEntryContext, total: number, l
     }
     if (previousFocus?.isConnected) previousFocus.focus();
   };
-  const context: InteropRuntimeContext = { entry, total, locked };
+  const context: InteropRuntimeContext = { entry, total: recordIds.length, recordIds, locked };
   let latestRequest = 0;
   const dispatch = async (action: InteropRuntimeAction): Promise<void> => {
     const request = ++latestRequest;
@@ -287,7 +287,7 @@ export function openInteropWorkflow(entry: InteropEntryContext, total: number, l
   const render = (state: InteropVisibleWorkflow): void => {
     scrim.replaceChildren(createInteropWorkflowView(state, handlers));
   };
-  render(blockedInteropWorkflow(entry, total, locked));
+  render(blockedInteropWorkflow(entry, recordIds.length, locked));
   scrim.addEventListener('click', (event) => {
     if (event.target === scrim) close();
   });

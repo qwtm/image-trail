@@ -108,7 +108,7 @@ test('open workflow makes the panel inert and restores focus when closed', () =>
   document.body.append(panel);
   opener.focus();
 
-  openInteropWorkflow('bookmark', 1);
+  openInteropWorkflow('bookmark', ['bookmark-1']);
   assert.equal(panel.inert, true);
   assert.equal(panel.style.pointerEvents, 'none');
   const dialog = document.querySelector('[role="dialog"][aria-label="Transfer and Sync"]');
@@ -134,7 +134,7 @@ test('open workflow traps keyboard focus inside the active shadow root', () => {
   document.body.append(host);
   opener.focus();
 
-  openInteropWorkflow('bookmark', 1);
+  openInteropWorkflow('bookmark', ['bookmark-1']);
   const dialog = shadow.querySelector('[role="dialog"][aria-label="Transfer and Sync"]');
   assert.ok(dialog instanceof HTMLElement);
   const close = Array.from(dialog.querySelectorAll('button')).find((control) => control.textContent === 'Close');
@@ -175,7 +175,7 @@ test('open workflow ignores an older status response after a newer operation res
   });
   t.after(() => Reflect.deleteProperty(globalThis, 'chrome'));
 
-  openInteropWorkflow('bookmark', 1);
+  openInteropWorkflow('bookmark', ['bookmark-1']);
   const dialog = document.querySelector('[role="dialog"][aria-label="Transfer and Sync"]');
   assert.ok(dialog instanceof HTMLElement);
   const sync = Array.from(dialog.querySelectorAll('button')).find((control) => control.textContent === 'Sync');

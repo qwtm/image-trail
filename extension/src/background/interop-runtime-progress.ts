@@ -1,0 +1,62 @@
+import type { InteropCounts } from '../core/interop/messages.js';
+import type { InteropTransferPhase } from '../core/interop/contract.js';
+import type { InteropProviderState, InteropRuntimeError } from '../core/interop/runtime-state.js';
+import type { MoveOutboxProgress } from '../data/interop/move-outbox-publisher.js';
+import type { InteropMoveSetupError } from './interop-move-runtime.js';
+
+export interface InteropRuntimeProgressView {
+  readonly phase: InteropTransferPhase;
+  readonly error: InteropRuntimeError | null;
+  readonly counts: InteropCounts;
+  readonly processed: number;
+}
+
+export function emptyInteropCounts(total: number): InteropCounts {
+  return {
+    total,
+    eligible: 0,
+    duplicate: 0,
+    conflict: 0,
+    metadataOnly: 0,
+    unsupported: 0,
+    skipped: 0,
+    failed: 0,
+    acknowledged: 0,
+    finalized: 0,
+  };
+}
+
+export function moveProgressView(progress: MoveOutboxProgress, providerError: InteropRuntimeError | null): InteropRuntimeProgressView {
+  return {
+    phase: progress.pending > 0 ? 'failed' : progress.journal.phase,
+    error:
+      progress.pending > 0
+        ? { code: 'interrupted', message: 'Encrypted Move outbox publication is incomplete. Resume to continue.', retryable: true }
+        : providerError,
+    counts: progress.counts,
+    processed: progress.delivered,
+  };
+}
+
+export function moveProgressFailureView(
+  progress: MoveOutboxProgress,
+  cause: InteropRuntimeError,
+  message: string,
+): InteropRuntimeProgressView {
+  return {
+    phase: 'failed',
+    error: { code: cause.code === 'provider-unavailable' ? 'partial-failure' : cause.code, message, retryable: true },
+    counts: progress.counts,
+    processed: progress.delivered,
+  };
+}
+
+export function moveSetupFailureView(
+  error: InteropMoveSetupError,
+  providerState: InteropProviderState,
+): { readonly providerState: InteropProviderState; readonly error: InteropRuntimeError } {
+  return {
+    providerState: error.code === 'provider-unavailable' ? 'unavailable' : providerState,
+    error: { code: error.code, message: error.message, retryable: error.retryable },
+  };
+}
