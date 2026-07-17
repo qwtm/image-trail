@@ -1,5 +1,11 @@
 # image-trail
 
+## 0.18.1
+
+### Patch Changes
+
+- ff81768: Keep Settings in place after choosing or cancelling a key-backup file.
+
 ## 0.18.0
 
 ### Minor Changes
