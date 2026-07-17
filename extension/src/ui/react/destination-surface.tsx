@@ -136,7 +136,13 @@ function GalleryBody({ state, dispatch }: { readonly state: PanelState; readonly
       <button
         type="button"
         disabled={state.bookmarks.length === 0}
-        onClick={() => openInteropWorkflow('gallery', state.bookmarks.length, !state.blobKeyUnlocked && state.blobKeyAvailable)}
+        onClick={() =>
+          openInteropWorkflow(
+            'gallery',
+            state.bookmarks.map((bookmark) => bookmark.id),
+            !state.blobKeyUnlocked && state.blobKeyAvailable,
+          )
+        }
       >
         Transfer &amp; Sync
       </button>

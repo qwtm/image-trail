@@ -9,6 +9,7 @@ export type InteropPairingState = 'unpaired' | 'pairing' | 'paired' | 'invalid';
 export interface InteropRuntimeContext {
   readonly entry: InteropEntryContext;
   readonly total: number;
+  readonly recordIds: readonly string[];
   readonly locked: boolean;
 }
 

@@ -5,7 +5,7 @@ import { IDBFactory } from 'fake-indexeddb';
 import * as v from 'valibot';
 
 import { InteropRuntime, type InteropRuntimeDependencies } from '../extension/src/background/interop-runtime.js';
-import { InteropTransportError } from '../extension/src/core/interop/transport.js';
+import { InteropTransportError, sha256, type InteropObjectPage, type InteropObjectStore } from '../extension/src/core/interop/transport.js';
 import {
   createInteropRuntimeMessage,
   createInteropRuntimeResultMessage,
@@ -13,8 +13,42 @@ import {
 } from '../extension/src/background/interop-runtime-messages.js';
 import { interopRuntimeRequestSchema } from '../extension/src/background/message-schemas.js';
 import { openImageTrailDb } from '../extension/src/data/db.js';
+import { ensureDurableBookmarkKey } from '../extension/src/data/durable-bookmark-key.js';
+import { BookmarksRepository } from '../extension/src/data/repositories/bookmarks-repository.js';
+import { KeysRepository } from '../extension/src/data/repositories/keys-repository.js';
 
-const context = { entry: 'selection' as const, total: 3, locked: false };
+const context = { entry: 'selection' as const, total: 3, recordIds: ['bookmark-1', 'bookmark-2', 'bookmark-3'], locked: false };
+
+class MemoryStore implements InteropObjectStore {
+  readonly provider = 'google-drive' as const;
+  readonly objects = new Map<string, Uint8Array>();
+
+  authState(): Promise<'connected'> {
+    return Promise.resolve('connected');
+  }
+  put(path: string, bytes: Uint8Array): Promise<{ readonly bytes: number }> {
+    this.objects.set(path, bytes.slice());
+    return Promise.resolve({ bytes: bytes.byteLength });
+  }
+  get(path: string): Promise<Uint8Array> {
+    const bytes = this.objects.get(path);
+    return bytes ? Promise.resolve(bytes.slice()) : Promise.reject(new InteropTransportError('missing', 'not-found', false));
+  }
+  list(_prefix: string, _cursor: string | null): Promise<InteropObjectPage> {
+    return Promise.resolve({ entries: [], nextCursor: null });
+  }
+  delete(path: string): Promise<void> {
+    this.objects.delete(path);
+    return Promise.resolve();
+  }
+  quota(): Promise<{ readonly usedBytes: number; readonly totalBytes: number }> {
+    return Promise.resolve({ usedBytes: 0, totalBytes: 1_000_000 });
+  }
+  async verify(path: string): Promise<{ readonly sha256: string; readonly bytes: number }> {
+    const bytes = await this.get(path);
+    return { sha256: await sha256(bytes), bytes: bytes.byteLength };
+  }
+}
 
 async function harness(overrides: Partial<InteropRuntimeDependencies> = {}) {
   const opened = await openImageTrailDb(new IDBFactory());
@@ -36,6 +70,7 @@ async function harness(overrides: Partial<InteropRuntimeDependencies> = {}) {
     probeICloud: async () => {
       throw new Error('Signed Overlook iCloud host is missing.');
     },
+    openProvider: async () => null,
     ...overrides,
   };
   return { runtime: new InteropRuntime(dependencies), db: opened.db, probes };
@@ -111,7 +146,7 @@ test('an unconfigured Google OAuth client keeps Drive unavailable without claimi
   assert.match(result.snapshot.provider.detail, /configured extension OAuth client/u);
 });
 
-test('pairing import stores non-extractable custody while start fails without claiming transfer', async (t) => {
+test('pairing import stores non-extractable custody while unavailable publication fails without claiming transfer', async (t) => {
   const { runtime, db } = await harness();
   t.after(() => db.close());
   await runtime.dispatch(context, { name: 'select-provider', provider: 'google-drive' });
@@ -121,9 +156,36 @@ test('pairing import stores non-extractable custody while start fails without cl
   assert.equal(paired.ok, true);
   const started = await runtime.dispatch(context, { name: 'start' });
   assert.equal(started.ok, false);
-  assert.equal(started.snapshot.error?.code, 'unsupported-record');
+  assert.equal(started.snapshot.error?.code, 'provider-unavailable');
   assert.equal(started.snapshot.processed, 0);
   assert.equal(started.snapshot.counts.finalized, 0);
+});
+
+test('runtime start publishes the exact reviewed selection and reloads durable Move progress', async (t) => {
+  const store = new MemoryStore();
+  const { runtime, db } = await harness({ openProvider: async () => store });
+  t.after(() => db.close());
+  const key = await ensureDurableBookmarkKey(new KeysRepository(db));
+  await new BookmarksRepository(db).sealAndPut(
+    'bookmark-1',
+    { url: 'https://example.test/one.jpg', title: 'One', bookmarkedAt: '2026-07-17T12:00:00.000Z' },
+    key.key,
+    key.reference,
+    '2026-07-17T12:00:00.000Z',
+  );
+  const selectedContext = { entry: 'bookmark' as const, total: 1, recordIds: ['bookmark-1'], locked: false };
+  await runtime.dispatch(selectedContext, { name: 'select-provider', provider: 'google-drive' });
+  const bundle = readFileSync('contracts/interop/v1/fixtures/valid-pairing-bundle.json', 'utf8');
+  await runtime.dispatch(selectedContext, { name: 'import-pairing', fileContent: bundle, password: 'fixture-password' });
+  const started = await runtime.dispatch(selectedContext, { name: 'start' });
+  assert.equal(started.ok, true);
+  assert.equal(started.snapshot.phase, 'awaiting-acknowledgement');
+  assert.equal(started.snapshot.counts.eligible, 1);
+  assert.equal(started.snapshot.processed, 1);
+  assert.ok(store.objects.size > 0);
+  const restored = await runtime.dispatch(selectedContext, { name: 'status' });
+  assert.equal(restored.snapshot.phase, 'awaiting-acknowledgement');
+  assert.equal(restored.snapshot.processed, 1);
 });
 
 test('locked workspaces never start or expose provider setup through a successful result', async (t) => {

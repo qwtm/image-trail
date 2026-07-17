@@ -20,7 +20,11 @@ export function createInteropQueueButton(
     const first = records[0];
     const entry =
       selectedIds.length > 0 ? 'selection' : records.length === 1 && first && hasStoredOriginal(first) ? 'captured-original' : 'album';
-    openInteropWorkflow(entry, records.length, locked);
+    openInteropWorkflow(
+      entry,
+      records.map((record) => record.id),
+      locked,
+    );
   });
   return control;
 }
@@ -31,7 +35,7 @@ export function createInteropRecordButton(item: ImageDisplayRecord, locked: bool
   control.textContent = 'Move / Sync';
   control.title = 'Review this record for Move to Overlook or Sync with Overlook.';
   control.addEventListener('click', () => {
-    openInteropWorkflow(hasStoredOriginal(item) ? 'captured-original' : 'bookmark', 1, locked);
+    openInteropWorkflow(hasStoredOriginal(item) ? 'captured-original' : 'bookmark', [item.id], locked);
   });
   return control;
 }

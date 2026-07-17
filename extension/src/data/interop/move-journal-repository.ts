@@ -49,19 +49,21 @@ export class MoveJournalError extends Error {
 export class MoveJournalRepository {
   constructor(private readonly db: IDBDatabase) {}
 
-  async queueRequest(envelopeInput: InteropEnvelope, at: string): Promise<StoredMoveJournal> {
+  async queueRequest(envelopeInput: InteropEnvelope, at: string, sourceLocalId = ''): Promise<StoredMoveJournal> {
     const envelope = parseInteropEnvelope(envelopeInput);
     if (envelope.header.operation !== 'move' || !isMoveRecordEnvelope(envelope)) {
       throw new MoveJournalError('Move outbox accepts only canonical Move record messages.');
     }
     const transaction = this.db.transaction(JOURNAL_STORES, 'readwrite');
+    const localId = sourceLocalId.trim() || envelope.payload.record.identity.origin.localId;
     const journal = await this.ensureJournal(transaction, envelope, 'awaiting-acknowledgement', at);
     const items = transaction.objectStore(DataStore.MoveItems);
     const id = moveItemId(envelope.header.transferId, envelope.payload.record.identity.interopId);
     const existing = hydrateRecord(DataStore.MoveItems, moveItemRecordSchema, await requestToPromise<unknown>(items.get(id)));
-    const item = existing ?? queuedMoveItem(envelope);
+    const item = existing ?? queuedMoveItem(envelope, localId);
     if (
       item.sourceMessageId !== envelope.header.messageId ||
+      item.sourceLocalId !== localId ||
       item.reviewCategory !== envelope.payload.reviewCategory ||
       !sameMoveValue(item.record, envelope.payload.record) ||
       !sameMoveValue(item.albums, envelope.payload.albums)

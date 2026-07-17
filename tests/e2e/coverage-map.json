@@ -10,8 +10,13 @@
       "coverage": [
         {
           "type": "unit-dom",
-          "paths": ["tests/dom/interop-workflow-view.test.ts", "tests/dom/bookmarks-view.test.ts"],
-          "notes": "Covers exact review and custody counts, live provider selection and pairing controls, provider and pairing gating, conflict apply-to-all intent, Queue and captured-original entry points, and a locked DOM that contains no protected rows or provider detail."
+          "paths": [
+            "tests/dom/interop-workflow-view.test.ts",
+            "tests/dom/bookmarks-view.test.ts",
+            "tests/interop-runtime.test.ts",
+            "tests/interop-record-export.test.ts"
+          ],
+          "notes": "Covers exact review and custody counts, exact durable bookmark selection IDs, stable canonical identity, pairing-key-sealed Move outbox persistence and restart recovery, live provider selection and pairing controls, provider and pairing gating, conflict apply-to-all intent, Queue and captured-original entry points, and a locked DOM that contains no protected rows or provider detail."
         },
         {
           "type": "storybook",

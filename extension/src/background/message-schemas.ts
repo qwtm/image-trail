@@ -24,6 +24,7 @@ export const emptyPayloadSchema = v.object({}) as v.GenericSchema<unknown, Recor
 const interopRuntimeContextSchema = v.object({
   entry: v.picklist(['bookmark', 'selection', 'album', 'gallery', 'captured-original', 'settings']),
   total: v.pipe(v.number(), v.finite(), v.integer(), v.minValue(0), v.maxValue(Number.MAX_SAFE_INTEGER)),
+  recordIds: v.pipe(v.array(v.pipe(v.string(), v.minLength(1))), v.readonly()),
   locked: v.boolean(),
 });
 const interopRuntimeActionSchema = v.variant('name', [

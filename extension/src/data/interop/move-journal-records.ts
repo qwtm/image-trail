@@ -38,13 +38,16 @@ export function hydrateRequiredMove<T>(store: string, schema: v.GenericSchema<un
   return result;
 }
 
-export function queuedMoveItem(envelope: MoveRecordEnvelope): MoveItemRecord {
+export function queuedMoveItem(
+  envelope: MoveRecordEnvelope,
+  sourceLocalId = envelope.payload.record.identity.origin.localId,
+): MoveItemRecord {
   return {
     id: moveItemId(envelope.header.transferId, envelope.payload.record.identity.interopId),
     transferId: envelope.header.transferId,
     interopId: envelope.payload.record.identity.interopId,
     sourceMessageId: envelope.header.messageId,
-    sourceLocalId: envelope.payload.record.identity.origin.localId,
+    sourceLocalId,
     reviewCategory: envelope.payload.reviewCategory,
     record: envelope.payload.record,
     albums: envelope.payload.albums,
