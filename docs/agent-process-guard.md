@@ -14,7 +14,7 @@ polls `ps -axo pid,ppid,pgid,rss` every 250 ms. Enforced, per run:
 
 | Control               | Default                                                      | Override                                      |
 | --------------------- | ------------------------------------------------------------ | --------------------------------------------- |
-| Aggregate RSS ceiling | 4096 MB (6144 MB for e2e)                                    | `IMAGE_TRAIL_GUARD_RSS_MB` / `--rss-mb`       |
+| Aggregate RSS ceiling | 4096 MB (12288 MB for e2e)                                   | `IMAGE_TRAIL_GUARD_RSS_MB` / `--rss-mb`       |
 | Per-process V8 heap   | 2048 MB (`--max-old-space-size`)                             | `IMAGE_TRAIL_GUARD_HEAP_MB` / `--heap-mb`     |
 | Wall-clock timeout    | 900 s (1800 s stories:ci/e2e; 0 = off for `--ui`/`--headed`) | `IMAGE_TRAIL_GUARD_TIMEOUT_S` / `--timeout-s` |
 | Concurrency           | one guarded run per worktree                                 | `.guard/active.json` lock (stale-safe)        |
@@ -131,11 +131,18 @@ guarded run, then a second in the same worktree — it must refuse.
 ## Baselines (measured 2026-07-18, Apple Silicon, Node 24.18)
 
 See `.guard/history.jsonl` in a working checkout for current numbers; the
-ceilings above were set from measured peaks of the full `npm test` and
-`npm run test:cov` chains (typecheck + compile + unit + single-worker DOM)
-with ~2× headroom. The tickets' 1 GiB research floor was too tight: `tsc`
-alone peaks near it. Ratchet ceilings DOWN as measurements allow; never raise
-them casually to make a leaking suite pass.
+ceilings above were set from measured peaks with headroom:
+
+- Full `npm test` (typecheck + compile + unit + single-worker DOM): peak
+  1199 MB aggregate across 18 processes → 4096 MB default (~3.4×).
+- `npm run test:e2e` (3 Playwright workers + Chromium + built extension) on a
+  GitHub 16 GB runner: exceeded a 6144 MB trial ceiling at 6387 MB with tests
+  passing normally → 12288 MB. The CI E2E job prints `.guard/last-run.json`
+  after every run; tighten from real peaks there.
+
+The tickets' 1 GiB research floor was too tight: `tsc` alone peaks near it.
+Ratchet ceilings DOWN as measurements allow; only raise one when the guard
+kills a healthy suite (as with e2e above), never to make a leaking suite pass.
 
 ## Limitations (macOS)
 
